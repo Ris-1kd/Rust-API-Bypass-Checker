@@ -340,16 +340,16 @@ where
         //     .update_value_at(target_path, Rc::new(index_val.into()));
     }
 
-    fn propagate_taint(&mut self, place: &mir::Place<'tcx>, rvalue: &mir::Rvalue<'tcx>) {
-        let llocal = place.local;
-        if let Some(rlocals) = self.extract_local_from_rvalue(rvalue) {
-            for local in rlocals {
-                if self.body_visitor.tainted_variables.contains(&local) {
-                    self.body_visitor.tainted_variables.insert(llocal);
-                }
-            }
-        }
-    }
+    // fn propagate_taint(&mut self, place: &mir::Place<'tcx>, rvalue: &mir::Rvalue<'tcx>) {
+    //     let llocal = place.local;
+    //     if let Some(rlocals) = self.extract_local_from_rvalue(rvalue) {
+    //         for local in rlocals {
+    //             if self.body_visitor.tainted_variables.contains(&local) {
+    //                 self.body_visitor.tainted_variables.insert(llocal);
+    //             }
+    //         }
+    //     }
+    // }
 
     // Extract `mir::Local` from `mir::Operand` if there exits some
     pub fn extract_local_from_operand(
@@ -403,11 +403,11 @@ where
 
     /// Handles assignment `place = rvalue`
     fn visit_assign(&mut self, place: &mir::Place<'tcx>, rvalue: &mir::Rvalue<'tcx>) {
-        self.propagate_taint(place, rvalue);
-        debug!(
-            "Current tainted variables: {:?}",
-            self.body_visitor.tainted_variables
-        );
+        // self.propagate_taint(place, rvalue);
+        // debug!(
+        //     "Current tainted variables: {:?}",
+        //     self.body_visitor.tainted_variables
+        // );
         let path = self.visit_place(place);
         debug!("Get LHS Path: {:?}", path);
         self.visit_rvalue(path, rvalue);
@@ -1187,15 +1187,15 @@ where
 
         // `_0` is always used for return value
         let ret = mir::Local::from_u32(0);
-        if self.body_visitor.tainted_variables.contains(&ret) {
-            debug!("Found possible double-free or use-after-free!");
-            let warning = self.body_visitor.context.session.dcx().struct_span_warn(
-                self.body_visitor.current_span,
-                "[MirChecker] Possible error n visit return: double-free or use-after-free",
-            );
-            self.body_visitor
-                .emit_diagnostic(warning, true, DiagnosticCause::Memory);
-        }
+        // if self.body_visitor.tainted_variables.contains(&ret) {
+        //     debug!("Found possible double-free or use-after-free!");
+        //     let warning = self.body_visitor.context.session.dcx().struct_span_warn(
+        //         self.body_visitor.current_span,
+        //         "[MirChecker] Possible error n visit return: double-free or use-after-free",
+        //     );
+        //     self.body_visitor
+        //         .emit_diagnostic(warning, true, DiagnosticCause::Memory);
+        // }
     }
 
     fn visit_drop(
@@ -1209,17 +1209,17 @@ where
         _replace: bool,
     ) {
         // Test whether tainted variables reach the `Drop` terminator.
-        if self.body_visitor.tainted_variables.contains(&place.local) {
-            let warning = self.body_visitor.context.session.dcx().struct_span_warn(
-                self.body_visitor.current_span,
-                format!(
-                    "[MirChecker] Possible error in visit drop: double-free or use-after-free for {:?}",
-                    self.body_visitor.get_var_name(&mir::Operand::Move(*place))
-                ),
-            );
-            self.body_visitor
-                .emit_diagnostic(warning, true, DiagnosticCause::Memory);
-        }
+        // if self.body_visitor.tainted_variables.contains(&place.local) {
+        //     let warning = self.body_visitor.context.session.dcx().struct_span_warn(
+        //         self.body_visitor.current_span,
+        //         format!(
+        //             "[MirChecker] Possible error in visit drop: double-free or use-after-free for {:?}",
+        //             self.body_visitor.get_var_name(&mir::Operand::Move(*place))
+        //         ),
+        //     );
+        //     self.body_visitor
+        //         .emit_diagnostic(warning, true, DiagnosticCause::Memory);
+        // }
 
         let dropped_path = self.visit_place(place);
         let dropped_path_ty = self

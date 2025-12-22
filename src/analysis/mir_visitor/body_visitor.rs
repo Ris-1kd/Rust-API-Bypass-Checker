@@ -79,7 +79,7 @@ where
     // So keep track of them and check whether they eventually go to terminators like `Return` or `Drop`
     // If so, then mutable shared memory are created or potential use-after-free / double-free are detected
     // We only consider `mir::Local` instead of `mir::Place` for robustness
-    pub tainted_variables: HashSet<mir::Local>,
+    // pub tainted_variables: HashSet<mir::Local>,
 
     // `Place` to `SymbolicValue` Cache, used to extract conditions when analyzing assertions
     pub place_to_abstract_value: HashMap<mir::Place<'tcx>, Rc<SymbolicValue>>,
@@ -139,7 +139,7 @@ where
             type_visitor,
             crate_context: CrateContext::default(),
             heap_addresses: HashMap::new(),
-            tainted_variables: HashSet::new(),
+            // tainted_variables: HashSet::new(),
             place_to_abstract_value: HashMap::new(),
             fresh_variable_offset,
             next_fresh_variable_offset: fresh_variable_offset + Self::FRESH_VARIABLE_OFFSET,

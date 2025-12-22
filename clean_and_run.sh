@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# shell script for running the project using cargo 
 
-cd /home/yunlong/workspace/mir-checker-2024/rust-mir-checker
+cd "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
 cargo clean
 
@@ -37,4 +36,9 @@ cargo build
 # ./target/debug/mir-checker ./benchmark/if_else/main.rs --entry main --domain interval --widening_delay 5 --narrowing_iteration 5 > ./benchmark/if_else/if_else_result.txt 2>&1
 
 # For new_known_name
-./target/debug/mir-checker ./benchmark/new_known_name_demo/main.rs --entry main --domain interval --widening_delay 5 --narrowing_iteration 5
+# ./target/debug/mir-checker ./benchmark/new_known_name_demo/main.rs --entry main --domain interval --widening_delay 5 --narrowing_iteration 5
+
+# For tests
+
+./target/debug/mir-checker ./tests/get/src/main.rs --entry main --domain interval --widening_delay 5 --narrowing_iteration 5
+

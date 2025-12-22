@@ -707,15 +707,15 @@ where
         let source = self.args[0].clone();
         if let Some(taint_sources) = block_visitor.extract_local_from_operand(&source.node) {
             for local in taint_sources {
-                block_visitor.body_visitor.tainted_variables.insert(local);
+                // block_visitor.body_visitor.tainted_variables.insert(local);
             }
         }
 
         // The destination
-        block_visitor
-            .body_visitor
-            .tainted_variables
-            .insert(self.destination.local);
+        // block_visitor
+        //     .body_visitor
+        //     .tainted_variables
+        //     .insert(self.destination.local);
     }
 
     fn handle_panic(&mut self) {
