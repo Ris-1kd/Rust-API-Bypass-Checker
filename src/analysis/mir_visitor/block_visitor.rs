@@ -1639,10 +1639,6 @@ where
                         debug!("Get RHS Rvalue: Ref/AddressOf({:?})", place);
                         self.visit_address_of(path, place);
                     }
-            // mir::Rvalue::Len(place) => {
-            //             debug!("Get RHS Rvalue: Len({:?})", place);
-            //             self.visit_len(path, place);
-            //         }
             mir::Rvalue::Cast(cast_kind, operand, ty) => {
                         debug!(
                             "Get RHS Rvalue: Cast({:?}, {:?}, {:?})",
@@ -1657,13 +1653,6 @@ where
                         );
                         self.visit_binary_op(path, *bin_op, left_operand, right_operand);
                     }
-            // mir::Rvalue::CheckedBinaryOp(bin_op, box (left_operand, right_operand)) => {
-            //             debug!(
-            //                 "Get RHS Rvalue: CheckedBinaryOp({:?}, {:?}, {:?})",
-            //                 bin_op, left_operand, right_operand
-            //             );
-            //             self.visit_checked_binary_op(path, *bin_op, left_operand, right_operand);
-            //         }
             mir::Rvalue::NullaryOp(null_op, ty) => {
                         debug!("Get RHS Rvalue: NullaryOp({:?}, {:?})", null_op, ty);
                         self.visit_nullary_op(path, *null_op, *ty);
@@ -1686,9 +1675,20 @@ where
             mir::Rvalue::ThreadLocalRef(def_id) => {
                         self.visit_thread_local_ref(*def_id);
                     }
-            mir::Rvalue::ShallowInitBox(..) => todo!(),
-            mir::Rvalue::CopyForDeref(..) => todo!(),
-                    }
+            mir::Rvalue::ShallowInitBox(operand,_ty) => {
+                let v = self.visit_operand(operand);
+                self.body_visitor.state.update_value_at(path, v);
+                // 原有的分析器在此处并没有给出实现, 以上的实现是GPT给出的实现
+                // todo!()
+            },
+            mir::Rvalue::CopyForDeref(place) => 
+            {
+                let op = mir::Operand::Copy(*place);
+                self.visit_use(path, &op);
+                // 原有的分析器在此处并没有给出实现, 以上的实现是GPT将CopyForDeref视作了一次普通的Use语句;
+                // todo!()
+            },
+        }
     }
 
     fn visit_thread_local_ref(&mut self, def_id: DefId) -> Rc<SymbolicValue> {

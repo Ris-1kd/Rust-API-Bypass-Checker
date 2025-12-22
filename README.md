@@ -30,7 +30,7 @@ The tool identifies that the bounds check in `arr.get(i)` is redundant and sugge
 * Dependencies:
   ```sh
   $ rustup component add rustc-dev llvm-tools-preview
-  $ sudo apt-get install libgmp-dev libmpfr-dev libppl-dev libz3-dev  # Ubuntu
+  $ sudo apt-get install libgmp-dev libmpfr-dev libppl-dev libz3-dev llvm-15 clang-15 libclang-15-dev  # Ubuntu
   $ export LIBCLANG_PATH=`llvm-config-15 --libdir`/libclang.so
   ```
 
