@@ -24,7 +24,6 @@ benchmark/
 benchmark-crates/
 scripts/
 static_vcruntime/
-unchecked_method_base/
 *.mir
 reachable_test/
 sequence/
