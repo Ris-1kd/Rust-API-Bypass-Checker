@@ -1,4 +1,4 @@
-# Micro-benchmark Suite
+# Performance Evaluation Within API Counterparts
 
 This directory contains a small, self-contained suite used to (1) document the target standard-library APIs and (2) demonstrate how we derive their fully qualified paths, and (3) measure the performance gap between safe and unsafe counterparts under micro-benchmarks. The contents are intentionally kept minimal and orthogonal, so reviewers can inspect and run each part independently.
 
