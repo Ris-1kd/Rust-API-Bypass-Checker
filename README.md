@@ -47,19 +47,20 @@ $ cargo build
 ## Usage
 
 ```sh
-# Analyze a file
-$ ./target/debug/mir-checker <file> --entry main --domain interval --widening_delay 5 --narrowing_iteration 5
+# Analyze a crate via main.rs or lib.rs
 
-# Example with test case
-$ ./target/debug/mir-checker ./tests/get/src/main.rs --entry main --domain interval --widening_delay 5 --narrowing_iteration 5
+# Access the DefId list of reachable entries 
+$ ./target/debug/api-bypass <file> --show_reachable_entries
+
+# Analyze a particular function
+$ ./target/debug/api-bypass <file> --entry_def_id_index <defid> 
 ```
 
 ### Options
 
-- `--entry <function>`: Entry function (default: `main`)
-- `--domain <domain>`: Abstract domain (`interval`, `octagon`, `polyhedra`, etc.)
-- `--widening_delay <N>`: Iterations before widening (recommended: 5)
-- `--narrowing_iteration <N>`: Max narrowing iterations (recommended: 5)
+- `--entry_def_id_index <function>`: Entry function DefId (acquired via `show_reachable_entries`)
+-  `--show_all_entries`: Display all entry functions within the current crate.
+-  `--show_reachable_entries`: Display reachable functions within the current crate.
 
 ## Test Cases
 
@@ -67,21 +68,7 @@ $ ./target/debug/mir-checker ./tests/get/src/main.rs --entry main --domain inter
 - `tests/get/`: Slice access pattern optimizations
 - `tests/split_at/`: Slice splitting boundary check optimizations
 - `tests/swap/`: Element swapping safety validation
-
-
-## Architecture
-
-- **MIR Analysis Engine**: Processes Rust's mid-level IR for control flow analysis
-- **Abstract Domains**: Multiple numerical domains for precise range analysis
-- **Pattern Recognition**: Identifies optimization opportunities in known API patterns
-- **Optimization Advisor**: Reports safe-to-remove redundant checks
-
-## Debugging
-
-```sh
-$ export RUST_LOG=rust_mir_checker=debug
-$ ./target/debug/mir-checker <file> --entry main --domain interval
-```
+- `tests/as_chunks`: Slice division safety validation
 
 ## License
 
