@@ -1,5 +1,9 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::time::Duration;
+use std::hint::black_box;
+
+const OUT_LEN: usize = 1 << 12; // 1024
+const OUT_MASK: usize = OUT_LEN - 1;
 
 /// deterministic pseudo-random u32 list, masked to avoid overflow when added
 fn gen_u32s_no_overflow(n: usize, seed: u64) -> Vec<u32> {
@@ -36,17 +40,27 @@ fn bench_checked_add_vs_unchecked_add_cache_hot(c: &mut Criterion) {
             b.iter(|| {
                 let xs = black_box(xs.as_slice());
                 let ys = black_box(ys.as_slice());
-                let mut acc: u32 = 0;
+
+                // ring buffer to consume results with minimal loop-carried dependency
+                let mut acc_buf = [0u32; OUT_LEN];
+                let mut w: usize = 0;
 
                 for _ in 0..rounds {
                     for i in 0..n {
                         // always Some by construction
-                        let v = unsafe { xs[i].checked_add(ys[i]).unwrap_unchecked() };
-                        acc = acc.wrapping_add(v);
+                        let v = xs[i].checked_add(ys[i]).unwrap();
+                        acc_buf[i] = v;
+                        // w = (w + 1) & OUT_MASK;
                     }
                 }
 
-                black_box(acc)
+                // tiny checksum outside hot loop
+                // let mut chk: u32 = 0;
+                // for k in (0..OUT_LEN).step_by(64) {
+                //     chk = chk.wrapping_add(acc_buf[k]);
+                // }
+                // black_box(chk)
+                black_box(acc_buf);
             })
         },
     );
@@ -58,17 +72,24 @@ fn bench_checked_add_vs_unchecked_add_cache_hot(c: &mut Criterion) {
             b.iter(|| {
                 let xs = black_box(xs.as_slice());
                 let ys = black_box(ys.as_slice());
-                let mut acc: u32 = 0;
+
+                let mut acc_buf = [0u32; OUT_LEN];
+                let mut w: usize = 0;
 
                 for _ in 0..rounds {
                     for i in 0..n {
                         // unsafe, assumes no overflow
                         let v = unsafe { xs[i].unchecked_add(ys[i]) };
-                        acc = acc.wrapping_add(v);
+                        acc_buf[i] = v;
+                        // w = (w + 1) & OUT_MASK;
                     }
                 }
-
-                black_box(acc)
+                black_box(acc_buf);
+                // let mut chk: u32 = 0;
+                // for k in (0..OUT_LEN).step_by(64) {
+                //     chk = chk.wrapping_add(acc_buf[k]);
+                // }
+                // black_box(chk)
             })
         },
     );
