@@ -1,7 +1,8 @@
 #![feature(slice_swap_unchecked)]
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{ criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::time::Duration;
+use std::hint::black_box;
 
 fn make_pairs_inbounds(len: usize, n: usize, seed: u64) -> Vec<(usize, usize)> {
     assert!(len >= 2);
