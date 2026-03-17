@@ -27,3 +27,35 @@ harness = false
 [[bench]]
 name = "checked_add"
 harness = false
+
+[[bench]]
+name = "checked_add_mul"
+harness = false
+
+[[bench]]
+name = "split_at"
+harness = false
+
+[[bench]]
+name = "as_chunks"
+harness = false
+
+[[bench]]
+name = "as_chunks_mut"
+harness = false
+
+[[bench]]
+name = "from_u32"
+harness = false
+
+[[bench]]
+name = "checked_shl"
+harness = false
+
+[[bench]]
+name = "as_ref"
+harness = false
+
+[[bench]]
+name = "from_utf8"
+harness = false
