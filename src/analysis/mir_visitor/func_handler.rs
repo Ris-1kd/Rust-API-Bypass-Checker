@@ -8,14 +8,14 @@ use rustc_span::Span;
 
 use crate::analysis::memory::{known_names::KnownNames, path::Path, symbolic_value::SymbolicValue};
 
-#[derive(Debug, Hash,PartialEq, Eq)]
+#[derive(Debug, Hash,PartialEq, Eq, Clone)]
 pub enum FuncClass {
     Index,
     Nullness,
     Type,
 }
 
-#[derive(Debug,Hash,Eq,PartialEq)]
+#[derive(Debug,Hash,Eq,PartialEq,Clone)]
 pub struct FuncHandler{
     /// The DefId of the target function
     pub def_id: DefId,
