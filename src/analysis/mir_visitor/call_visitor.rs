@@ -1868,7 +1868,9 @@ where
                     body_visitor.current_span,
                     format!("[MirChecker] Provably error: index out of bound",),
                 );
-                // body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
+
+                // 这里原来在mirchecker2024是注释掉的, 但是疑似会导致ICE, 遂恢复
+                body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
                 return;
             }
             CheckerResult::Warning => {
@@ -1876,7 +1878,8 @@ where
                     body_visitor.current_span,
                     format!("[MirChecker] Possible error: index out of bound"),
                 );
-                // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+                // 这里原来在mirchecker2024是注释掉的, 但是疑似会导致ICE, 遂恢复
+                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
         }
 
@@ -2082,5 +2085,16 @@ where
                     .update_value_at(return_value_path, result);
             }
         }
+
+        // 该部分是新增的删除掉此前重复调用产生的符号域内容的功能 并且由日志输出记录, 由gpt生成
+        self.block_visitor
+            .body_visitor
+            .state
+            .drop_call_frame_vars_from(old_offset);
+        debug!(
+            "after call-frame cleanup: symbolic={} numerical={}",
+            self.block_visitor.body_visitor.state.symbolic_domain.value_map.len(),
+            self.block_visitor.body_visitor.state.numerical_domain.get_paths_iter().len(),
+        );
     }
 }
