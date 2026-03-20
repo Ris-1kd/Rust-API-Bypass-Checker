@@ -1,0 +1,1727 @@
+extracted/autocfg-1.5.0/autocfg-1.5.0/src/lib.rs
+317:        if let Some(edition) = self.edition.as_ref() {
+321:        if let Some(target) = self.target.as_ref() {
+563:        .as_ref()
+
+extracted/base64-0.22.1/base64-0.22.1/src/encode.rs
+86:        .checked_add(padding_bytes)
+104:        if let Some(complete_chunk_output) = complete_input_chunks.checked_mul(4) {
+112:            complete_chunk_output.checked_add(4)
+120:            complete_chunk_output.checked_add(encoded_rem)
+
+extracted/base64-0.22.1/base64-0.22.1/src/engine/general_purpose/decode_suffix.rs
+149:            .get_mut(output_index)
+
+extracted/base64-0.22.1/base64-0.22.1/src/engine/mod.rs
+130:        inner(self, input.as_ref())
+167:        inner(self, input.as_ref(), output_buf)
+221:        inner(self, input.as_ref(), output_buf)
+267:        inner(self, input.as_ref())
+316:                .checked_add(starting_output_len)
+338:        inner(self, input.as_ref(), buffer)
+375:        inner(self, input.as_ref(), output)
+417:        inner(self, input.as_ref(), output)
+
+extracted/base64-0.22.1/base64-0.22.1/src/engine/naive.rs
+57:            complete_chunk_len.checked_sub(Self::ENCODE_INPUT_CHUNK_SIZE)
+
+extracted/base64-0.22.1/base64-0.22.1/src/engine/tests.rs
+449:                match base64_to_bytes.get(&symbols[..]) {
+516:                    match base64_to_bytes.get(&symbols[..]) {
+
+extracted/base64-0.22.1/base64-0.22.1/src/read/decoder.rs
+316:                    .checked_mul(BASE64_CHUNK_SIZE)
+
+extracted/base64-0.22.1/base64-0.22.1/src/write/encoder.rs
+182:            .as_mut()
+191:                self.output_occupied_len = current_output_len.checked_sub(consumed).unwrap();
+394:            .as_mut()
+
+extracted/bitflags-2.9.1/bitflags-2.9.1/src/iter.rs
+111:        while let Some(flag) = self.flags.get(self.idx) {
+
+extracted/bitflags-2.9.1/bitflags-2.9.1/src/public.rs
+98:                    f.0.set(other.0, value)
+
+extracted/bitflags-2.9.1/bitflags-2.9.1/src/tests/insert.rs
+74:            "{:?}.set({:?}, true)",
+
+extracted/bitflags-2.9.1/bitflags-2.9.1/src/tests/remove.rs
+83:            "{:?}.set({:?}, false)",
+
+extracted/bitvec/bitvec/src/array/iter.rs
+188:		self.alive.next().map(|idx| self.get(idx))
+193:		self.alive.nth(n).map(|idx| self.get(idx))
+204:		self.alive.next_back().map(|idx| self.get(idx))
+209:		self.alive.nth_back(n).map(|idx| self.get(idx))
+
+extracted/bitvec/bitvec/src/boxed.rs
+147:		BitPtr::from_mut_slice(boxed.as_mut())
+
+extracted/bitvec/bitvec/src/domain.rs
+1057:		assert_eq!(data.get(), 0b00_1111_00);
+
+extracted/bitvec/bitvec/src/index.rs
+1258:		assert!(mask.test(yes));
+1259:		assert!(!mask.test(no));
+1261:		assert!(mask.test(no));
+
+extracted/bitvec/bitvec/src/macros/internal.rs
+290:		$( _bits.set(_idx, $bit != 0); _idx += 1; )*
+
+extracted/bitvec/bitvec/src/macros/tests.rs
+98:	assert_eq!(cell.into_inner()[0].get(), 5u8);
+114:	assert_eq!(cells[0].get(), 0x5569);
+115:	assert_eq!(cells[1].get(), 0x6E74);
+122:	assert_eq!(cell.into_inner()[0].get(), 13u32);
+131:		assert_eq!(cell.clone().into_inner()[0].get(), !0u64);
+132:		assert_eq!(cell.into_inner()[1].get(), !0u64);
+165:	j.set(1, false);
+518:	assert_eq!(cell[0].get(), 53);
+530:	assert_eq!(cell[0].get(), 0x4869);
+546:	assert_eq!(cell.get(), 53);
+558:	assert_eq!(cell.get(), 0x4869);
+586:	assert_eq!(cell.get(), 12);
+
+extracted/bitvec/bitvec/src/order.rs
+342:			!accum.test(sel),
+
+extracted/bitvec/bitvec/src/ptr/span.rs
+579:		let len = unsafe { slice_nn.as_ref() }.len();
+
+extracted/bitvec/bitvec/src/ptr/tests.rs
+70:		a.swap(&mut b);
+72:		a.set(true);
+108:		bp.swap(bp2);
+
+extracted/bitvec/bitvec/src/slice/api.rs
+134:		self.get(0)
+165:		self.get_mut(0)
+406:		index.get(self)
+441:		index.get_mut(self)
+1876:		self.get(.. needle.len())
+1917:		self.get(self.len() - needle.len() ..)
+1960:			self.get(prefix.len() ..)
+2005:			self.get(.. self.len() - suffix.len())
+2400:		let total = len.checked_mul(n).expect("capacity overflow");
+2580:		bits.as_bitptr().add(self).as_ref().unwrap()
+2588:		bits.as_mut_bitptr().add(self).as_mut().unwrap()
+2594:		match self.get(bits) {
+2604:		match self.get_mut(bits) {
+2668:				match self.get(bits) {
+2679:				match self.get_mut(bits) {
+
+extracted/bitvec/bitvec/src/slice/iter.rs
+706:		let split = start.checked_add(self.width)
+
+extracted/bitvec/bitvec/src/slice/ops.rs
+61:		if let Some(rem) = self.get_mut(rhs.len() ..) {
+
+extracted/bitvec/bitvec/src/slice/specialization/msb0.rs
+161:		let mut out = self.len().checked_sub(1)?;
+250:		let mut out = self.len().checked_sub(1)?;
+
+extracted/bitvec/bitvec/src/slice/tests.rs
+82:	bits.set(0, true);
+
+extracted/bitvec/bitvec/src/slice/tests/api.rs
+49:	*bits.get_mut(2).unwrap() = true;
+55:	bits.swap(0, 4);
+
+extracted/bitvec/bitvec/src/slice/tests/iter.rs
+119:	nth.set(0, false);
+123:	nth_back.set(1, false);
+197:	nth.set(2, true);
+201:	nth_back.set(0, true);
+275:	nth.set(0, true);
+279:	nth_back.set(1, true);
+349:	nth.set(2, true);
+353:	nth_back.set(0, true);
+
+extracted/bitvec/bitvec/src/slice/tests/ops.rs
+119:	assert!((10 .. 12).get(bits).is_none());
+120:	assert!((10 .. 12).get_mut(bits).is_none());
+
+extracted/bitvec/bitvec/src/store.rs
+172:				self.get()
+
+extracted/bitvec/bitvec/src/vec/api.rs
+210:			.checked_mul(mem::bits_of::<T>())
+
+extracted/bitvec/bitvec/src/vec/iter.rs
+122:			self.reserve(n.checked_mul(bits_of::<T::Mem>()).unwrap());
+
+extracted/bitvec/bitvec/src/view.rs
+234:		self.as_ref().view_bits::<O>()
+240:		self.as_ref().try_view_bits::<O>()
+253:		self.as_mut().view_bits_mut::<O>()
+261:		self.as_mut().try_view_bits_mut::<O>()
+
+extracted/bytemuck/bytemuck/derive/src/traits.rs
+1392:    if let Some(packed) = self.packed.as_ref() {
+1397:    if let Some(align) = self.align.as_ref() {
+
+extracted/bytemuck/bytemuck/src/offset_of.rs
+127:      let result = field_pointer.checked_sub(address).unwrap();
+
+extracted/byteunit/Byte-Unit/src/bit/decimal.rs
+70:                _ => match size.checked_mul(Decimal::from(unit.as_bits_u128())) {
+
+extracted/byteunit/Byte-Unit/src/bit/mod.rs
+368:                _ => match size.checked_mul(unit.as_bits_u128()) {
+404:                    _ => match size.checked_mul(unit.as_bits_u64()) {
+651:        match self.0.checked_add(rhs.0) {
+677:        match self.0.checked_sub(rhs.0) {
+706:            match self.0.checked_mul(rhs as u128) {
+721:            match self.0.checked_mul(rhs as u64) {
+
+extracted/byteunit/Byte-Unit/src/bit/parse.rs
+20:        let s = s.as_ref().trim();
+42:                            .checked_mul(Decimal::TEN)
+44:                            .checked_add(Decimal::from(e - b'0'))
+
+extracted/byteunit/Byte-Unit/src/byte/decimal.rs
+73:                _ => match size.checked_mul(Decimal::from(unit.as_bytes_u128())) {
+
+extracted/byteunit/Byte-Unit/src/byte/mod.rs
+376:                _ => match size.checked_mul(unit.as_bytes_u128()) {
+419:                    _ => match size.checked_mul(unit.as_bytes_u64()) {
+668:        match self.0.checked_add(rhs.0) {
+694:        match self.0.checked_sub(rhs.0) {
+723:            match self.0.checked_mul(rhs as u128) {
+738:            match self.0.checked_mul(rhs as u64) {
+
+extracted/byteunit/Byte-Unit/src/byte/parse.rs
+25:        let s = s.as_ref().trim();
+47:                            .checked_mul(Decimal::TEN)
+49:                            .checked_add(Decimal::from(e - b'0'))
+
+extracted/byteunit/Byte-Unit/src/unit/parse.rs
+31:        let s = s.as_ref().trim();
+
+extracted/getrandom-0.3.3/getrandom-0.3.3/src/backends/efi_rng.rs
+50:    let handles = handles.get(..handles_len).ok_or(Error::UNEXPECTED)?;
+
+extracted/getrandom-0.3.3/getrandom-0.3.3/src/backends/hermit.rs
+44:                dest = dest.get_mut(len..).ok_or(Error::UNEXPECTED)?;
+
+extracted/getrandom-0.3.3/getrandom-0.3.3/src/backends/linux_raw.rs
+124:                dest = dest.get_mut(len..).ok_or(Error::UNEXPECTED)?;
+
+extracted/getrandom-0.3.3/getrandom-0.3.3/src/error.rs
+89:        let code = self.0.get();
+118:                code.checked_neg()
+187:            dbg.field("internal_code", &self.0.get());
+190:            dbg.field("unknown_code", &self.0.get());
+209:            write!(f, "Unknown Error: {}", self.0.get())
+
+extracted/getrandom-0.3.3/getrandom-0.3.3/src/util_libc.rs
+42:            .checked_neg()
+65:                buf = buf.get_mut(len..).ok_or(Error::UNEXPECTED)?;
+
+extracted/hashbrown-0.15.4/hashbrown-0.15.4/src/control/bitmask.rs
+77:            let swapped = unsafe { NonZeroBitMaskWord::new_unchecked(nonzero.get().swap_bytes()) };
+
+extracted/hashbrown-0.15.4/hashbrown-0.15.4/src/external_trait_impls/rayon/map.rs
+36:                let r = x.as_ref();
+56:            let r = x.as_ref();
+84:            .map(|x| unsafe { &x.as_ref().0 })
+101:        let iter = unsafe { self.inner.iter() }.map(|x| unsafe { &x.as_ref().0 });
+127:            .map(|x| unsafe { &x.as_ref().1 })
+144:        let iter = unsafe { self.inner.iter() }.map(|x| unsafe { &x.as_ref().1 });
+173:                let r = x.as_mut();
+211:            .map(|x| unsafe { &mut x.as_mut().1 })
+349:                .all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
+702:            assert_eq!(map.get(&k), Some(&v));
+
+extracted/hashbrown-0.15.4/hashbrown-0.15.4/src/external_trait_impls/rayon/raw.rs
+123:        self.table.as_ref().par_iter()
+136:            table.as_mut().clear_no_drop();
+138:        let iter = unsafe { self.table.as_ref().iter().iter };
+149:            self.table.as_mut().clear();
+
+extracted/hashbrown-0.15.4/hashbrown-0.15.4/src/external_trait_impls/rayon/table.rs
+34:            .map(|x| unsafe { x.as_ref() })
+51:        let iter = unsafe { self.inner.iter() }.map(|x| unsafe { x.as_ref() });
+79:            .map(|x| unsafe { x.as_mut() })
+
+extracted/hashbrown-0.15.4/hashbrown-0.15.4/src/map.rs
+924:                let &mut (ref key, ref mut value) = item.as_mut();
+1355:            self.table.get(hash, equivalent_key(k))
+1465:            self.table.get_mut(hash, equivalent_key(k))
+1793:            Ok(bucket) => Some(mem::replace(unsafe { &mut bucket.as_mut().1 }, v)),
+1882:        let (k_ref, v_ref) = unsafe { bucket.as_mut() };
+2025:            .all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
+2102:        self.get(key).expect("no entry found for key")
+2807:            .field("value", self.get())
+3038:            .field("old_value", self.entry.get())
+3051:            self.entry.get(),
+3172:                let r = x.as_ref();
+3189:            let (k, v) = x.as_ref();
+3220:                let r = x.as_mut();
+3237:            let (k, v) = x.as_mut();
+3643:                f(entry.get_mut());
+3767:        unsafe { &self.elem.as_ref().0 }
+3817:        unsafe { &self.elem.as_ref().1 }
+3849:        unsafe { &mut self.elem.as_mut().1 }
+3880:        unsafe { &mut self.elem.as_mut().1 }
+3902:        mem::replace(self.get_mut(), value)
+4293:                f(entry.get_mut());
+4758:        assert_eq!(*m.get(&1).unwrap(), 2);
+4759:        assert_eq!(*m.get(&2).unwrap(), 4);
+4772:        assert_eq!(*m2.get(&1).unwrap(), 2);
+4773:        assert_eq!(*m2.get(&2).unwrap(), 4);
+4787:        assert_eq!(*m2.get(&1).unwrap(), 2);
+4788:        assert_eq!(*m2.get(&2).unwrap(), 4);
+4999:                    let r = m.get(&j);
+5004:                    let r = m.get(&j);
+5056:        match m.get_mut(&5) {
+5060:        assert_eq!(m.get(&5), Some(&new));
+5063:        let result = hashmap.get_mut(key);
+5071:        assert_eq!(*m.get(&1).unwrap(), 2);
+5073:        assert_eq!(*m.get(&1).unwrap(), 3);
+5082:        assert_eq!(*m.get(&9).unwrap(), 4);
+5083:        assert_eq!(*m.get(&5).unwrap(), 3);
+5084:        assert_eq!(*m.get(&1).unwrap(), 2);
+5091:        assert_eq!(*m.get(&1).unwrap(), 2);
+5093:        assert_eq!(*m.get(&1).unwrap(), 2);
+5094:        assert_eq!(*m.get(&5).unwrap(), 3);
+5096:        assert_eq!(*m.get(&1).unwrap(), 2);
+5097:        assert_eq!(*m.get(&5).unwrap(), 3);
+5098:        assert_eq!(*m.get(&9).unwrap(), 4);
+5100:        assert_eq!(*m.get(&9).unwrap(), 4);
+5101:        assert_eq!(*m.get(&5).unwrap(), 3);
+5111:        assert_eq!(Some(&11), map.get(&10));
+5112:        assert_eq!(Some(&21), map.get(&20));
+5113:        assert_eq!(None, map.get(&30));
+5221:        assert!(m.get(&1).is_none());
+5223:        match m.get(&1) {
+5379:            assert_eq!(map.get(&k), Some(&v));
+5471:                assert_eq!(view.get(), &10);
+5475:        assert_eq!(map.get(&1).unwrap(), &100);
+5482:                let v = view.get_mut();
+5487:        assert_eq!(map.get(&2).unwrap(), &200);
+5497:        assert_eq!(map.get(&3), None);
+5507:        assert_eq!(map.get(&10).unwrap(), &1000);
+5528:                assert_eq!(view.get(), &10);
+5532:        assert_eq!(map.get("One").unwrap(), &100);
+5539:                let v = view.get_mut();
+5544:        assert_eq!(map.get("Two").unwrap(), &200);
+5554:        assert_eq!(map.get("Three"), None);
+5564:        assert_eq!(map.get("Ten").unwrap(), &1000);
+5804:                assert_eq!(e.get(), &new_value);
+5856:                assert_eq!(e.get(), &new_value);
+
+extracted/hashbrown-0.15.4/hashbrown-0.15.4/src/raw/mod.rs
+154:    let adjusted_cap = cap.checked_mul(8)? / 7;
+205:            size.checked_mul(buckets)?.checked_add(ctrl_align - 1)? & !(ctrl_align - 1);
+206:        let len = ctrl_offset.checked_add(buckets + Group::WIDTH)?;
+994:                &|table, index| hasher(table.bucket::<T>(index).as_ref()),
+1042:            &|table, index| hasher(table.bucket::<T>(index).as_ref()),
+1083:        unsafe { self.insert(hash, value, hasher).as_mut() }
+1158:                .find_or_find_insert_slot_inner(hash, &mut |index| eq(self.bucket(index).as_ref()))
+1197:                .find_inner(hash, &mut |index| eq(self.bucket(index).as_ref()));
+1213:            Some(bucket) => Some(unsafe { bucket.as_ref() }),
+1223:            Some(bucket) => Some(unsafe { bucket.as_mut() }),
+1253:            ptrs.map(|ptr| ptr.map(|mut ptr| ptr.as_mut()))
+1263:        ptrs.map(|ptr| ptr.map(|mut ptr| ptr.as_mut()))
+2640:        let new_items = match self.items.checked_add(additional) {
+3315:            to.write(from.as_ref().clone());
+4158:                if f(item.as_mut()) {
+4194:                &|table, index| hasher(table.bucket::<T>(index).as_ref()),
+
+extracted/hashbrown-0.15.4/hashbrown-0.15.4/src/raw_entry.rs
+674:        match self.map.table.get(hash, |(k, _)| is_match(k)) {
+921:        unsafe { &self.elem.as_ref().0 }
+952:        unsafe { &mut self.elem.as_mut().0 }
+986:        unsafe { &mut self.elem.as_mut().0 }
+1005:        unsafe { &self.elem.as_ref().1 }
+1030:        unsafe { &mut self.elem.as_mut().1 }
+1051:        unsafe { &mut self.elem.as_mut().1 }
+1071:            let (key, value) = self.elem.as_ref();
+1107:            let &mut (ref mut key, ref mut value) = self.elem.as_mut();
+1148:            let &mut (ref mut key, ref mut value) = self.elem.as_mut();
+1171:        mem::replace(self.get_mut(), value)
+1468:            .field("value", self.get())
+1511:                assert_eq!(e.get(), &new_value);
+1569:                assert_eq!(e.get(), &new_value);
+1611:                assert_eq!(view.get(), &10);
+1631:                let v = view.get_mut();
+1674:            let v = map.get(&k).copied();
+1675:            let kv = v.as_ref().map(|v| (&k, v));
+
+extracted/hashbrown-0.15.4/hashbrown-0.15.4/src/rustc_entry.rs
+113:            .field("value", self.get())
+258:                f(entry.get_mut());
+308:        unsafe { &self.elem.as_ref().0 }
+351:        unsafe { &self.elem.as_ref().1 }
+383:        unsafe { &mut self.elem.as_mut().1 }
+411:        unsafe { &mut self.elem.as_mut().1 }
+433:        mem::replace(self.get_mut(), value)
+515:            &mut bucket.as_mut().1
+
+extracted/hashbrown-0.15.4/hashbrown-0.15.4/src/set.rs
+920:        unsafe { &bucket.as_ref().0 }
+963:        unsafe { &bucket.as_ref().0 }
+1143:            Ok(bucket) => Some(mem::replace(unsafe { &mut bucket.as_mut().0 }, value)),
+2308:            .field("value", self.get())
+2345:        f.debug_tuple("VacantEntry").field(self.get()).finish()
+2420:            Entry::Occupied(ref entry) => entry.get(),
+2421:            Entry::Vacant(ref entry) => entry.get(),
+
+extracted/hashbrown-0.15.4/hashbrown-0.15.4/src/table.rs
+224:        self.raw.get(hash, eq)
+262:        self.raw.get_mut(hash, eq)
+866:                if !f(item.as_mut()) {
+1352:                *entry.get_mut() = value;
+1489:                f(entry.get_mut());
+1572:            .field("value", self.get())
+1659:        unsafe { self.bucket.as_ref() }
+1712:        unsafe { self.bucket.as_mut() }
+1763:        unsafe { self.bucket.as_mut() }
+1977:            Some(bucket) => Some(unsafe { bucket.as_ref() }),
+1992:            .fold(init, |acc, bucket| unsafe { f(acc, bucket.as_ref()) })
+2049:            Some(bucket) => Some(unsafe { bucket.as_mut() }),
+2064:            .fold(init, |acc, bucket| unsafe { f(acc, bucket.as_mut()) })
+2119:            Some(bucket) => Some(unsafe { bucket.as_ref() }),
+2130:            .fold(init, |acc, bucket| unsafe { f(acc, bucket.as_ref()) })
+2185:            Some(bucket) => Some(unsafe { bucket.as_mut() }),
+2196:            .fold(init, |acc, bucket| unsafe { f(acc, bucket.as_mut()) })
+
+extracted/heck-0.5.0/heck-0.5.0/src/kebab.rs
+44:        transform(self.0.as_ref(), lowercase, |f| write!(f, "-"), f)
+
+extracted/heck-0.5.0/heck-0.5.0/src/lower_camel.rs
+50:            self.0.as_ref(),
+
+extracted/heck-0.5.0/heck-0.5.0/src/shouty_kebab.rs
+45:        transform(self.0.as_ref(), uppercase, |f| write!(f, "-"), f)
+
+extracted/heck-0.5.0/heck-0.5.0/src/shouty_snake.rs
+59:        transform(self.0.as_ref(), uppercase, |f| write!(f, "_"), f)
+
+extracted/heck-0.5.0/heck-0.5.0/src/snake.rs
+59:        transform(self.0.as_ref(), lowercase, |f| write!(f, "_"), f)
+
+extracted/heck-0.5.0/heck-0.5.0/src/title.rs
+48:        transform(self.0.as_ref(), capitalize, |f| write!(f, " "), f)
+
+extracted/heck-0.5.0/heck-0.5.0/src/train.rs
+45:        transform(self.0.as_ref(), capitalize, |f| write!(f, "-"), f)
+
+extracted/heck-0.5.0/heck-0.5.0/src/upper_camel.rs
+61:        transform(self.0.as_ref(), capitalize, |_| Ok(()), f)
+
+extracted/indexmap-2.10.0/indexmap-2.10.0/src/map.rs
+561:                let old = mem::replace(entry.get_mut(), value);
+639:                let old = mem::replace(entry.get_mut(), value);
+1247:        self.as_entries().get(index).map(Bucket::refs)
+1256:        self.as_entries_mut().get_mut(index).map(Bucket::ref_mut)
+1296:        entries.get(range).map(Slice::from_slice)
+1307:        entries.get_mut(range).map(Slice::from_mut_slice)
+1351:        self.get_index_entry(self.len().checked_sub(1)?)
+1438:        self.get(key).expect("no entry found for key")
+1480:        self.get_mut(key).expect("no entry found for key")
+1687:            .all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
+
+extracted/indexmap-2.10.0/indexmap-2.10.0/src/map/core.rs
+51:    move |&i| entries[i].hash.get()
+64:    if let Ok(entry) = table.find_entry(hash.get(), move |&i| i == index) {
+74:        .find_mut(hash.get(), move |&i| i == old)
+86:        indices.insert_unique(entry.hash.get(), indices.len(), |_| unreachable!());
+321:        self.indices.find(hash.get(), eq).copied()
+341:        match self.indices.entry(hash.get(), eq, hasher) {
+343:                let i = *entry.get();
+368:        match self.indices.entry(hash.get(), eq, hasher) {
+370:                let i = *entry.get();
+394:        match self.indices.find_entry(hash.get(), eq) {
+428:        match self.indices.find_entry(hash.get(), eq) {
+553:            .insert_unique(hash.get(), i, get_hash(self.entries));
+572:        self.indices.insert_unique(hash.get(), index, move |&i| {
+576:            entries[i].hash.get()
+588:        match self.entries.get(index) {
+611:        match self.entries.get(index) {
+629:        if let Some(entry) = self.entries.get(index) {
+716:            [self.entries[a].hash.get(), self.entries[b].hash.get()],
+721:                self.entries.swap(a, b);
+
+extracted/indexmap-2.10.0/indexmap-2.10.0/src/map/core/entry.rs
+13:        match self.indices.find_entry(hash.get(), eq) {
+113:            f(entry.get_mut());
+162:        *self.index.get()
+212:        mem::replace(self.get_mut(), value)
+322:            .field("value", self.get())
+337:                .find_entry(hash.get(), move |&i| i == index)
+473:        mem::replace(self.get_mut(), value)
+562:            .field("value", self.get())
+
+extracted/indexmap-2.10.0/indexmap-2.10.0/src/map/core/raw_entry_v1.rs
+248:        self.map.core.indices.find(hash.get(), eq).copied()
+274:        self.from_key_hashed_nocheck(hash.get(), key)
+391:            .field("value", self.get())
+400:        *self.index.get()
+479:        mem::replace(self.get_mut(), value)
+
+extracted/indexmap-2.10.0/indexmap-2.10.0/src/map/mutable.rs
+77:        self.as_entries_mut().get_mut(index).map(Bucket::muts)
+
+extracted/indexmap-2.10.0/indexmap-2.10.0/src/map/slice.rs
+78:        self.entries.get(index).map(Bucket::refs)
+85:        self.entries.get_mut(index).map(Bucket::ref_mut)
+93:        self.entries.get(range).map(Slice::from_slice)
+101:        self.entries.get_mut(range).map(Slice::from_mut_slice)
+
+extracted/indexmap-2.10.0/indexmap-2.10.0/src/map/tests.rs
+11:    assert!(map.get(&1).is_some());
+34:        assert_eq!(map.get(&elt), Some(&elt));
+40:        assert!(map.get(&elt).is_none());
+79:            if map.get(key).is_none() {
+88:        assert!(map.get(&i).is_some(), "did not find {}", i);
+176:        assert_eq!(map.get(&elt), Some(&elt));
+192:        assert!(map.get(&elt).is_none());
+208:        assert_eq!(map.get(&i), Some(&(i * i)));
+213:    assert_eq!(map.get(&capacity), Some(&std::usize::MAX));
+234:        assert_eq!(map.get(&i), Some(&(i * i)));
+238:        assert_eq!(map.get(&i), Some(&(i * i)));
+272:        assert_eq!(map.get(key).is_some(), !remove.contains(key));
+355:        Entry::Occupied(ref e) => assert_eq!(e.get(), &"2"),
+367:    assert_eq!(Some(&"2"), map.get(&1));
+370:    assert_eq!(None, map.get(&2));
+435:        assert_eq!(*e.get(), "1");
+442:        assert_eq!(*e.get(), "3");
+446:    assert_eq!(*map.get(&3).unwrap(), "4");
+451:        assert_eq!(*e.get(), "0");
+457:        assert_eq!(*e.get(), "2");
+472:        assert_eq!(*e.get(), "1");
+482:        assert_eq!(*e.get(), "2");
+720:        boxed_slice.as_ref(),
+739:    assert_eq!(map.get("key3"), Some(&4));
+
+extracted/indexmap-2.10.0/indexmap-2.10.0/src/rayon/map.rs
+310:                .all(move |(key, value)| other.get(key).map_or(false, |v| *value == *v))
+
+extracted/indexmap-2.10.0/indexmap-2.10.0/src/set.rs
+1032:        self.as_entries().get(index).map(Bucket::key_ref)
+1043:        entries.get(range).map(Slice::from_slice)
+
+extracted/indexmap-2.10.0/indexmap-2.10.0/src/set/slice.rs
+64:        self.entries.get(index).map(Bucket::key_ref)
+72:        self.entries.get(range).map(Self::from_slice)
+
+extracted/indexmap-2.10.0/indexmap-2.10.0/src/set/tests.rs
+11:    assert!(set.get(&1).is_some());
+34:        assert_eq!(set.get(&elt), Some(&elt));
+39:        assert!(set.get(&elt).is_none());
+78:            if set.get(value).is_none() {
+87:        assert!(set.get(&i).is_some(), "did not find {}", i);
+167:        assert_eq!(set.get(&elt), Some(&elt));
+172:        assert!(set.get(&elt).is_none());
+211:            if set.get(value).is_none() {
+220:        assert!(set.get(&i).is_some(), "did not find {}", i);
+285:        assert_eq!(set.get(&elt), Some(&elt));
+300:        assert!(set.get(&elt).is_none());
+316:        assert_eq!(set.get(&i), Some(&i));
+321:    assert_eq!(set.get(&capacity), Some(&capacity));
+342:        assert_eq!(set.get(&i), Some(&i));
+346:        assert_eq!(set.get(&i), Some(&i));
+380:        assert_eq!(set.get(value).is_some(), !remove.contains(value));
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/adaptors/mod.rs
+193:                combined_upper.and_then(|x| x.checked_add(1))
+420:            .as_ref()
+789:                if let Some(z) = item.as_ref() {
+847:            .checked_mul(n)?
+848:            .checked_add((c % i).checked_mul(n)? / i)?;
+868:            .chain((1..=LIMIT).map(|k| row[k - 1]?.checked_add(row[k]?)))
+924:            .filter(|v| v.as_ref().map(&mut f).unwrap_or(true))
+934:            .filter(|v| v.as_ref().map(&mut f).unwrap_or(true))
+958:            .filter(|v| v.as_ref().map(&mut f).unwrap_or(true))
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/adaptors/multi_product.rs
+105:        let inner = self.0.as_mut()?;
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/combinations.rs
+305:            sum.checked_add(checked_binomial(n - 1 - *n0, k - i)?)
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/combinations_with_replacement.rs
+158:            (n - 1).checked_add(k)?
+185:            sum.checked_add(count(n - 1 - *n0, k - i)?)
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/duplicates_impl.rs
+55:            match self.used.get_mut(kv.key_ref()) {
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/either_or_both.rs
+21:        self.as_ref().left().is_some()
+26:        self.as_ref().right().is_some()
+43:        self.as_ref().both().is_some()
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/flatten_ok.rs
+101:                .as_ref()
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/format.rs
+140:                self.into.inner.set(self.inner.take())
+166:                self.into.inner.set(self.inner.take())
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/groupbylazy.rs
+116:        let elt = self.buffer.get_mut(bufidx).and_then(|queue| queue.next());
+125:                .get(self.oldest_buffered_group - self.bottom_group)
+399:        let index = self.parent.index.get();
+400:        self.parent.index.set(index + 1);
+566:        let index = self.parent.index.get();
+567:        self.parent.index.set(index + 1);
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/k_smallest.rs
+36:                heap.swap(origin, replacement_idx);
+82:        heap.swap(0, last_idx);
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/kmerge_impl.rs
+89:        heap.swap(pos, child);
+96:        heap.swap(pos, child);
+130:        heap.swap(pos, child);
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/merge_join.rs
+143:            (Some(x), Some(y)) => x.checked_add(y),
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/next_array.rs
+118:        unsafe { core::ptr::drop_in_place(self.as_mut()) }
+213:            assert_eq!(DROPPED.swap(0, Ordering::Relaxed), 1);
+221:            assert_eq!(DROPPED.swap(0, Ordering::Relaxed), 2);
+241:            assert_eq!(DROPPED.swap(0, Ordering::Relaxed), 3);
+266:            assert_eq!(DROPPED.swap(0, Ordering::Relaxed), 5);
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/peek_nth.rs
+76:        self.buf.get(n)
+117:        self.buf.get_mut(n)
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/peeking_take_while.rs
+100:        let r = self.elt.as_ref()?;
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/permutations.rs
+150:            indices.swap(i, swap_index);
+183:            let total = (n - k + 1..=n).try_fold(1usize, |acc, i| acc.checked_mul(i));
+198:                    acc.checked_mul(indices.len() - i)
+199:                        .and_then(|count| count.checked_add(c))
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/powerset.rs
+130:    (k + 1..=n).try_fold(0usize, |sum, i| sum.checked_add(checked_binomial(n, i)?))
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/repeatn.rs
+37:            self.elt.as_ref().cloned()
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/size_hint.rs
+14:        (Some(x), Some(y)) => x.checked_add(y),
+26:    hi = hi.and_then(|elt| elt.checked_add(x));
+44:        (Some(x), Some(y)) => x.checked_mul(y),
+56:    hi = hi.and_then(|elt| elt.checked_mul(x));
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/tuple_impl.rs
+48:        let s = self.buf.as_mut();
+49:        if let Some(ref mut item) = s.get_mut(self.cur) {
+58:        let buffer = &self.buf.as_ref()[self.cur..];
+130:    (n / d).checked_add(a / d)?.checked_add((n % d + a % d) / d)
+311:        let s = buf.as_ref();
+364:                let mut s = buf.as_mut();
+
+extracted/log-0.4.27/log-0.4.27/src/kv/source.rs
+183:            if let Some(found) = source.get(key.clone()) {
+226:        self.as_ref().and_then(|s| s.get(key))
+230:        self.as_ref().map_or(0, Source::count)
+
+extracted/log-0.4.27/log-0.4.27/src/kv/value.rs
+317:                    Value::from(self.get())
+323:                    Value::from(value.get())
+329:                    Value::from(value.get())
+
+extracted/log-0.4.27/log-0.4.27/src/lib.rs
+428:        self.v.get()
+432:        self.v.set(val)
+443:        let prev = self.v.get();
+445:            self.v.set(new);
+828:        self.module_path.map(|s| s.get())
+843:        self.file.map(|s| s.get())
+1241:        self.as_ref().enabled(metadata)
+1245:        self.as_ref().log(record);
+1248:        self.as_ref().flush();
+1258:        self.as_ref().enabled(metadata)
+1262:        self.as_ref().log(record);
+1265:        self.as_ref().flush();
+1849:                .get("b".into())
+
+extracted/log-0.4.27/log-0.4.27/src/serde.rs
+50:                    .get(v as usize)
+145:                    .get(v as usize)
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/arch/aarch64/neon/memchr.rs
+990:                let n1 = needles.get(0).copied()?;
+991:                let n2 = needles.get(1).copied()?;
+1001:                let n1 = needles.get(0).copied()?;
+1002:                let n2 = needles.get(1).copied()?;
+1012:                let n1 = needles.get(0).copied()?;
+1013:                let n2 = needles.get(1).copied()?;
+1014:                let n3 = needles.get(2).copied()?;
+1024:                let n1 = needles.get(0).copied()?;
+1025:                let n2 = needles.get(1).copied()?;
+1026:                let n3 = needles.get(2).copied()?;
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/arch/all/memchr.rs
+932:                let n1 = needles.get(0).copied()?;
+933:                let n2 = needles.get(1).copied()?;
+943:                let n1 = needles.get(0).copied()?;
+944:                let n2 = needles.get(1).copied()?;
+954:                let n1 = needles.get(0).copied()?;
+955:                let n2 = needles.get(1).copied()?;
+956:                let n3 = needles.get(2).copied()?;
+966:                let n1 = needles.get(0).copied()?;
+967:                let n2 = needles.get(1).copied()?;
+968:                let n3 = needles.get(2).copied()?;
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/arch/all/packedpair/mod.rs
+83:            let aligned1 = match found.checked_sub(index1) {
+90:            let aligned2 = match aligned1.checked_add(index2) {
+94:            if haystack.get(aligned2).map_or(true, |&b| b != self.byte2) {
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/arch/all/rabinkarp.rs
+89:        let first_byte = match needle.get(0) {
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/arch/all/twoway.rs
+183:        let last_byte_pos = match needle.len().checked_sub(1) {
+189:            if let Some(pre) = pre.as_mut() {
+234:        let last_byte_pos = match needle.len().checked_sub(1) {
+239:            if let Some(pre) = pre.as_mut() {
+326:        let first_byte = match needle.get(0) {
+367:        let first_byte = match needle.get(0) {
+554:        let mut candidate_start = match needle.len().checked_sub(1) {
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/arch/wasm32/simd128/memchr.rs
+979:                let n1 = needles.get(0).copied()?;
+980:                let n2 = needles.get(1).copied()?;
+990:                let n1 = needles.get(0).copied()?;
+991:                let n2 = needles.get(1).copied()?;
+1001:                let n1 = needles.get(0).copied()?;
+1002:                let n2 = needles.get(1).copied()?;
+1003:                let n3 = needles.get(2).copied()?;
+1013:                let n1 = needles.get(0).copied()?;
+1014:                let n2 = needles.get(1).copied()?;
+1015:                let n3 = needles.get(2).copied()?;
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/arch/x86_64/avx2/memchr.rs
+1311:                let n1 = needles.get(0).copied()?;
+1312:                let n2 = needles.get(1).copied()?;
+1322:                let n1 = needles.get(0).copied()?;
+1323:                let n2 = needles.get(1).copied()?;
+1333:                let n1 = needles.get(0).copied()?;
+1334:                let n2 = needles.get(1).copied()?;
+1335:                let n3 = needles.get(2).copied()?;
+1345:                let n1 = needles.get(0).copied()?;
+1346:                let n2 = needles.get(1).copied()?;
+1347:                let n3 = needles.get(2).copied()?;
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/arch/x86_64/sse2/memchr.rs
+1036:                let n1 = needles.get(0).copied()?;
+1037:                let n2 = needles.get(1).copied()?;
+1047:                let n1 = needles.get(0).copied()?;
+1048:                let n2 = needles.get(1).copied()?;
+1058:                let n1 = needles.get(0).copied()?;
+1059:                let n2 = needles.get(1).copied()?;
+1060:                let n3 = needles.get(2).copied()?;
+1070:                let n1 = needles.get(0).copied()?;
+1071:                let n2 = needles.get(1).copied()?;
+1072:                let n3 = needles.get(2).copied()?;
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/cow.rs
+40:        CowBytes(Imp::new(bytes.as_ref()))
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/memchr.rs
+800:                let n1 = needles.get(0).copied()?;
+801:                let n2 = needles.get(1).copied()?;
+811:                let n1 = needles.get(0).copied()?;
+812:                let n2 = needles.get(1).copied()?;
+822:                let n1 = needles.get(0).copied()?;
+823:                let n2 = needles.get(1).copied()?;
+833:                let n1 = needles.get(0).copied()?;
+834:                let n2 = needles.get(1).copied()?;
+844:                let n1 = needles.get(0).copied()?;
+845:                let n2 = needles.get(1).copied()?;
+846:                let n3 = needles.get(2).copied()?;
+856:                let n1 = needles.get(0).copied()?;
+857:                let n2 = needles.get(1).copied()?;
+858:                let n3 = needles.get(2).copied()?;
+868:                let n1 = needles.get(0).copied()?;
+869:                let n2 = needles.get(1).copied()?;
+870:                let n3 = needles.get(2).copied()?;
+880:                let n1 = needles.get(0).copied()?;
+881:                let n2 = needles.get(1).copied()?;
+882:                let n3 = needles.get(2).copied()?;
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/memmem/mod.rs
+278:        let haystack = self.haystack.get(self.pos..)?;
+292:        match self.haystack.len().checked_sub(self.pos) {
+299:                    haystack_len.checked_add(1),
+363:                    self.pos = pos.checked_sub(1);
+461:        FindIter::new(haystack, self.as_ref())
+564:        self.searcher.rfind(haystack.as_ref(), self.needle.as_slice())
+599:        FindRevIter::new(haystack, self.as_ref())
+685:        let needle = needle.as_ref();
+698:        let needle = needle.as_ref();
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/tests/substring/naive.rs
+10:    let end = haystack.len().checked_sub(needle.len()).map_or(0, |i| i + 1);
+21:    let end = haystack.len().checked_sub(needle.len()).map_or(0, |i| i + 1);
+
+extracted/once_cell-1.21.3/once_cell-1.21.3/src/imp_cs.rs
+66:        self.value.borrow(CriticalSection::new()).get().unwrap_unchecked()
+71:        self.value.get_mut().get_mut()
+
+extracted/once_cell-1.21.3/once_cell-1.21.3/src/imp_pl.rs
+51:        let slot: *mut Option<T> = self.value.get();
+103:        let slot = &*self.value.get();
+104:        slot.as_ref().unwrap_unchecked()
+111:        let slot: &mut Option<T> = unsafe { &mut *self.value.get() };
+112:        slot.as_mut()
+
+extracted/once_cell-1.21.3/once_cell-1.21.3/src/imp_std.rs
+67:        let slot: *mut Option<T> = self.value.get();
+101:        let slot = &*self.value.get();
+102:        slot.as_ref().unwrap_unchecked()
+109:        unsafe { &mut *self.value.get() }.as_mut()
+152:        let queue = self.queue.swap(self.new_queue, Ordering::AcqRel);
+
+extracted/once_cell-1.21.3/once_cell-1.21.3/src/lib.rs
+431:            match self.get() {
+440:            match self.get() {
+447:            match (self.get_mut(), source.get()) {
+456:            self.get() == other.get()
+488:            unsafe { &*self.inner.get() }.as_ref()
+510:            unsafe { &mut *self.inner.get() }.as_mut()
+552:            if let Some(old) = self.get() {
+556:            let slot = unsafe { &mut *self.inner.get() };
+562:            Ok(unsafe { slot.as_ref().unwrap_unchecked() })
+626:            if let Some(val) = self.get() {
+634:            assert!(self.set(val).is_ok(), "reentrant init");
+635:            Ok(unsafe { self.get().unwrap_unchecked() })
+795:            if this.cell.get_mut().is_none() {
+796:                let value = match this.init.get_mut().take() {
+802:            this.cell.get_mut().unwrap_or_else(|| unreachable!())
+819:            this.cell.get()
+836:            this.cell.get_mut()
+911:            match self.get() {
+920:            match self.get() {
+927:            match (self.get_mut(), source.get()) {
+942:            self.get() == other.get()
+1020:            self.0.get_mut()
+1157:            if let Some(value) = self.get() {
+1328:            if this.cell.get_mut().is_none() {
+1329:                let value = match this.init.get_mut().take() {
+1335:            this.cell.get_mut().unwrap_or_else(|| unreachable!())
+1352:            this.cell.get()
+1369:            this.cell.get_mut()
+
+extracted/once_cell-1.21.3/once_cell-1.21.3/src/race.rs
+142:        match self.get() {
+152:        let mut val = nz.get();
+161:        self.inner.compare_exchange(0, val.get(), Ordering::Release, Ordering::Acquire)
+181:        self.inner.get().map(Self::from_usize)
+190:        self.inner.set(Self::to_usize(value))
+222:        value.get() == 1
+261:        unsafe { ptr.as_ref() }
+303:        match self.get() {
+380:            let ptr = *self.inner.get_mut();
+454:            match self.get() {
+483:            match self.get() {
+
+extracted/proc-macro2-1.0.95/proc-macro2-1.0.95/src/fallback.rs
+129:        let mut current = match self.inner.get_mut() {
+145:                if let Some(inner) = group.stream.inner.get_mut() {
+261:        push_token_from_proc_macro(stream.as_mut(), tree);
+293:            .for_each(|token| push_token_from_proc_macro(vec.as_mut(), token));
+873:        let other = other.as_ref();
+1143:                    self.span.lo.checked_add(start)?
+1147:                    self.span.lo.checked_add(start)?.checked_add(1)?
+1154:                    self.span.lo.checked_add(end)?.checked_add(1)?
+1158:                    self.span.lo.checked_add(end)?
+
+extracted/proc-macro2-1.0.95/proc-macro2-1.0.95/src/wrapper.rs
+719:        let other = other.as_ref();
+
+extracted/qrcode-generator/qrcode-generator/src/lib.rs
+106:    match from_utf8(data.as_ref()) {
+109:            let qr = match QrCode::encode_binary(data.as_ref(), ecc) {
+121:    let qr = match QrCode::encode_text(text.as_ref(), ecc) {
+190:            let description = description.as_ref();
+257:            let description = description.as_ref();
+312:    let path = path.as_ref();
+395:    let path = path.as_ref();
+
+extracted/r1cs/r1cs/src/bimap_util.rs
+29:        if let Some(j) = b_values_to_indices.get_mut(&value).and_then(Vec::pop) {
+
+extracted/r1cs/r1cs/src/comparisons.rs
+172:                        values.set(mask_bit, mask_bit_value.into());
+
+extracted/r1cs/r1cs/src/expression.rs
+89:            self.coefficients.get(&Wire::ONE).cloned()
+102:            |sum, (wire, coefficient)| sum + (wire_values.get(*wire) * coefficient))
+
+extracted/r1cs/r1cs/src/field_arithmetic.rs
+30:                    values.set(product, product_value);
+73:                values.set(x_inv, inverse_value);
+91:                values.set(x_inv_or_zero, x_value.multiplicative_inverse_or_zero());
+122:                values.set(q, q_value)
+148:                    values.set(q, x_value.integer_division(&y_value));
+149:                    values.set(r, x_value.integer_modulus(&y_value));
+
+extracted/r1cs/r1cs/src/gadget_builder.rs
+96:                values.set(m, m_value);
+97:                values.set(y, y_value);
+
+extracted/r1cs/r1cs/src/permutations.rs
+66:                values.set(root_wire, root_value);
+
+extracted/r1cs/r1cs/src/random_access.rs
+94:            wire_values.set(item_wires[i], Element::from(i));
+99:            wire_values_i.set(index_wire, Element::from(i));
+
+extracted/r1cs/r1cs/src/sorting.rs
+54:                    values.set(output_wires[i], item);
+
+extracted/r1cs/r1cs/src/verify_permutation.rs
+178:        if let Some(&sibling_subnet) = partial_routes[other_side].get(&other_i_sibling) {
+
+extracted/r1cs/r1cs/src/wire_values.rs
+45:        self.set(wire.wire(), Element::from(value));
+88:                values.set($wire, $value);
+
+extracted/rand-0.9.2/rand-0.9.2/src/distr/slice.rs
+74:            range: UniformUsize::new(0, num_choices.get()).unwrap(),
+
+extracted/rand-0.9.2/rand-0.9.2/src/distr/uniform_int.rs
+204:                    let is_overflow = lo_order.checked_add(new_hi_order as $sample_ty).is_none();
+239:                    match lo.checked_add(new_hi) {
+
+extracted/rand-0.9.2/rand-0.9.2/src/distr/uniform_other.rs
+191:                .checked_mul(1_000_000_000)
+192:                .and_then(|n| n.checked_add(u64::from(high_n)));
+
+extracted/rand-0.9.2/rand-0.9.2/src/distr/weighted/mod.rs
+44:                match self.checked_add(*v) {
+
+extracted/rand-0.9.2/rand-0.9.2/src/rngs/reseeding.rs
+169:        let num_bytes = size_of_val(results.as_ref());
+219:        let num_bytes = size_of_val(results.as_ref());
+
+extracted/rand-0.9.2/rand-0.9.2/src/rngs/thread.rs
+106:        let rng = unsafe { &mut *self.rng.get() };
+173:        let rng = unsafe { &mut *self.rng.get() };
+181:        let rng = unsafe { &mut *self.rng.get() };
+189:        let rng = unsafe { &mut *self.rng.get() };
+
+extracted/rand-0.9.2/rand-0.9.2/src/seq/coin_flipper.rs
+140:                if let Some(new_remaining) = self.chunk_remaining.checked_sub(c) {
+
+extracted/rand-0.9.2/rand-0.9.2/src/seq/increasing_uniform.rs
+49:        let next_chunk_remaining = self.chunk_remaining.checked_sub(1).unwrap_or_else(|| {
+
+extracted/rand-0.9.2/rand-0.9.2/src/seq/index.rs
+481:        indices.swap(i as usize, j as usize);
+
+extracted/rand-0.9.2/rand-0.9.2/src/seq/iterator.rs
+222:            if let Some(slot) = buf.get_mut(k) {
+258:                if let Some(slot) = reservoir.get_mut(k) {
+
+extracted/rand-0.9.2/rand-0.9.2/src/seq/slice.rs
+403:                self.swap(i, index);
+408:                self.swap(i, index);
+
+extracted/rand_core-0.9.3/rand_core-0.9.3/src/block.rs
+138:            .field("result_len", &self.results.as_ref().len())
+152:            index: results_empty.as_ref().len(),
+171:        self.index = self.results.as_ref().len();
+178:        assert!(index < self.results.as_ref().len());
+187:        if self.index >= self.results.as_ref().len() {
+191:        let value = self.results.as_ref()[self.index];
+203:        let len = self.results.as_ref().len();
+209:            read_u64(self.results.as_ref(), index)
+212:            read_u64(self.results.as_ref(), 0)
+214:            let x = u64::from(self.results.as_ref()[len - 1]);
+216:            let y = u64::from(self.results.as_ref()[0]);
+225:            if self.index >= self.results.as_ref().len() {
+229:                fill_via_chunks(&self.results.as_mut()[self.index..], &mut dest[read_len..]);
+298:            .field("result_len", &self.results.as_ref().len())
+313:            index: results_empty.as_ref().len(),
+333:        self.index = self.results.as_ref().len();
+341:        assert!(index < self.results.as_ref().len());
+352:        if index >= self.results.as_ref().len() {
+365:        (self.results.as_ref()[index] >> shift) as u32
+370:        if self.index >= self.results.as_ref().len() {
+375:        let value = self.results.as_ref()[self.index];
+386:            if self.index >= self.results.as_ref().len() {
+392:                fill_via_chunks(&self.results.as_mut()[self.index..], &mut dest[read_len..]);
+
+extracted/rand_core-0.9.3/rand_core-0.9.3/src/impls.rs
+88:    zipped.for_each(|(dest, src)| dest.copy_from_slice(src.to_le_bytes().as_ref()));
+96:            dest.copy_from_slice(&src.to_le_bytes().as_ref()[..n]);
+
+extracted/rand_core-0.9.3/rand_core-0.9.3/src/lib.rs
+485:        let mut iter = seed.as_mut().chunks_exact_mut(4);
+523:        rng.fill_bytes(seed.as_mut());
+532:        rng.try_fill_bytes(seed.as_mut())?;
+573:        getrandom::fill(seed.as_mut())?;
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/dfa/accel.rs
+228:        Accels { accels: self.accels.as_ref().to_vec() }
+233:        Accels { accels: self.accels.as_ref() }
+238:        let accels = self.accels.as_ref();
+282:        usize::try_from(self.accels.as_ref()[0]).unwrap()
+369:        let accel = self.accels.get(self.i)?;
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/dfa/automaton.rs
+290:                    .checked_sub(1)
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/dfa/dense.rs
+678:            self.quitset.as_mut().unwrap().add(byte);
+680:            self.quitset.as_mut().unwrap().remove(byte);
+959:        self.pre.as_ref().unwrap_or(&None).as_ref()
+1580:            tt: self.tt.as_ref(),
+1581:            st: self.st.as_ref(),
+1582:            ms: self.ms.as_ref(),
+1907:        self.as_ref().write_to::<E>(&mut buf[padding..]).unwrap();
+1966:        self.as_ref().write_to::<wire::LE>(dst)
+2024:        self.as_ref().write_to::<wire::BE>(dst)
+2089:        self.as_ref().write_to::<wire::NE>(dst)
+2498:        self.tt.set(from, byte, to);
+2517:        self.tt.swap(id1, id2);
+2652:                        remapper.swap(self, cur_id, next_id);
+2708:                    remapper.swap(self, next_start_id, cur_id);
+2709:                    remapper.swap(self, next_norm_id, cur_id);
+2749:                    remapper.swap(self, cur_id, next_id);
+2852:                remapper.swap(self, next_id, id);
+2876:                remapper.swap(self, next_id, id);
+3069:        self.accels.as_ref()
+3172:        let input = self.byte_classes().get(input);
+3187:        let class = self.byte_classes().get(byte);
+3251:                self.st.start_map.get(byte)
+3276:        self.pre.as_ref()
+3395:            1usize.checked_shl(u32::try_from(stride2).unwrap()).unwrap();
+3521:            self.table.swap(id1.as_usize() + b, id2.as_usize() + b);
+3637:            table: self.table.as_ref(),
+3647:            table: self.table.as_ref().to_vec(),
+3711:        self.to_state_id(self.to_index(id).checked_add(1).unwrap())
+3719:        self.to_state_id(self.to_index(id).checked_sub(1).unwrap())
+3724:        wire::u32s_to_state_ids(self.table.as_ref())
+3773:        wire::u32s_to_state_ids_mut(self.table.as_mut())
+3912:        let starts_len = stride.checked_mul(2).unwrap();
+3914:            match stride.checked_mul(pattern_len.unwrap_or(0)) {
+3918:        let table_len = match starts_len.checked_add(pattern_starts_len) {
+4163:            table: self.table.as_ref(),
+4177:            table: self.table.as_ref().to_vec(),
+4236:        StartStateIter { st: self.as_ref(), i: 0 }
+4241:        wire::u32s_to_state_ids(self.table.as_ref())
+4269:                    .checked_mul(pid)
+4271:                    .checked_add(self.stride.checked_mul(2).unwrap())
+4273:                    .checked_add(start_index)
+4282:        wire::u32s_to_state_ids_mut(self.table.as_mut())
+4577:            slices: self.slices.as_ref(),
+4578:            pattern_ids: self.pattern_ids.as_ref(),
+4587:            slices: self.slices.as_ref().to_vec(),
+4588:            pattern_ids: self.pattern_ids.as_ref().to_vec(),
+4605:        let offset = index.checked_shl(stride2).unwrap();
+4606:        let id = dfa.special.min_match.as_usize().checked_add(offset).unwrap();
+4648:        wire::u32s_to_pattern_ids(self.slices.as_ref())
+4661:        wire::u32s_to_pattern_ids(self.pattern_ids.as_ref())
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/dfa/determinize.rs
+509:        if let Some(&cached_id) = self.cache.get(builder.as_bytes()) {
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/dfa/onepass.rs
+543:        let alphabet_len = classes.alphabet_len().checked_sub(1).unwrap();
+561:            explicit_slot_start: nfa.pattern_len().checked_mul(2).unwrap(),
+747:            remapper.swap(&mut self.dfa, next_dest, id);
+1705:            let start = slots[0].unwrap().get();
+1706:            let end = slots[1].unwrap().get();
+1713:        let start = slots[pid.as_usize() * 2].unwrap().get();
+1714:        let end = slots[pid.as_usize() * 2 + 1].unwrap().get();
+2024:                let start = slots[slot_start].unwrap().get();
+2025:                let end = slots[slot_end].unwrap().get();
+2250:        Ok(self.starts.get(pid.one_more()).copied().unwrap_or(DEAD))
+2259:        let class = self.classes.get(byte).as_usize();
+2267:        let class = self.classes.get(byte).as_usize();
+2312:            Some(StateID::new_unchecked(id.as_usize().checked_sub(1).unwrap()))
+2325:            (self.table.len() >> self.stride2()).checked_sub(1).unwrap(),
+2338:            self.table.swap(o1 + b, o2 + b);
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/dfa/remapper.rs
+110:        self.map.swap(self.idxmap.to_index(id1), self.idxmap.to_index(id2));
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/dfa/search.rs
+583:    match input.haystack().get(sp.end) {
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/dfa/sparse.rs
+322:                .checked_mul(StateID::SIZE)
+337:                    .checked_mul(plen)
+339:                    .checked_add(size_of::<u32>())
+411:            tt: self.tt.as_ref(),
+412:            st: self.st.as_ref(),
+1140:        let input = self.tt.classes.get(input);
+1208:                self.st.start_map.get(byte)
+1230:        self.pre.as_ref()
+1564:        let input_ranges_len = ntrans.checked_mul(2).unwrap();
+1579:            .checked_mul(self.id_len())
+1699:        self.sparse.as_ref()
+1750:        self.sparse.as_mut()
+1813:            .checked_mul(pattern_len.unwrap_or(0))
+1815:            .checked_add(stride.checked_mul(2).unwrap())
+1817:            .checked_mul(StateID::SIZE)
+2122:        self.table.as_ref()
+2150:                    .checked_mul(pid)
+2152:                    .checked_add(self.stride.checked_mul(2).unwrap())
+2154:                    .checked_add(start_index)
+2162:            &mut self.table.as_mut()[start..end],
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/hybrid/dfa.rs
+1221:        let class = usize::from(self.classes.get(input));
+1350:        let class = usize::from(self.classes.get(input));
+1422:        let class = usize::from(self.classes.get(input));
+1567:                self.start_map.get(byte)
+1604:                    .checked_sub(1)
+1975:            self.progress.as_mut().expect("no in-progress search to update");
+2004:        self.bytes_searched + self.progress.as_ref().map_or(0, |p| p.len())
+2135:        let save_state = !self.as_ref().state_builder_fits_in_cache(&builder);
+2175:                    None => return Ok(self.as_ref().dead_id()),
+2251:            self.cache.states_to_id.get(builder.as_bytes())
+2278:        if !self.as_ref().state_fits_in_cache(&state) {
+2292:            iter::repeat(self.as_ref().unknown_id()).take(self.dfa.stride()),
+2301:        if !self.dfa.quitset.is_empty() && !self.as_ref().is_sentinel(id) {
+2302:            let quit_id = self.as_ref().quit_id();
+2474:                !self.as_ref().is_sentinel(old_id),
+2508:        let mut starts_len = Start::len().checked_mul(2).unwrap();
+2516:            .extend(iter::repeat(self.as_ref().unknown_id()).take(starts_len));
+2537:        assert_eq!(unk_id, self.as_ref().unknown_id());
+2538:        assert_eq!(dead_id, self.as_ref().dead_id());
+2539:        assert_eq!(quit_id, self.as_ref().quit_id());
+2567:        let state = self.as_ref().get_cached_state(id).clone();
+2601:        assert!(self.as_ref().is_valid(from), "invalid 'from' id: {:?}", from);
+2602:        assert!(self.as_ref().is_valid(to), "invalid 'to' id: {:?}", to);
+2619:        assert!(self.as_ref().is_valid(id));
+3363:            self.quitset.as_mut().unwrap().add(byte);
+3365:            self.quitset.as_mut().unwrap().remove(byte);
+3721:        self.pre.as_ref().unwrap_or(&None).as_ref()
+4289:    let min_state_index = MIN_STATES.checked_sub(1).unwrap();
+4348:    let non_sentinel = MIN_STATES.checked_sub(SENTINEL_STATES).unwrap();
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/hybrid/search.rs
+701:    match input.haystack().get(sp.end) {
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/meta/regex.rs
+535:        let mut guard = self.pool.get();
+614:        let cache = self.pool.get();
+655:        let cache = self.pool.get();
+923:        let mut guard = self.pool.get();
+979:        let mut guard = self.pool.get();
+1134:        let mut guard = self.pool.get();
+1195:        let mut guard = self.pool.get();
+3063:        self.pre.as_ref().unwrap_or(&None).as_ref()
+3406:                let p = p.as_ref();
+3427:                .parse(p.as_ref())
+3437:                .translate(p.as_ref(), ast)
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/meta/stopat.rs
+152:    match input.haystack().get(sp.end) {
+186:    match input.haystack().get(sp.end) {
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/meta/strategy.rs
+420:        if let Some(slot) = slots.get_mut(0) {
+423:        if let Some(slot) = slots.get_mut(1) {
+555:        if let Some(e) = self.dfa.get(input) {
+558:        } else if let Some(e) = self.hybrid.get(input) {
+579:        let pid = if let Some(ref e) = self.onepass.get(input) {
+582:        } else if let Some(ref e) = self.backtrack.get(input) {
+590:            let e = self.pikevm.get();
+616:        if let Some(ref e) = self.onepass.get(input) {
+622:        } else if let Some(ref e) = self.backtrack.get(input) {
+633:            let e = self.pikevm.get();
+639:        if let Some(ref e) = self.onepass.get(input) {
+645:        } else if let Some(ref e) = self.backtrack.get(input) {
+656:            let e = self.pikevm.get();
+693:        self.pre.as_ref().map_or(false, |pre| pre.is_fast())
+698:            + self.pre.as_ref().map_or(0, |pre| pre.memory_usage())
+700:            + self.nfarev.as_ref().map_or(0, |nfa| nfa.memory_usage())
+709:        return if let Some(e) = self.dfa.get(input) {
+718:        } else if let Some(e) = self.hybrid.get(input) {
+741:        if let Some(e) = self.dfa.get(input) {
+750:        } else if let Some(e) = self.hybrid.get(input) {
+766:        if let Some(e) = self.dfa.get(input) {
+778:        } else if let Some(e) = self.hybrid.get(input) {
+826:        if self.onepass.get(&input).is_some() {
+867:        if let Some(e) = self.dfa.get(input) {
+877:        } else if let Some(e) = self.hybrid.get(input) {
+898:        let e = self.pikevm.get();
+956:        if let Some(e) = self.core.dfa.get(&input) {
+962:        } else if let Some(e) = self.core.hybrid.get(&input) {
+1162:        if core.pre.as_ref().map_or(false, |p| p.is_fast()) {
+1235:                    span.start = litmatch.start.checked_add(1).unwrap();
+1250:        if let Some(e) = self.core.dfa.get(&input) {
+1256:        } else if let Some(e) = self.core.hybrid.get(&input) {
+1274:        if let Some(e) = self.core.dfa.get(&input) {
+1282:        } else if let Some(e) = self.core.hybrid.get(&input) {
+1562:        if core.pre.as_ref().map_or(false, |p| p.is_fast()) {
+1669:                    span.start = litmatch.start.checked_add(1).unwrap();
+1680:                                litmatch.start.checked_add(1).unwrap();
+1702:        if let Some(e) = self.core.dfa.get(&input) {
+1708:        } else if let Some(e) = self.core.hybrid.get(&input) {
+1726:        if let Some(e) = self.dfa.get(&input) {
+1734:        } else if let Some(e) = self.hybrid.get(&input) {
+1908:    if let Some(slot) = slots.get_mut(slot_start) {
+1911:    if let Some(slot) = slots.get_mut(slot_end) {
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/meta/wrappers.rs
+96:        self.0.is_match(cache.0.as_mut().unwrap(), input.clone())
+106:        self.0.search_slots(cache.0.as_mut().unwrap(), input, slots)
+117:            cache.0.as_mut().unwrap(),
+133:        PikeVMCache(Some(builder.get().0.create_cache()))
+137:        self.0.as_mut().unwrap().reset(&builder.get().0);
+141:        self.0.as_ref().map_or(0, |c| c.memory_usage())
+166:        let engine = self.0.as_ref()?;
+239:                .try_is_match(cache.0.as_mut().unwrap(), input.clone())
+263:                .try_search_slots(cache.0.as_mut().unwrap(), input, slots)
+313:                builder.0.as_ref().map(|e| e.0.create_cache()),
+325:            self.0.as_mut().unwrap().reset(&e.0);
+332:            self.0.as_ref().map_or(0, |c| c.memory_usage())
+355:        let engine = self.0.as_ref()?;
+365:        self.0.as_ref().map_or(0, |e| e.memory_usage())
+436:                .try_search_slots(cache.0.as_mut().unwrap(), input, slots)
+496:            OnePassCache(builder.0.as_ref().map(|e| e.0.create_cache()))
+507:            self.0.as_mut().unwrap().reset(&e.0);
+514:            self.0.as_ref().map_or(0, |c| c.memory_usage())
+546:        let engine = self.0.as_ref()?;
+648:            let cache = cache.0.as_mut().unwrap();
+668:            let mut fwdcache = cache.0.as_mut().unwrap().as_parts_mut().0;
+688:            let mut cache = cache.0.as_mut().unwrap().as_parts_mut().0;
+710:            let mut revcache = cache.0.as_mut().unwrap().as_parts_mut().1;
+731:            let mut cache = cache.0.as_mut().unwrap().as_parts_mut().1;
+754:            let mut fwdcache = cache.0.as_mut().unwrap().as_parts_mut().0;
+788:            HybridCache(builder.0.as_ref().map(|e| e.0.create_cache()))
+799:            self.0.as_mut().unwrap().reset(&e.0);
+806:            self.0.as_ref().map_or(0, |c| c.memory_usage())
+834:        let engine = self.0.as_ref()?;
+843:        self.0.as_ref().map_or(0, |e| e.memory_usage())
+1094:        let engine = self.0.as_ref()?;
+1158:            let mut cache = cache.0.as_mut().unwrap();
+1193:            ReverseHybridCache(builder.0.as_ref().map(|e| e.0.create_cache()))
+1204:            self.0.as_mut().unwrap().reset(&e.0);
+1211:            self.0.as_ref().map_or(0, |c| c.memory_usage())
+1234:        let engine = self.0.as_ref()?;
+1243:        self.0.as_ref().map_or(0, |e| e.memory_usage())
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/nfa/thompson/backtrack.rs
+178:        self.pre.as_ref().unwrap_or(&None).as_ref()
+953:                Some(s) => s.get(),
+957:                Some(s) => s.get(),
+970:            Some(s) => s.get(),
+974:            Some(s) => s.get(),
+1523:                    sid = match alternates.get(0) {
+1855:            match re.get_nfa().states().len().checked_mul(self.stride) {
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/nfa/thompson/builder.rs
+499:                        .checked_add(1)
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/nfa/thompson/compiler.rs
+794:                    .parse(p.as_ref())
+797:            debug!("parsed: {:?}", p.as_ref());
+1532:                    if let Some(id) = cache.get(&key, hash) {
+1540:                    cache.set(key, hash, end);
+1785:                node.last.as_ref().map_or(false, |t| {
+1811:        if let Some(id) = self.state.compiled.get(&node, hash) {
+1815:        self.state.compiled.set(node, hash, id);
+1825:            .checked_sub(1)
+1861:            .checked_sub(1)
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/nfa/thompson/nfa.rs
+546:        self.0.start_pattern.get(pid.as_usize()).copied()
+1433:            captures.iter().map(|x| x.iter().map(|y| y.as_ref())),
+1808:        haystack.get(at).and_then(|&b| self.matches_byte(b))
+1896:        haystack.get(at).and_then(|&b| self.matches_byte(b))
+1981:        haystack.get(at).map_or(false, |&b| self.matches_byte(b))
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/nfa/thompson/pikevm.rs
+171:        self.pre.as_ref().unwrap_or(&None).as_ref()
+824:            let start = slots[0]?.get();
+825:            let end = slots[1]?.get();
+832:        let start = slots[pid.as_usize() * 2]?.get();
+833:        let end = slots[pid.as_usize() * 2 + 1]?.get();
+1709:                    sid = match alternates.get(0) {
+2096:            nfa.pattern_len().checked_mul(2).unwrap(),
+2101:            .checked_mul(self.slots_per_state)
+2103:            .and_then(|x| x.checked_add(self.slots_for_captures))
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/alphabet.rs
+231:            classes.set(b, b);
+247:            classes.set(u8::try_from(b).unwrap(), class);
+275:            dst[0] = self.get(b);
+303:            UnitKind::U8(b) => usize::from(self.get(b)),
+314:        Unit::eoi(self.alphabet_len().checked_sub(1).unwrap())
+420:            Bound::Excluded(&i) => usize::from(i).checked_add(1).unwrap(),
+425:                Some(usize::from(i).checked_add(1).unwrap())
+567:            let class = self.classes.get(byte);
+612:            if self.class.is_byte(self.classes.get(byte)) {
+727:            classes.set(b, class);
+732:                class = class.checked_add(1).unwrap();
+734:            b = b.checked_add(1).unwrap();
+930:        assert_eq!(classes.get(0), 0);
+931:        assert_eq!(classes.get(1), 0);
+932:        assert_eq!(classes.get(2), 0);
+933:        assert_eq!(classes.get(b'a' - 1), 0);
+934:        assert_eq!(classes.get(b'a'), 1);
+935:        assert_eq!(classes.get(b'm'), 1);
+936:        assert_eq!(classes.get(b'z'), 1);
+937:        assert_eq!(classes.get(b'z' + 1), 2);
+938:        assert_eq!(classes.get(254), 2);
+939:        assert_eq!(classes.get(255), 2);
+945:        assert_eq!(classes.get(0), 0);
+946:        assert_eq!(classes.get(1), 0);
+947:        assert_eq!(classes.get(2), 0);
+948:        assert_eq!(classes.get(3), 1);
+949:        assert_eq!(classes.get(4), 2);
+950:        assert_eq!(classes.get(5), 2);
+951:        assert_eq!(classes.get(6), 2);
+952:        assert_eq!(classes.get(7), 3);
+953:        assert_eq!(classes.get(255), 3);
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/captures.rs
+260:        let slots = group_info.pattern_len().checked_mul(2).unwrap();
+460:            (index.checked_mul(2)?, index.checked_mul(2)?.checked_add(1)?)
+464:        let start = self.slots.get(slot_start).copied()??;
+465:        let end = self.slots.get(slot_end).copied()??;
+466:        Some(Span { start: start.get(), end: end.get() })
+1683:        let indices = self.0.name_to_index.get(pid.as_usize())?;
+1684:        indices.get(name).cloned().map(|i| i.as_usize())
+1731:        let pattern_names = self.0.index_to_name.get(pid.as_usize())?;
+1732:        pattern_names.get(group_index)?.as_deref()
+1773:                .get(pid.as_usize())
+2234:            let name = Arc::<str>::from(name.as_ref());
+2271:        let offset = self.pattern_len().checked_mul(2).unwrap();
+2276:            let new_end = match end.as_usize().checked_add(offset) {
+2303:        let (start, end) = match self.slot_ranges.get(pid.as_usize()) {
+2538:        let (group_index, name) = match self.names.as_mut().unwrap().next() {
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/determinize/mod.rs
+209:            sparses.swap();
+409:                    id = match alternates.get(0) {
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/determinize/state.rs
+547:        encoded.checked_mul(4).unwrap().checked_add(13).unwrap()
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/empty.rs
+249:            input.set_start(input.start().checked_add(1).unwrap());
+251:            input.set_end(match input.end().checked_sub(1) {
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/interpolate.rs
+109:        if replacement.as_bytes().get(1).map_or(false, |&b| b == b'$') {
+193:        if replacement.get(1).map_or(false, |&b| b == b'$') {
+271:    while rep.get(cap_end).copied().map_or(false, is_valid_cap_letter) {
+296:    assert_eq!(b'{', rep[i.checked_sub(1).unwrap()]);
+298:    while rep.get(i).map_or(false, |&b| b != b'}') {
+301:    if !rep.get(i).map_or(false, |&b| b == b'}') {
+397:                if let Some(&s) = caps.get(i) {
+423:                if let Some(&s) = caps.get(i) {
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/iter.rs
+642:        self.input.set_start(self.input.start().checked_add(1).unwrap());
+678:        self.input.set_start(self.input.start().checked_add(1).unwrap());
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/lazy.rs
+79:        this.0.get()
+215:            let ptr = *self.data.get_mut();
+383:            if *self.state.get_mut() == LAZY_STATE_DONE {
+387:                    self.data.get_mut().assume_init_drop();
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/look.rs
+892:                    set.set_range(asu8(b1), asu8(b2.checked_sub(1).unwrap()));
+1417:        let mut cache = Lazy::get(&CACHE).get();
+1453:        let mut cache = Lazy::get(&CACHE).get();
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/pool.rs
+182:        PoolGuard(self.0.get())
+568:                        *self.owner_val.get() = Some((self.create)());
+697:                    (*self.pool.owner_val.get()).as_ref().unwrap_unchecked()
+722:                    (*self.pool.owner_val.get()).as_mut().unwrap_unchecked()
+1004:            let data = unsafe { &mut *self.data.get() };
+1080:        pool.get().borrow_mut().push('x');
+1084:            let guard = pool1.get();
+1090:            let guard = pool2.get();
+1106:        assert_eq!(vec!['a', 'x'], *pool.get().borrow());
+1118:            let mut g1 = pool.get();
+1120:            let mut g2 = pool.get();
+1131:        assert_eq!(&mut vec!['a', 'b'], &mut *pool.get());
+1144:            let mut g1 = pool.get();
+1145:            let mut g2 = pool.get();
+1165:        assert_eq!(&mut vec!['a', 'b'], &mut *pool.get());
+1180:            pool.get().push('b');
+1185:            let mut g = pool.get();
+1197:        assert_eq!(&vec!['a', 'b', 'c'], &*pool.get());
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/prefilter/byteset.rs
+22:                let needle = needle.as_ref();
+43:        let b = *haystack.get(span.start)?;
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/prefilter/memchr.rs
+23:            if needles[0].as_ref().len() != 1 {
+26:            Some(Memchr(needles[0].as_ref()[0]))
+48:        let b = *haystack.get(span.start)?;
+82:            if !needles.iter().all(|n| n.as_ref().len() == 1) {
+85:            let b1 = needles[0].as_ref()[0];
+86:            let b2 = needles[1].as_ref()[0];
+109:        let b = *haystack.get(span.start)?;
+143:            if !needles.iter().all(|n| n.as_ref().len() == 1) {
+146:            let b1 = needles[0].as_ref()[0];
+147:            let b2 = needles[1].as_ref()[0];
+148:            let b3 = needles[2].as_ref()[0];
+171:        let b = *haystack.get(span.start)?;
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/prefilter/memmem.rs
+28:            let needle = needles[0].as_ref();
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/prefilter/mod.rs
+209:                needles.iter().map(|b| b.as_ref().len()).max().unwrap_or(0);
+590:        if needles.iter().any(|n| n.as_ref().is_empty()) {
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/prefilter/teddy.rs
+66:                needles.iter().map(|n| n.as_ref().len()).min().unwrap_or(0);
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/primitives.rs
+71:        self.0.get().wrapping_sub(1)
+79:        write!(f, "{:?}", self.get())
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/search.rs
+117:        let haystack = haystack.as_ref();
+477:            Bound::Excluded(&i) => i.checked_add(1).unwrap(),
+481:            Bound::Included(&i) => i.checked_add(1).unwrap(),
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/start.rs
+144:            .checked_sub(1)
+145:            .and_then(|i| input.haystack().get(i).copied());
+156:        let look_behind = input.haystack().get(input.end()).copied();
+418:            config.get_look_behind().map_or(Start::Text, |b| smap.get(b));
+428:            config.get_look_behind().map_or(Start::Text, |b| smap.get(b));
+439:                config.get_look_behind().map_or(Start::Text, |b| smap.get(b));
+463:                config.get_look_behind().map_or(Start::Text, |b| smap.get(b));
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/syntax.rs
+126:        hirs.push(builder.build().parse(p.as_ref())?);
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/utf8.rs
+124:    match bytes.get(i) {
+187:    let b = match text.get(i) {
+188:        None => return i.checked_add(1).unwrap(),
+194:    i.checked_add(inc).unwrap()
+
+extracted/regex-automata-0.4.9/regex-automata-0.4.9/src/util/wire.rs
+392:    let padding = ((address & !(align - 1)).checked_add(align).unwrap())
+393:        .checked_sub(address)
+806:    match a.checked_mul(b) {
+821:    match a.checked_add(b) {
+838:    match a.checked_shl(amount) {
+
+extracted/regex-syntax-0.8.5/regex-syntax-0.8.5/src/ast/parse.rs
+383:        self.pos.set(Position { offset: 0, line: 1, column: 1 });
+384:        self.ignore_whitespace.set(self.initial_ignore_whitespace);
+417:        self.parser().pos.get().offset
+424:        self.parser().pos.get().line
+431:        self.parser().pos.get().column
+442:        let current = self.parser().capture_index.get();
+443:        let i = current.checked_add(1).ok_or_else(|| {
+446:        self.parser().capture_index.set(i);
+470:        self.parser().ignore_whitespace.get()
+499:            line = line.checked_add(1).unwrap();
+502:            column = column.checked_add(1).unwrap();
+505:        self.parser().pos.set(Position { offset, line, column });
+632:        self.parser().pos.get()
+644:            offset: self.offset().checked_add(self.char().len_utf8()).unwrap(),
+646:            column: self.column().checked_add(1).unwrap(),
+709:                    self.parser().ignore_whitespace.set(v);
+728:                self.parser().ignore_whitespace.set(new_ignore_whitespace);
+771:        self.parser().ignore_whitespace.set(ignore_whitespace);
+1640:            self.parser().pos.set(start);
+2121:            self.parser().pos.set(start);
+2125:            self.parser().pos.set(start);
+2131:                self.parser().pos.set(start);
+2138:            self.parser().pos.set(start);
+2143:            self.parser().pos.set(start);
+2149:                self.parser().pos.set(start);
+2284:        let new = self.depth.checked_add(1).ok_or_else(|| {
+2304:        self.depth = self.depth.checked_sub(1).unwrap();
+
+extracted/regex-syntax-0.8.5/regex-syntax-0.8.5/src/error.rs
+248:        let pad = self.line_number_width.checked_sub(n.len()).unwrap();
+
+extracted/regex-syntax-0.8.5/regex-syntax-0.8.5/src/hir/interval.rs
+531:        self.checked_add(1).unwrap()
+534:        self.checked_sub(1).unwrap()
+552:            c => char::from_u32(u32::from(c).checked_add(1).unwrap()).unwrap(),
+559:            c => char::from_u32(u32::from(c).checked_sub(1).unwrap()).unwrap(),
+
+extracted/regex-syntax-0.8.5/regex-syntax-0.8.5/src/hir/literal.rs
+793:        it.into_iter().map(|b| Literal::exact(b.as_ref())).collect()
+1288:        let lits2 = other.literals.as_mut().map(|lits| lits.drain(..));
+1547:        self.literals.as_ref().map(|lits| lits.len())
+1591:        self.literals.as_ref()?.iter().map(|x| x.len()).min()
+1599:        self.literals.as_ref()?.iter().map(|x| x.len()).max()
+2248:                    make_inexact.push(i.checked_sub(1).unwrap());
+2271:            return Err(idx.get());
+2278:                        return Err(idx.get());
+
+extracted/regex-syntax-0.8.5/regex-syntax-0.8.5/src/hir/mod.rs
+1176:        let first = self.ranges().get(0)?;
+1594:        usize::from(self.end.checked_sub(self.start).unwrap())
+1595:            .checked_add(1)
+2512:            child_max.checked_mul(rep_max)
+2623:                        props.maximum_len = maximum_len.checked_add(len)
+
+extracted/regex-syntax-0.8.5/regex-syntax-0.8.5/src/hir/translate.rs
+446:                self.trans().flags.set(old_flags);
+803:        self.trans().flags.get()
+812:        self.trans().flags.set(new_flags);
+
+extracted/regex-syntax-0.8.5/regex-syntax-0.8.5/src/unicode.rs
+143:        match self.get(c) {
+
+extracted/regex-syntax-0.8.5/regex-syntax-0.8.5/src/utf8.rs
+359:                if let Some(ascii_range) = r.as_ascii() {
+414:    fn as_ascii(&self) -> Option<Utf8Range> {
+
+extracted/runes/runes/src/bin.rs
+219:        self.exit_flag.get()
+228:        let mut ns = self.p1_button_state.get();
+235:                } => self.exit_flag.set(true),
+267:        self.p1_button_state.set(ns);
+686:                mapper.get_mut().load(&mut file);
+701:            mapper.get_mut().get_cart_mut().load_sram(&mut file);
+
+extracted/runes/runes/src/controller.rs
+49:            if self.strobe.get() {
+50:                self.reg.set(self.poller.poll());
+51:                self.reg.get() & 1
+53:                let old = self.reg.get();
+54:                self.reg.set(old >> 1);
+60:            self.strobe.set(data & 1 == 1);
+61:            if self.strobe.get() {
+62:                self.reg.set(self.poller.poll())
+
+extracted/runes/runes/src/mapper.rs
+29:        unsafe { *self.mapper.get() }
+37:        unsafe { &*self.mapper.get() }
+
+extracted/runes/runes/src/memory.rs
+79:        self.cpu_stall.set(self.cpu_stall.get() + delta)
+87:        let cpu_stall = self.cpu_stall.get();
+91:            self.cpu_stall.set(cpu_stall - 1)
+111:        self.nmi_after_tick.set(nmi_after_tick);
+230:                    if !ppu.try_nmi() && self.bus.nmi_after_tick.get() {
+284:            _ => self.mapper.get_mut().write(addr, data),
+388:        self.mapper.get_mut().write(addr, data)
+393:        self.mapper.get_mut().tick(bus)
+
+extracted/scriptful/scriptful/src/codecs/simple/dec.rs
+92:            .get(self.cursor)
+
+extracted/serde-1.0.219/serde-1.0.219/src/de/impls.rs
+1210:                if let Some(additional) = hint.checked_sub(self.0.len()) {
+1810:        Ok(v.as_ref())
+2203:            match secs.checked_add((nanos / NANOS_PER_SEC) as u64) {
+2342:            match secs.checked_add((nanos / NANOS_PER_SEC) as u64) {
+2420:            .checked_add(duration)
+
+extracted/serde-1.0.219/serde-1.0.219/src/ser/impls.rs
+627:                    self.get().serialize(serializer)
+661:        self.get().serialize(serializer)
+849:        match i.checked_add(1) {
+
+extracted/serde_derive-1.0.219/serde_derive-1.0.219/src/de.rs
+2441:        let fallthrough_borrowed_arm = fallthrough_borrowed.as_ref().unwrap_or(fallthrough_arm);
+
+extracted/serde_derive-1.0.219/serde_derive-1.0.219/src/internals/attr.rs
+56:            self.set(obj, value);
+86:        self.0.set(obj, ());
+281:                    ser_name.set_opt(&meta.path, ser.as_ref().map(Name::from));
+282:                    de_name.set_opt(&meta.path, de.as_ref().map(Name::from));
+290:                            Ok(rename_rule) => rename_all_ser_rule.set(&meta.path, rename_rule),
+296:                            Ok(rename_rule) => rename_all_de_rule.set(&meta.path, rename_rule),
+315:                                        rename_all_fields_ser_rule.set(&meta.path, rename_rule);
+323:                                        rename_all_fields_de_rule.set(&meta.path, rename_rule);
+355:                                        default.set(&meta.path, Default::Path(path));
+377:                                    default.set(meta.path, Default::Default);
+420:                                internal_tag.set(&meta.path, s.value());
+424:                                    internal_tag.set(&meta.path, s.value());
+442:                                content.set(&meta.path, s.value());
+473:                            remote.set(&meta.path, item.ident.clone().into());
+475:                            remote.set(&meta.path, path);
+487:                        serde_path.set(&meta.path, path);
+492:                        expecting.set(&meta.path, s.value());
+522:            transparent: transparent.get(),
+523:            deny_unknown_fields: deny_unknown_fields.get(),
+524:            default: default.get().unwrap_or(Default::None),
+526:                serialize: rename_all_ser_rule.get().unwrap_or(RenameRule::None),
+527:                deserialize: rename_all_de_rule.get().unwrap_or(RenameRule::None),
+530:                serialize: rename_all_fields_ser_rule.get().unwrap_or(RenameRule::None),
+531:                deserialize: rename_all_fields_de_rule.get().unwrap_or(RenameRule::None),
+533:            ser_bound: ser_bound.get(),
+534:            de_bound: de_bound.get(),
+536:            type_from: type_from.get(),
+537:            type_try_from: type_try_from.get(),
+538:            type_into: type_into.get(),
+539:            remote: remote.get(),
+541:            serde_path: serde_path.get(),
+543:            expecting: expecting.get(),
+573:        self.ser_bound.as_ref().map(|vec| &vec[..])
+577:        self.de_bound.as_ref().map(|vec| &vec[..])
+585:        self.type_from.as_ref()
+589:        self.type_try_from.as_ref()
+593:        self.type_into.as_ref()
+597:        self.remote.as_ref()
+609:        self.serde_path.as_ref()
+620:        self.expecting.as_ref().map(String::as_ref)
+786:                    ser_name.set_opt(&meta.path, ser.as_ref().map(Name::from));
+803:                            Ok(rename_rule) => rename_all_ser_rule.set(&meta.path, rename_rule),
+809:                            Ok(rename_rule) => rename_all_de_rule.set(&meta.path, rename_rule),
+844:                        serialize_with.set(&meta.path, ser_path);
+850:                        deserialize_with.set(&meta.path, de_path);
+855:                        serialize_with.set(&meta.path, path);
+860:                        deserialize_with.set(&meta.path, path);
+879:                            borrow.set(&meta.path, borrow_attribute);
+908:                serialize: rename_all_ser_rule.get().unwrap_or(RenameRule::None),
+909:                deserialize: rename_all_de_rule.get().unwrap_or(RenameRule::None),
+911:            ser_bound: ser_bound.get(),
+912:            de_bound: de_bound.get(),
+913:            skip_deserializing: skip_deserializing.get(),
+914:            skip_serializing: skip_serializing.get(),
+915:            other: other.get(),
+916:            serialize_with: serialize_with.get(),
+917:            deserialize_with: deserialize_with.get(),
+918:            borrow: borrow.get(),
+919:            untagged: untagged.get(),
+951:        self.ser_bound.as_ref().map(|vec| &vec[..])
+955:        self.de_bound.as_ref().map(|vec| &vec[..])
+971:        self.serialize_with.as_ref()
+975:        self.deserialize_with.as_ref()
+1051:        if let Some(borrow_attribute) = attrs.and_then(|variant| variant.borrow.as_ref()) {
+1061:                    borrowed_lifetimes.set(&borrow_attribute.path, lifetimes.clone());
+1063:                    borrowed_lifetimes.set(&borrow_attribute.path, borrowable);
+1084:                    ser_name.set_opt(&meta.path, ser.as_ref().map(Name::from));
+1098:                            default.set(&meta.path, Default::Path(path));
+1102:                        default.set(&meta.path, Default::Default);
+1117:                        skip_serializing_if.set(&meta.path, path);
+1122:                        serialize_with.set(&meta.path, path);
+1127:                        deserialize_with.set(&meta.path, path);
+1137:                        serialize_with.set(&meta.path, ser_path);
+1143:                        deserialize_with.set(&meta.path, de_path);
+1165:                            borrowed_lifetimes.set(&meta.path, lifetimes);
+1170:                            borrowed_lifetimes.set(&meta.path, borrowable);
+1176:                        getter.set(&meta.path, path);
+1202:        let mut borrowed_lifetimes = borrowed_lifetimes.get().unwrap_or_default();
+1256:            skip_serializing: skip_serializing.get(),
+1257:            skip_deserializing: skip_deserializing.get(),
+1258:            skip_serializing_if: skip_serializing_if.get(),
+1259:            default: default.get().unwrap_or(Default::None),
+1260:            serialize_with: serialize_with.get(),
+1261:            deserialize_with: deserialize_with.get(),
+1262:            ser_bound: ser_bound.get(),
+1263:            de_bound: de_bound.get(),
+1265:            getter: getter.get(),
+1266:            flatten: flatten.get(),
+1302:        self.skip_serializing_if.as_ref()
+1310:        self.serialize_with.as_ref()
+1314:        self.deserialize_with.as_ref()
+1318:        self.ser_bound.as_ref().map(|vec| &vec[..])
+1322:        self.de_bound.as_ref().map(|vec| &vec[..])
+1330:        self.getter.as_ref()
+1407:    Ok((ser.at_most_one(), de.get()))
+
+extracted/serde_derive-1.0.219/serde_derive-1.0.219/src/internals/ctxt.rs
+34:            .as_mut()
+42:        self.errors.borrow_mut().as_mut().unwrap().push(err);
+
+extracted/serde_derive-1.0.219/serde_derive-1.0.219/src/internals/name.rs
+26:            for alias_name in de_aliases.get() {
+31:        let ser_name = ser_name.get();
+33:        let de_name = de_name.get();
+
+extracted/serde_json-1.0.141/serde_json-1.0.141/src/de.rs
+647:            match POW10.get(exponent.wrapping_abs() as usize) {
+826:        if let Some(zeros) = fraction_digits.checked_sub(significand.len() + 1) {
+
+extracted/serde_json-1.0.141/serde_json-1.0.141/src/lexical/algorithm.rs
+54:        let value = match mantissa.checked_mul(power) {
+
+extracted/serde_json-1.0.141/serde_json-1.0.141/src/lexical/digit.rs
+14:    match value.checked_mul(10) {
+16:        Some(n) => n.checked_add(digit as u64),
+
+extracted/serde_json-1.0.141/serde_json-1.0.141/src/lexical/math.rs
+143:        match self.as_ref().len() {
+457:        bits.checked_mul(x.len())
+
+extracted/serde_json-1.0.141/serde_json-1.0.141/src/map.rs
+78:        self.map.get(key)
+104:        self.map.get_mut(key)
+479:        self.map.get_mut(index).expect("no entry found for key")
+737:                f(entry.get_mut());
+839:        self.occupied.get()
+865:        self.occupied.get_mut()
+
+extracted/serde_json-1.0.141/serde_json-1.0.141/src/value/de.rs
+134:                        crate::from_str(value.get()).map_err(de::Error::custom)
+
+extracted/serde_json-1.0.141/serde_json-1.0.141/src/value/index.rs
+57:            Value::Array(vec) => vec.get(*self),
+63:            Value::Array(vec) => vec.get_mut(*self),
+71:                vec.get_mut(*self).unwrap_or_else(|| {
+86:            Value::Object(map) => map.get(self),
+92:            Value::Object(map) => map.get_mut(self),
+
+extracted/serde_json-1.0.141/serde_json-1.0.141/src/value/mod.rs
+791:                Value::Object(map) => map.get(&token),
+792:                Value::Array(list) => parse_index(&token).and_then(|x| list.get(x)),
+846:                Value::Object(map) => map.get_mut(&token),
+847:                Value::Array(list) => parse_index(&token).and_then(move |x| list.get_mut(x)),
+
+extracted/syn-2.0.104/syn-2.0.104/src/discouraged.rs
+179:                    self_unexp.set(Unexpected::Some(span, delimiter));
+183:                    fork_unexp.set(Unexpected::Chain(self_unexp));
+190:                        .set(Some(Rc::new(Cell::new(Unexpected::None))));
+199:            .set(unsafe { mem::transmute::<Cursor, Cursor<'static>>(fork.cursor()) });
+
+extracted/syn-2.0.104/syn-2.0.104/src/error.rs
+211:        let SpanRange { start, end } = match self.messages[0].span.get() {
+277:        let (start, end) = match self.span.get() {
+
+extracted/syn-2.0.104/syn-2.0.104/src/expr.rs
+2273:                *prev.else_branch.as_mut().unwrap().1 = Expr::If(expr);
+
+extracted/syn-2.0.104/syn-2.0.104/src/generics.rs
+180:            self.where_clause.as_ref(),
+
+extracted/syn-2.0.104/syn-2.0.104/src/item.rs
+853:        self.reference.as_ref()?.1.as_ref()
+1678:                if let Some((ampersand, lifetime)) = reference.as_ref() {
+1682:                        mutability: mutability.as_ref().map(|m| Token![mut](m.span)),
+
+extracted/syn-2.0.104/syn-2.0.104/src/lit.rs
+1263:        let s = s.as_ref();
+1778:        match bytes.get(start)? {
+
+extracted/syn-2.0.104/syn-2.0.104/src/parse.rs
+270:                inner.set(Unexpected::Some(unexpected_span, delimiter));
+426:    cell.set(prev);
+1077:            cursor: self.cell.get(),
+1080:        self.cell.set(rest);
+1154:        self.cell.get()
+
+extracted/syn-2.0.104/syn-2.0.104/src/punctuated.rs
+97:        if let Some((value, _punct)) = self.inner.get(index) {
+109:        if let Some((value, _punct)) = self.inner.get_mut(index) {
+123:                last: self.last.as_ref().map(Box::as_ref).into_iter(),
+134:                last: self.last.as_mut().map(Box::as_mut).into_iter(),
+144:            last: self.last.as_ref().map(Box::as_ref).into_iter(),
+153:            last: self.last.as_mut().map(Box::as_mut).into_iter(),
+
+extracted/syn-2.0.104/syn-2.0.104/src/thread.rs
+39:        match self.get() {

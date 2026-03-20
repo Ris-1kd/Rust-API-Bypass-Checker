@@ -1,0 +1,67 @@
+extracted/bitflags-2.9.1/bitflags-2.9.1/src/iter.rs
+111:        while let Some(flag) = self.flags.get(self.idx) {
+
+extracted/indexmap-2.10.0/indexmap-2.10.0/src/map.rs
+1247:        self.as_entries().get(index).map(Bucket::refs)
+1256:        self.as_entries_mut().get_mut(index).map(Bucket::ref_mut)
+1296:        entries.get(range).map(Slice::from_slice)
+1307:        entries.get_mut(range).map(Slice::from_mut_slice)
+1351:        self.get_index_entry(self.len().checked_sub(1)?)
+1438:        self.get(key).expect("no entry found for key")
+1480:        self.get_mut(key).expect("no entry found for key")
+1687:            .all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
+
+extracted/indexmap-2.10.0/indexmap-2.10.0/src/map/slice.rs
+78:        self.entries.get(index).map(Bucket::refs)
+85:        self.entries.get_mut(index).map(Bucket::ref_mut)
+93:        self.entries.get(range).map(Slice::from_slice)
+101:        self.entries.get_mut(range).map(Slice::from_mut_slice)
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/kmerge_impl.rs
+89:        heap.swap(pos, child);
+96:        heap.swap(pos, child);
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/merge_join.rs
+143:            (Some(x), Some(y)) => x.checked_add(y),
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/peek_nth.rs
+76:        self.buf.get(n)
+117:        self.buf.get_mut(n)
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/permutations.rs
+150:            indices.swap(i, swap_index);
+163:            let total = (n - k + 1..=n).try_fold(1usize, |acc, i| acc.checked_mul(i));
+178:                    acc.checked_mul(indices.len() - i)
+179:                        .and_then(|count| count.checked_add(c))
+
+
+extracted/itertools-0.14.0/itertools-0.14.0/src/size_hint.rs
+14:        (Some(x), Some(y)) => x.checked_add(y),
+26:    hi = hi.and_then(|elt| elt.checked_add(x));
+44:        (Some(x), Some(y)) => x.checked_mul(y),
+56:    hi = hi.and_then(|elt| elt.checked_mul(x));
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/arch/all/packedpair/mod.rs
+83:            let aligned1 = match found.checked_sub(index1) {
+90:            let aligned2 = match aligned1.checked_add(index2) {
+94:            if haystack.get(aligned2).map_or(true, |&b| b != self.byte2) {
+
+extracted/memchr-2.7.5/memchr-2.7.5/src/arch/all/twoway.rs
+183:        let last_byte_pos = match needle.len().checked_sub(1) {
+189:            if let Some(pre) = pre.as_mut() {
+234:        let last_byte_pos = match needle.len().checked_sub(1) {
+239:            if let Some(pre) = pre.as_mut() {
+326:        let first_byte = match needle.get(0) {
+367:        let first_byte = match needle.get(0) {
+554:        let mut candidate_start = match needle.len().checked_sub(1) {
+
+extracted/rand-0.9.2/rand-0.9.2/src/seq/index.rs
+481:        indices.swap(i as usize, j as usize);
+
+extracted/rand-0.9.2/rand-0.9.2/src/seq/iterator.rs
+222:            if let Some(slot) = buf.get_mut(k) {
+258:                if let Some(slot) = reservoir.get_mut(k) {
+
+extracted/rand-0.9.2/rand-0.9.2/src/seq/slice.rs
+403:                self.swap(i, index);
+408:                self.swap(i, index);

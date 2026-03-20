@@ -1,0 +1,109 @@
+# index
+
+as_ascii
+from_u32
+new
+swap
+split_at_checked
+split_at_mut_checked
+get
+get_mut
+test
+set
+from_size_align
+
+
+# nonzero
+
+as_chunks
+as_chunks_mut
+new
+from_mut
+
+# nullptr
+
+as_ref
+as_mut
+new
+
+# overflow
+
+checked_add
+checked_neg
+checked_sub
+checked_mul
+checked_shl
+checked_shr
+
+# String
+
+from_bytes_with_nul
+from_utf8
+from_utf8_mut
+from_vec_nul
+
+# Option
+
+unwrap
+unwrap_err
+unwrap_or
+
+# type 
+downcast
+downcast_ref
+downcast_mut
+
+# index
+
+        "as_ascii",
+        "from_u32",
+        "new",
+        "swap",
+        "split_at_checked",
+        "split_at_mut_checked",
+        "get",
+        "get_mut",
+        "test",
+        "set",
+        "from_size_align",
+
+
+        # nonzero
+
+        "as_chunks",
+        "as_chunks_mut",
+        "new",
+        "from_mut",
+
+        # nullptr
+
+        "as_ref",
+        "as_mut",
+        "new",
+
+        # overflow
+
+        "checked_add",
+        "checked_neg",
+        "checked_sub",
+        "checked_mul",
+        "checked_shl",
+        "checked_shr",
+
+        # String
+
+        "from_bytes_with_nul",
+        "from_utf8",
+        "from_utf8_mut",
+        "from_vec_nul",
+
+        # Option
+
+        "unwrap",
+        "unwrap_err",
+        "unwrap_or",
+
+        # type 
+        "downcast",
+        "downcast_ref",
+        "downcast_mut",
