@@ -1,6 +1,6 @@
 use crate::analysis::memory::constant_value::ConstantValue;
 use crate::analysis::memory::expression::Expression;
-use crate::analysis::memory::path::Path;
+use crate::analysis::memory::path::{Path, PathEnum};
 use crate::analysis::memory::symbolic_domain::SymbolicDomain;
 use crate::analysis::memory::symbolic_value::{SymbolicValue, SymbolicValueTrait};
 use crate::analysis::numerical::apron_domain::{
@@ -79,6 +79,39 @@ where
         let s = self.symbolic_domain.get_paths_iter();
         n.iter().merge(s.iter()).unique().cloned().collect()
     }
+
+    /// Drop all local/parameter variables that belong to callee call frames created with a fresh
+    /// variable offset >= `cutoff_ordinal`.
+    ///
+    /// This is critical to avoid unbounded growth of the symbolic/numerical domains when calls
+    /// occur inside loops (each call uses a new fresh offset, creating a new namespace).
+    /// 
+    /// 该函数是gpt生成用来进行清理symbolic domain中的重复参数调用的
+    pub fn drop_call_frame_vars_from(&mut self, cutoff_ordinal: usize) {
+        fn root_ordinal_if_local_or_param(path: &Rc<Path>) -> Option<usize> {
+            match &path.value {
+                PathEnum::QualifiedPath { qualifier, .. } => root_ordinal_if_local_or_param(qualifier),
+                PathEnum::LocalVariable { ordinal } => Some(*ordinal),
+                PathEnum::Parameter { ordinal } => Some(*ordinal),
+                _ => None,
+            }
+        }
+
+        // NOTE: use get_paths_iter() to cover BOTH symbolic-domain keys and numerical-domain vars.
+        let to_remove: Vec<Rc<Path>> = self
+            .get_paths_iter()
+            .into_iter()
+            .filter(|p| matches!(root_ordinal_if_local_or_param(p), Some(o) if o >= cutoff_ordinal))
+            .collect();
+
+        for p in to_remove {
+            self.remove(&p); // forget in both symbolic and numerical domains
+        }
+
+        // Exit conditions from the callee must not leak into the caller.
+        self.exit_conditions.clear();
+    }
+
 
     pub fn remove(&mut self, path: &Rc<Path>) {
         self.symbolic_domain.forget(path);
