@@ -173,7 +173,7 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
         info!("The final current state of user's crate: {:?}", wto_visitor.state);
         info!("The function we care: {:?}", wto_visitor.replace_funcs);
 
-        let temp:Vec<FuncHandler> = wto_visitor.replace_funcs.into_iter().collect();
+        let temp:Vec<FuncHandler> = wto_visitor.replace_funcs.clone().into_iter().collect();
         if !temp.is_empty() {
             let temp_path = temp[0].args[1].0.clone();
             let temp_numerical_domain = wto_visitor.state.numerical_domain.clone();
@@ -183,7 +183,7 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
             info!("No function handlers found in replace_funcs");
         }
         // Execute bug detector
-        // wto_visitor.run_checker();
+        wto_visitor.run_checker();
 
         debug!(
             "{} diagnositcs for function {:?}",
