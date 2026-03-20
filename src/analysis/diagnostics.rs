@@ -105,7 +105,17 @@ impl<'compiler> Default for DiagnosticsForDefId<'compiler> {
 }
 
 impl<'compiler> DiagnosticsForDefId<'compiler> {
-    pub fn insert(&mut self, id: DefId, diags: Vec<Option<Diagnostic<'compiler>>>) {
-        self.map.insert(id, diags);
+    // pub fn insert(&mut self, id: DefId, diags: Vec<Option<Diagnostic<'compiler>>>) {
+    //     self.map.insert(id, diags);
+    // }
+
+    // gpt修改
+    pub fn insert(&mut self, id: DefId, mut diags: Vec<Option<Diagnostic<'compiler>>>) {
+        if let Some(existing) = self.map.get_mut(&id) {
+            existing.append(&mut diags);
+        } else {
+            self.map.insert(id, diags);
+        }
     }
+
 }
