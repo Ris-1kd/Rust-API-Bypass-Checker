@@ -574,7 +574,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rust-mir-checker"
+name = "rust-api-bypass"
 version = "0.1.0"
 dependencies = [
  "apron-sys",

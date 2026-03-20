@@ -1,18 +1,18 @@
 [package]
-name = "rust-mir-checker"
+name = "rust-api-bypass"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "cargo-mir-checker"
-path = "src/bin/cargo-mir-checker.rs"
+name = "cargo-api-bypass"
+path = "src/bin/cargo-api-bypass.rs"
 
 
 [[bin]]
-name = "mir-checker"
-path = "src/bin/mir-checker.rs"
+name = "api-bypass"
+path = "src/bin/api-bypass.rs"
 
 [package.metadata.rust-analyzer]
 rustc_private = true

@@ -44,7 +44,7 @@ fn main() {
                     .map(|x| x.as_str().expect("argv must be string").to_string())
                     .collect::<Vec<_>>();
 
-                let code = rust_mir_checker::driver::run_with_rustc_args(argv);
+                let code = rust_api_bypass::driver::run_with_rustc_args(argv);
                 std::process::exit(code);
             }
         }
@@ -68,7 +68,7 @@ fn main() {
         full.extend(rustc_args);
 
         std::env::set_var("MIR_CHECKER_BE_RUSTC", "1");
-        let code = rust_mir_checker::driver::run_with_rustc_args(full);
+        let code = rust_api_bypass::driver::run_with_rustc_args(full);
         std::env::remove_var("MIR_CHECKER_BE_RUSTC");
 
         std::process::exit(code);
@@ -94,7 +94,7 @@ fn main() {
         dump_invocation(&dump_path, &full);
     }
 
-    let code = rust_mir_checker::driver::run_with_rustc_args(full);
+    let code = rust_api_bypass::driver::run_with_rustc_args(full);
     std::process::exit(code);
 }
 

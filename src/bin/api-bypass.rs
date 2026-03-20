@@ -9,8 +9,7 @@ extern crate rustc_session;
 
 use log::info;
 
-use rust_mir_checker::analysis::option;
-use rust_mir_checker::{analysis, utils};
+use rust_api_bypass::analysis;
 // use rustc_errors::EarlyErrorHandler;
 use rustc_session::config::ErrorOutputType;
 use rustc_session::EarlyDiagCtxt;
@@ -93,5 +92,5 @@ pub const EXIT_FAILURE: i32 = 1;
 
 
 fn main(){
-    std::process::exit(rust_mir_checker::driver::run_from_env_args());
+    std::process::exit(rust_api_bypass::driver::run_from_env_args());
 }
