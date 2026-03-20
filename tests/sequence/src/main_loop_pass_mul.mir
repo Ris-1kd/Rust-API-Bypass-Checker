@@ -1,0 +1,166 @@
+// WARNING: This output format is intended for human consumers only
+// and is subject to change without notice. Knock yourself out.
+fn main() -> () {
+    let mut _0: ();
+    let _1: [i32; 3];
+    let mut _6: bool;
+    let mut _7: usize;
+    let mut _8: usize;
+    let mut _10: &[i32];
+    let mut _11: &[i32; 3];
+    let mut _12: usize;
+    let mut _13: usize;
+    let mut _14: (usize, bool);
+    let mut _15: i32;
+    let mut _16: (i32, bool);
+    let mut _17: bool;
+    let mut _18: usize;
+    let mut _19: usize;
+    let mut _21: &[i32];
+    let mut _22: &[i32; 5];
+    let mut _23: usize;
+    let mut _24: usize;
+    let mut _25: (usize, bool);
+    let mut _26: i32;
+    let mut _27: (i32, bool);
+    let _28: ();
+    let mut _29: std::fmt::Arguments<'_>;
+    let _30: &[&str; 2];
+    let _31: &[core::fmt::rt::Argument<'_>; 1];
+    let _32: [core::fmt::rt::Argument<'_>; 1];
+    let mut _33: core::fmt::rt::Argument<'_>;
+    let _34: &i32;
+    scope 1 {
+        debug a => _1;
+        let _2: [i32; 5];
+        scope 2 {
+            debug b => _2;
+            let mut _3: usize;
+            scope 3 {
+                debug i => _3;
+                let mut _4: usize;
+                scope 4 {
+                    debug index => _4;
+                    let mut _5: i32;
+                    scope 5 {
+                        debug mul => _5;
+                        let _9: std::option::Option<&i32>;
+                        let _20: std::option::Option<&i32>;
+                        scope 6 {
+                            debug _a => _9;
+                        }
+                        scope 7 {
+                            debug _b => _20;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    bb0: {
+        _1 = [const 1_i32, const 2_i32, const 3_i32];
+        _2 = [const 1_i32, const 2_i32, const 3_i32, const 4_i32, const 5_i32];
+        _3 = const 0_usize;
+        _4 = const 0_usize;
+        _5 = const 1_i32;
+        goto -> bb1;
+    }
+
+    bb1: {
+        _7 = copy _3;
+        _6 = Lt(move _7, const 3_usize);
+        switchInt(move _6) -> [0: bb6, otherwise: bb2];
+    }
+
+    bb2: {
+        _8 = copy _3;
+        _4 = move _8;
+        _11 = &_1;
+        _10 = move _11 as &[i32] (PointerCoercion(Unsize, Implicit));
+        _12 = copy _4;
+        _9 = core::slice::<impl [i32]>::get::<usize>(move _10, move _12) -> [return: bb3, unwind continue];
+    }
+
+    bb3: {
+        _13 = copy _3;
+        _14 = AddWithOverflow(copy _13, const 1_usize);
+        assert(!move (_14.1: bool), "attempt to compute `{} + {}`, which would overflow", move _13, const 1_usize) -> [success: bb4, unwind continue];
+    }
+
+    bb4: {
+        _3 = move (_14.0: usize);
+        _15 = copy _5;
+        _16 = MulWithOverflow(copy _15, const 2_i32);
+        assert(!move (_16.1: bool), "attempt to compute `{} * {}`, which would overflow", move _15, const 2_i32) -> [success: bb5, unwind continue];
+    }
+
+    bb5: {
+        _5 = move (_16.0: i32);
+        goto -> bb1;
+    }
+
+    bb6: {
+        _18 = copy _3;
+        _17 = Lt(move _18, const 6_usize);
+        switchInt(move _17) -> [0: bb11, otherwise: bb7];
+    }
+
+    bb7: {
+        _19 = copy _3;
+        _4 = move _19;
+        _22 = &_2;
+        _21 = move _22 as &[i32] (PointerCoercion(Unsize, Implicit));
+        _23 = copy _4;
+        _20 = core::slice::<impl [i32]>::get::<usize>(move _21, move _23) -> [return: bb8, unwind continue];
+    }
+
+    bb8: {
+        _24 = copy _3;
+        _25 = AddWithOverflow(copy _24, const 1_usize);
+        assert(!move (_25.1: bool), "attempt to compute `{} + {}`, which would overflow", move _24, const 1_usize) -> [success: bb9, unwind continue];
+    }
+
+    bb9: {
+        _3 = move (_25.0: usize);
+        _26 = copy _5;
+        _27 = MulWithOverflow(copy _26, const 2_i32);
+        assert(!move (_27.1: bool), "attempt to compute `{} * {}`, which would overflow", move _26, const 2_i32) -> [success: bb10, unwind continue];
+    }
+
+    bb10: {
+        _5 = move (_27.0: i32);
+        goto -> bb6;
+    }
+
+    bb11: {
+        _30 = const main::promoted[0];
+        _34 = &_5;
+        _33 = core::fmt::rt::Argument::<'_>::new_display::<i32>(copy _34) -> [return: bb12, unwind continue];
+    }
+
+    bb12: {
+        _32 = [move _33];
+        _31 = &_32;
+        _29 = Arguments::<'_>::new_v1::<2, 1>(copy _30, copy _31) -> [return: bb13, unwind continue];
+    }
+
+    bb13: {
+        _28 = _print(move _29) -> [return: bb14, unwind continue];
+    }
+
+    bb14: {
+        return;
+    }
+}
+
+const main::promoted[0]: &[&str; 2] = {
+    let mut _0: &[&str; 2];
+    let mut _1: [&str; 2];
+
+    bb0: {
+        _1 = [const "The final mul is: ", const "\n"];
+        _0 = &_1;
+        return;
+    }
+}
