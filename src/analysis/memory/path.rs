@@ -148,6 +148,9 @@ impl PartialOrd for PathEnum {
         }
         use PathEnum::*;
         match (self, other) {
+            // 该分支是gpt生成的用于处理apron_domain产生"no entry found for key" bug, 不一定有用
+            (Alias { value: lhs }, Alias { value: rhs }) => lhs.partial_cmp(rhs),
+            
             (HeapBlock { value: lhs }, HeapBlock { value: rhs }) => lhs.partial_cmp(rhs),
             (
                 LocalVariable {
