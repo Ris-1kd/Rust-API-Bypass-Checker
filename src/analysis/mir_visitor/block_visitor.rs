@@ -1258,29 +1258,29 @@ where
             dropped_path, dropped_val, related_heap
         );
 
-        if let Some(related_heap) = related_heap {
-            if self
-                .body_visitor
-                .context
-                .dropped_heaps
-                .contains(&related_heap)
-            {
-                let warning = self.body_visitor.context.session.dcx().struct_span_warn(
-                    self.body_visitor.current_span,
-                    format!(
-                        "[MirChecker] Possible error: double-free or use-after-free for {:?}",
-                        self.body_visitor.get_var_name(&mir::Operand::Move(*place))
-                    ),
-                );
-                self.body_visitor
-                    .emit_diagnostic(warning, true, DiagnosticCause::Memory);
-            } else {
-                self.body_visitor
-                    .context
-                    .dropped_heaps
-                    .insert(related_heap.clone());
-            }
-        }
+        // if let Some(related_heap) = related_heap {
+        //     if self
+        //         .body_visitor
+        //         .context
+        //         .dropped_heaps
+        //         .contains(&related_heap)
+        //     {
+        //         let warning = self.body_visitor.context.session.dcx().struct_span_warn(
+        //             self.body_visitor.current_span,
+        //             format!(
+        //                 "[MirChecker] Possible error: double-free or use-after-free for {:?}",
+        //                 self.body_visitor.get_var_name(&mir::Operand::Move(*place))
+        //             ),
+        //         );
+        //         self.body_visitor
+        //             .emit_diagnostic(warning, true, DiagnosticCause::Memory);
+        //     } else {
+        //         self.body_visitor
+        //             .context
+        //             .dropped_heaps
+        //             .insert(related_heap.clone());
+        //     }
+        // }
     }
 
     /// Block ends with the call of a function.
