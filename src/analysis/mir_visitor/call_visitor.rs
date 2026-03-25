@@ -727,7 +727,7 @@ where
                 body_visitor.current_span,
                 format!("[MirChecker] Possible error: run into panic code"),
             );
-            // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Panic);
+            body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Panic);
         }
     }
 
@@ -1549,7 +1549,7 @@ where
                     format!("[MirChecker] Provably error: index out of bound",),
                 );
                 // error.emit();
-                // body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
+                body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
                 //return;
             }
             CheckerResult::Warning => {
@@ -1558,7 +1558,7 @@ where
                     format!("[MirChecker] Possible error: index out of bound"),
                 );
                 // warning.emit();
-                // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
         }
 
@@ -1633,7 +1633,7 @@ where
                     format!("[MirChecker] Provably error: index out of bound",),
                 );
                 // error.emit();
-                // body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
+                body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
                 //return;
             }
             CheckerResult::Warning => {
@@ -1642,7 +1642,7 @@ where
                     format!("[MirChecker] Possible error: index out of bound"),
                 );
                 // warning.emit();
-                // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
         }
 
@@ -1811,7 +1811,7 @@ where
                     format!("[MirChecker] Provably error: index out of bound",),
                 );
                 // error.emit();
-                // body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
+                body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
                 //return;
             }
             CheckerResult::Warning => {
@@ -1820,7 +1820,7 @@ where
                     format!("[MirChecker] Possible error: index out of bound"),
                 );
                 // warning.emit();
-                // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
         }
         result.clone()
