@@ -706,9 +706,9 @@ where
         // The source
         let source = self.args[0].clone();
         if let Some(taint_sources) = block_visitor.extract_local_from_operand(&source.node) {
-            for local in taint_sources {
+            // for local in taint_sources {
                 // block_visitor.body_visitor.tainted_variables.insert(local);
-            }
+            // }
         }
 
         // The destination
@@ -873,7 +873,7 @@ where
                 self.block_visitor.body_visitor.current_span,
                 format!("[MirChecker] Possible error: the ptr from different object"),
             );
-        // warning.emit();
+        warning.emit();
         return true;
     }
 
