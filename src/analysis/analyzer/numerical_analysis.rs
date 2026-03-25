@@ -6,9 +6,7 @@ use crate::analysis::global_context::GlobalContext;
 use crate::analysis::mir_visitor::body_visitor::WtoFixPointIterator;
 use crate::analysis::mir_visitor::func_handler::FuncHandler;
 use crate::analysis::numerical::apron_domain::{
-    ApronAbstractDomain, ApronDomainType, ApronInterval, ApronLinearEqualities, ApronOctagon,
-    ApronPkgridPolyhedraLinCongruences, ApronPolyhedra, ApronPplLinearCongruences,
-    ApronPplPolyhedra, GetManagerTrait,
+    ApronAbstractDomain, ApronDomainType, ApronInterval, GetManagerTrait,
 };
 use crate::analysis::option::AbstractDomainType;
 use log::info;
@@ -64,24 +62,7 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
             } else {
                 diagnostics.into_iter().collect()
             };
-
-        // According to `memory_safety_only` flag, filter only memory-safety diagnosis
-        // Cancel other diagnoses that will not be emitted
-        let diagnostics_to_emit: Vec<Diagnostic<'_>> =
-            if self.context.analysis_options.memory_safety_only {
-                let mut res: Vec<Diagnostic<'_>> = Vec::new();
-                for diag in diagnostics.into_iter() {
-                    if diag.is_memory_safety {
-                        res.push(diag);
-                    } else {
-                        diag.cancel();
-                        //diag.emit();
-                    }
-                }
-                res
-            } else {
-                diagnostics.into_iter().collect()
-            };
+        let diagnostics_to_emit: Vec<Diagnostic<'_>> = diagnostics.into_iter().collect();
 
         fn emit(db: Diagnostic<'_>) {
             db.emit();
@@ -114,30 +95,31 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
             AbstractDomainType::Interval => {
                 self.analyze_function(def_id, AbstractDomain::<ApronInterval>::default());
             }
-            AbstractDomainType::Octagon => {
-                self.analyze_function(def_id, AbstractDomain::<ApronOctagon>::default());
-            }
-            AbstractDomainType::Polyhedra => {
-                self.analyze_function(def_id, AbstractDomain::<ApronPolyhedra>::default());
-            }
-            AbstractDomainType::LinearEqualities => {
-                self.analyze_function(def_id, AbstractDomain::<ApronLinearEqualities>::default());
-            }
-            AbstractDomainType::PplPolyhedra => {
-                self.analyze_function(def_id, AbstractDomain::<ApronPplPolyhedra>::default());
-            }
-            AbstractDomainType::PplLinearCongruences => {
-                self.analyze_function(
-                    def_id,
-                    AbstractDomain::<ApronPplLinearCongruences>::default(),
-                );
-            }
-            AbstractDomainType::PkgridPolyhedraLinCongruences => {
-                self.analyze_function(
-                    def_id,
-                    AbstractDomain::<ApronPkgridPolyhedraLinCongruences>::default(),
-                );
-            }
+            // AbstractDomainType::Octagon => {
+            //     self.analyze_function(def_id, AbstractDomain::<ApronOctagon>::default());
+            // }
+            // AbstractDomainType::Polyhedra => {
+            //     self.analyze_function(def_id, AbstractDomain::<ApronPolyhedra>::default());
+            // }
+            // AbstractDomainType::LinearEqualities => {
+            //     self.analyze_function(def_id, AbstractDomain::<ApronLinearEqualities>::default());
+            // }
+            // AbstractDomainType::PplPolyhedra => {
+            //     self.analyze_function(def_id, AbstractDomain::<ApronPplPolyhedra>::default());
+            // }
+            // AbstractDomainType::PplLinearCongruences => {
+            //     self.analyze_function(
+            //         def_id,
+            //         AbstractDomain::<ApronPplLinearCongruences>::default(),
+            //     );
+            // }
+            // AbstractDomainType::PkgridPolyhedraLinCongruences => {
+            //     self.analyze_function(
+            //         def_id,
+            //         AbstractDomain::<ApronPkgridPolyhedraLinCongruences>::default(),
+            //     );
+            // }
+            __ => {}
         }
 
         info!("================== Numerical Analysis Ends ==================");
