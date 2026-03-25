@@ -14,33 +14,33 @@ pub enum AbstractDomainType {
 
 #[derive(Clone, Debug)]
 pub struct AnalysisOption {
-    pub entry_point: String,
+
+    // 移除, 分析指定入口用index明确指定 或者auto 二选一
+    // pub entry_point: String,
+
     pub entry_def_id_index: Option<u32>,
+    pub auto_analysis: bool,
     pub domain_type: AbstractDomainType,
     pub widening_delay: u32,
     pub cleaning_delay: usize,
     pub narrowing_iteration: u32,
-    pub show_entries: bool,
-    pub show_entries_index: bool,
+    pub show_all_entries: bool,
     pub deny_warnings: bool,
-    pub memory_safety_only: bool,
-    pub suppressed_warnings: Option<Vec<DiagnosticCause>>,
+    pub suppressed_warnings: Option<Vec<DiagnosticCause>>,    
 }
 
 impl Default for AnalysisOption {
     fn default() -> Self {
         Self {
-            entry_point: String::from("main"),
             entry_def_id_index: None,
             domain_type: AbstractDomainType::Interval,
             widening_delay: 5,
             cleaning_delay: 5,
             narrowing_iteration: 5,
-            show_entries: false,
-            show_entries_index: false,
+            show_all_entries: false,
             deny_warnings: false,
-            memory_safety_only: false,
             suppressed_warnings: None,
+            auto_analysis: false,
         }
     }
 }
@@ -52,20 +52,12 @@ impl AnalysisOption {
         for (i, arg) in args.iter().enumerate() {
             if arg.starts_with("--") {
                 match &arg[2..] {
-                    "show_entries" => {
-                        res.show_entries = true;
-                        indeices_to_remove.push(i);
-                    }
-                    "show_entries_index" => {
-                        res.show_entries_index = true;
+                    "show_all_entries" => {
+                        res.show_all_entries = true;
                         indeices_to_remove.push(i);
                     }
                     "deny_warnings" => {
                         res.deny_warnings = true;
-                        indeices_to_remove.push(i);
-                    }
-                    "memory_safety_only" => {
-                        res.memory_safety_only = true;
                         indeices_to_remove.push(i);
                     }
                     "domain" => {
@@ -77,11 +69,6 @@ impl AnalysisOption {
                         indeices_to_remove.push(i);
                         indeices_to_remove.push(i + 1);
                     }
-                    "entry" => {
-                        res.entry_point = args[i + 1].clone();
-                        indeices_to_remove.push(i);
-                        indeices_to_remove.push(i + 1);
-                    }
                     "entry_def_id_index" => {
                         if let Ok(def_id_index) = args[i + 1].parse() {
                             res.entry_def_id_index = Some(def_id_index);
@@ -90,6 +77,10 @@ impl AnalysisOption {
                         }
                         indeices_to_remove.push(i);
                         indeices_to_remove.push(i + 1);
+                    }
+                    "auto_analysis" => {
+                        res.auto_analysis = true;
+                        indeices_to_remove.push(i);
                     }
                     "widening_delay" => {
                         if let Ok(widening_delay) = args[i + 1].parse() {
