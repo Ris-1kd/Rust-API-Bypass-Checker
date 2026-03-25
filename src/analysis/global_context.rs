@@ -1,10 +1,11 @@
 use crate::analysis::diagnostics::DiagnosticsForDefId;
 use crate::analysis::memory::symbolic_value::SymbolicValue;
+use crate::rustc_middle::ty;
 use crate::analysis::option::AnalysisOption;
 use crate::analysis::wto::Wto;
 use log::{debug, info};
 use rustc_hir::def::DefKind;
-use rustc_hir::def_id::DefId;
+use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_middle::ty::TyCtxt;
 use rustc_session::Session;
 use std::collections::{HashMap, HashSet};
@@ -34,6 +35,16 @@ impl<'tcx> Default for WtoCache<'tcx> {
     }
 }
 
+// 用一个非pub的struct存储一下遍历函数列表的时候需要记录的内容
+#[derive(Debug)]
+struct FuncInfo {
+    pub def_id: DefId,
+    pub def_id_index: u32,
+    pub def_kind: DefKind,
+    pub func_name: String,
+    pub is_builtin_derive: bool,
+}
+
 /// Stores the global information of the analysis
 pub struct GlobalContext<'tcx, 'compilation> {
     /// The central data structure of the compiler
@@ -45,11 +56,11 @@ pub struct GlobalContext<'tcx, 'compilation> {
     /// The entry function of the analysis
     pub entry_point: DefId,
 
+    /// All the reachable entry points in auto mode.
+    pub reachable_entries: Vec<DefId>,
+
     /// Stores the DefIds that have been already checked, to avoid redundant check
     pub checked_def_ids: HashSet<DefId>,
-
-    /// Stores the Heaps that have been already dropped, to detect double-free, use-after-free, etc.
-    pub dropped_heaps: HashSet<Rc<SymbolicValue>>,
 
     /// Cache for the Weak Topological Ordering
     pub wto_cache: WtoCache<'tcx>,
@@ -76,112 +87,77 @@ impl<'tcx, 'compilation> GlobalContext<'tcx, 'compilation> {
         tcx: TyCtxt<'tcx>,
         analysis_options: AnalysisOption,
     ) -> Option<Self> {
-        if analysis_options.show_entries {
 
-            // 完善版, 将函数的路径以及函数名+函数DefID的值一起输出
-            let mut entries_names: HashMap<_,(String, u32)> = HashMap::new();
-            for def_id in tcx.hir().body_owners() {
-                if tcx.def_kind(def_id) == DefKind::Fn || tcx.def_kind(def_id) == DefKind::AssocFn {
-                    let name = tcx.item_name(def_id.to_def_id());
-                    let def_index = def_id.to_def_id().index.as_u32();
-                    let def_path = tcx.def_path_str(def_id);
-                    let tuple = (def_path.clone(),def_index);
-                    if !entries_names.contains_key(&name){
-                        entries_names.insert(name,tuple);
-                        println!("{}, {}", &def_path, def_index);
-                    }
-                    
-                }
-            }
-
-            // 原版show_entries, 仅提供函数名
-            // let mut names = HashSet::new();
-            // for def_id in tcx.hir().body_owners() {
-            //     if tcx.def_kind(def_id) == DefKind::Fn || tcx.def_kind(def_id) == DefKind::AssocFn {
-            //         let name = tcx.item_name(def_id.to_def_id());
-            //         if !names.contains(&name) {
-            //             names.insert(name);
-            //             println!("{}", name);
-            //         }
-            //         // println!("{}", def_id.to_def_id().index.as_u32());
-            //     }
-            // }
-            return None;
-        }
-
-        if analysis_options.show_entries_index {
-            // let mut names = HashSet::new();
-            for def_id in tcx.hir().body_owners() {
-                if tcx.def_kind(def_id) == DefKind::Fn || tcx.def_kind(def_id) == DefKind::AssocFn {
-                    // let name = tcx.item_name(def_id.to_def_id());
-                    // if !names.contains(&name) {
-                    //     names.insert(name);
-                    //     println!("{}", name);
-                    // }
-                    println!("{}", def_id.to_def_id().index.as_u32());
-                }
-            }
-            return None;
-        }
-
-        info!("Initializing GlobalContext");
-        let mut entry_func = None;
-
-        // List functions
-        for def_id in tcx.hir().body_owners() {
+        // 1. 首先遍历所有的函数, 如果是show_all_entries就输出然后结束 return None
+        let mut all_entries: HashMap<LocalDefId,FuncInfo> = HashMap::new();
+        for &local_def_id in tcx.mir_keys(()).iter(){
+            let def_id = local_def_id.to_def_id();
             let def_kind = tcx.def_kind(def_id);
-            // Find the DefId for the entry point, note that the entry point must be a function
             if def_kind == DefKind::Fn || def_kind == DefKind::AssocFn {
-                // If `entry_def_id_index` flag is provided, find entry point according to the index
-                if let Some(entry_def_id_index) = analysis_options.entry_def_id_index {
-                    let item_name = tcx.item_name(def_id.to_def_id());
-                    if def_id.to_def_id().index.as_u32() == entry_def_id_index {
-                        entry_func = Some(def_id);
-                        debug!("Entry Point: {:?}, DefId: {:?}", item_name, def_id);
-                    } else {
-                        debug!(
-                            "Name: {:?}, DefId: {:?}, DefKind: {:?}",
-                            tcx.item_name(def_id.to_def_id()),
-                            def_id,
-                            def_kind
-                        );
+                let def_id_index = def_id.index.as_u32();
+                let def_path = tcx.def_path_str(def_id);
+                let is_builtin_derive: bool  = match def_kind{
+                    DefKind::Fn => false,
+                    DefKind::AssocFn =>{
+                        if let Some(impl_id) = tcx.impl_of_method(def_id){
+                            tcx.is_builtin_derived(impl_id)
+                        }
+                        else{
+                            false
+                        }
                     }
-                }
-                // If not, find entry point according to the function name
-                else {
-                    let entry_point = analysis_options.entry_point.clone();
-                    let item_name = tcx.item_name(def_id.to_def_id());
-                    if item_name.to_string() == *entry_point {
-                        entry_func = Some(def_id);
-                        debug!("Entry Point: {:?}, DefId: {:?}", item_name, def_id);
-                    } else {
-                        debug!(
-                            "Name: {:?}, DefId: {:?}, DefKind: {:?}",
-                            tcx.item_name(def_id.to_def_id()),
-                            def_id,
-                            def_kind
-                        );
-                    }
-                }
+                    _ => false
+                };
+                let info: FuncInfo = FuncInfo { def_id, def_id_index, def_kind, func_name: def_path, is_builtin_derive };
+                all_entries.insert(local_def_id, info);
             }
         }
-
-        if let Some(entry) = entry_func {
-            Some(Self {
-                tcx,
-                session,
-                function_name_cache: HashMap::new(),
-                entry_point: entry.to_def_id(),
-                checked_def_ids: HashSet::new(),
-                dropped_heaps: HashSet::new(),
-                wto_cache: WtoCache::default(),
-                analysis_options,
-                diagnostics_for: DiagnosticsForDefId::default(),
-            })
-        } else {
-            error!("Entry point not found");
-            None
+        // 如果只是show_entries就展示然后截断, 展示DefId+函数名
+        if analysis_options.show_all_entries {
+            for (_, info) in &all_entries{
+                println!("{:?}", info);
+            }
+            println!("The total function number: {}", &all_entries.len());        
+            return None 
         }
+
+        
+        // 2. 如果不是则对其进行遍历然后就对值进行遍历, 提取call语句并且存他们的wto.
+        let mut reachable_entries: Vec<DefId> = Vec::new();
+        for (local_def_id,func) in &all_entries {
+            let def_id = local_def_id.to_def_id();
+            match tcx.def_kind(def_id){
+                DefKind::Fn => {
+                    // 如果是Fn, 那么一定要分析, 就是本地的原生函数
+                    todo!();
+                },
+                DefKind::AssocFn => {
+                    // 如果是AssocFn, 用impl排除一些底层trait的派生, 然后也要执行可达性分析.
+
+                },
+                _ =>{}
+            }
+        }
+        return None
+    
+
+        // if let Some(entry) = entry_func {
+        //     Some(Self {
+        //         tcx,
+        //         session,
+        //         function_name_cache: HashMap::new(),
+        //         entry_point: entry.to_def_id(),
+        //         reachable_entries: Vec::new(),
+        //         checked_def_ids: HashSet::new(),
+        //         // dropped_heaps: HashSet::new(),
+        //         wto_cache: WtoCache::default(),
+        //         analysis_options,
+        //         diagnostics_for: DiagnosticsForDefId::default(),
+        //     })
+        // } else {
+        //     error!("Entry point not found");
+        //     None
+        // }
     }
 
     pub fn get_wto(&mut self, def_id: DefId) -> Wto<'tcx> {
@@ -204,4 +180,88 @@ impl<'tcx, 'compilation> GlobalContext<'tcx, 'compilation> {
         }
         wto
     }
+
+    // pub fn get_reachable_analysis(){
+    //     todo!();
+
+    //     {
+    //       if analysis_options.show_entries {
+
+    //         // 完善版, 将函数的路径以及函数名+函数DefID的值一起输出
+    //         let mut entries_names: HashMap<_,(String, u32)> = HashMap::new();
+    //         for def_id in tcx.hir().body_owners() {
+    //             if tcx.def_kind(def_id) == DefKind::Fn || tcx.def_kind(def_id) == DefKind::AssocFn {
+    //                 let name = tcx.item_name(def_id.to_def_id());
+    //                 let def_index = def_id.to_def_id().index.as_u32();
+    //                 let def_path = tcx.def_path_str(def_id);
+    //                 let tuple = (def_path.clone(),def_index);
+    //                 if !entries_names.contains_key(&name){
+    //                     entries_names.insert(name,tuple);
+    //                     println!("{}, {}", &def_path, def_index);
+    //                 }
+                    
+    //             }
+    //         }
+
+    //         // 原版show_entries, 仅提供函数名
+    //         // let mut names = HashSet::new();
+    //         // for def_id in tcx.hir().body_owners() {
+    //         //     if tcx.def_kind(def_id) == DefKind::Fn || tcx.def_kind(def_id) == DefKind::AssocFn {
+    //         //         let name = tcx.item_name(def_id.to_def_id());
+    //         //         if !names.contains(&name) {
+    //         //             names.insert(name);
+    //         //             println!("{}", name);
+    //         //         }
+    //         //         // println!("{}", def_id.to_def_id().index.as_u32());
+    //         //     }
+    //         // }
+    //         return None;
+    //     }
+    //     info!("Initializing GlobalContext");
+    //     let mut entry_func = None;
+
+    //     // 以下部分的原逻辑是通过 先罗列函数名+通过entry_name或者entry_index来锁定入口函数
+    //     // 这部分函数目前要全部整合修改成我们预设的phase 0 分析!
+
+    //     let mut entry_cadidates: Vec<DefId> = Vec::new();
+    //     // List functions
+    //     for def_id in tcx.hir().body_owners() {
+    //         let def_kind = tcx.def_kind(def_id);
+    //         // Find the DefId for the entry point, note that the entry point must be a function
+    //         if def_kind == DefKind::Fn || def_kind == DefKind::AssocFn {
+    //             // If `entry_def_id_index` flag is provided, find entry point according to the index
+    //             if let Some(entry_def_id_index) = analysis_options.entry_def_id_index {
+    //                 let item_name = tcx.item_name(def_id.to_def_id());
+    //                 if def_id.to_def_id().index.as_u32() == entry_def_id_index {
+    //                     entry_func = Some(def_id);
+    //                     debug!("Entry Point: {:?}, DefId: {:?}", item_name, def_id);
+    //                 } else {
+    //                     debug!(
+    //                         "Name: {:?}, DefId: {:?}, DefKind: {:?}",
+    //                         tcx.item_name(def_id.to_def_id()),
+    //                         def_id,
+    //                         def_kind
+    //                     );
+    //                 }
+    //             }
+    //             // If not, find entry point according to the function name
+    //             else {
+    //                 let entry_point = analysis_options.entry_point.clone();
+    //                 let item_name = tcx.item_name(def_id.to_def_id());
+    //                 if item_name.to_string() == *entry_point {
+    //                     entry_func = Some(def_id);
+    //                     debug!("Entry Point: {:?}, DefId: {:?}", item_name, def_id);
+    //                 } else {
+    //                     debug!(
+    //                         "Name: {:?}, DefId: {:?}, DefKind: {:?}",
+    //                         tcx.item_name(def_id.to_def_id()),
+    //                         def_id,
+    //                         def_kind
+    //                     );
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    // }
 }
