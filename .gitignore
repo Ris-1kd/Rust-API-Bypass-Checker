@@ -25,3 +25,4 @@ benchmark-crates/
 scripts/
 static_vcruntime/
 unchecked_method_base/
+*.mir
