@@ -77,17 +77,35 @@ impl<'tcx, 'compilation> GlobalContext<'tcx, 'compilation> {
         analysis_options: AnalysisOption,
     ) -> Option<Self> {
         if analysis_options.show_entries {
-            let mut names = HashSet::new();
+
+            // 完善版, 将函数的路径以及函数名+函数DefID的值一起输出
+            let mut entries_names: HashMap<_,(String, u32)> = HashMap::new();
             for def_id in tcx.hir().body_owners() {
                 if tcx.def_kind(def_id) == DefKind::Fn || tcx.def_kind(def_id) == DefKind::AssocFn {
                     let name = tcx.item_name(def_id.to_def_id());
-                    if !names.contains(&name) {
-                        names.insert(name);
-                        println!("{}", name);
+                    let def_index = def_id.to_def_id().index.as_u32();
+                    let def_path = tcx.def_path_str(def_id);
+                    let tuple = (def_path.clone(),def_index);
+                    if !entries_names.contains_key(&name){
+                        entries_names.insert(name,tuple);
+                        println!("{}, {}", &def_path, def_index);
                     }
-                    // println!("{}", def_id.to_def_id().index.as_u32());
+                    
                 }
             }
+
+            // 原版show_entries, 仅提供函数名
+            // let mut names = HashSet::new();
+            // for def_id in tcx.hir().body_owners() {
+            //     if tcx.def_kind(def_id) == DefKind::Fn || tcx.def_kind(def_id) == DefKind::AssocFn {
+            //         let name = tcx.item_name(def_id.to_def_id());
+            //         if !names.contains(&name) {
+            //             names.insert(name);
+            //             println!("{}", name);
+            //         }
+            //         // println!("{}", def_id.to_def_id().index.as_u32());
+            //     }
+            // }
             return None;
         }
 
