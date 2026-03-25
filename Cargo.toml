@@ -34,6 +34,8 @@ lazy_static = "1.5.0"
 az = "1.2.1"
 serde_json = "1.0.140"
 apron-sys = { path = "./apron-sys" }
+cargo-platform = "=0.3.1"
+home = "=0.5.11"
 
 [profile.release]
 lto = true
