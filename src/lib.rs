@@ -61,6 +61,7 @@ pub mod analysis {
         pub mod call_visitor;
         pub mod type_visitor;
         pub mod func_handler;
+        // pub mod reachable_visitor;
     }
     // Different kinds of analyses
     pub mod analyzer {
