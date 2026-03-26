@@ -367,7 +367,6 @@ where
             | KnownNames::StdPtrMutPtrWrappingSub
             | KnownNames::StdPtrConstPtrWrappingSub => {
                 return self.handle_offset();
-                // return true;
             }
             KnownNames::StdPtrMutPtrByteOffset
             | KnownNames::StdPtrConstPtrByteOffset
@@ -382,14 +381,11 @@ where
             | KnownNames::StdPtrMutPtrWrappingByteSub
             | KnownNames::StdPtrConstPtrWrappingByteSub => {
                 return self.handle_byte_offset();
-                // return true;
             }
             KnownNames::StdPtrConstPtrOffsetFrom | KnownNames::StdPtrMutPtrOffsetFrom => {
-                // panic!("{:?}", self.callee_known_name);
                 return self.handle_offset_from();
             }
             KnownNames::StdPtrConstPtrByteOffsetFrom | KnownNames::StdPtrMutPtrByteOffsetFrom => {
-                // panic!("{:?}", self.callee_known_name);
                 return self.handle_offset_from();
             }
             KnownNames::StdSliceIndexGetUncheckedMut => {
@@ -398,18 +394,19 @@ where
             KnownNames::StdSliceIndexGetUnchecked => {
                 return self.handle_get_unchecked();
             }
-            KnownNames::StdSliceIndexGetChecked =>{
+            KnownNames::StdSliceIndexGet    | KnownNames::StdSliceIndexGetMut
+             =>{
                 return self.handle_get_checked();
             }
-            KnownNames::StdSliceIndexGetCheckedMut =>{
-                return self.handle_get_checked_mut();
-            }
-            KnownNames::StdSliceSplitAtChecked =>{
+            // KnownNames::StdSliceIndexGetMut =>{
+            //     return self.handle_get_checked_mut();
+            // }
+            KnownNames::StdSliceSplitAt | KnownNames::StdSliceSplitAtMut =>{
                 return self.handle_split_at_checked();
             }
-            KnownNames::StdSliceSplitAtMutChecked =>{
-                return self.handle_split_at_mut_checked();
-            }
+            // KnownNames::StdSliceSplitAtMut =>{
+            //     return self.handle_split_at_mut_checked();
+            // }
             KnownNames::StdIntCheckedAdd => {
                 return self.handle_checked_add();
             }
@@ -474,16 +471,13 @@ where
     // /// Removes the heap block and all paths rooted in it from the current environment.
     // fn handle_rust_dealloc(&mut self) -> Rc<SymbolicValue> {
     //     assert!(self.actual_args.len() == 3);
-
     //     // The current environment is that that of the caller, but the caller is a standard
     //     // library function and has no interesting state to purge.
     //     // The layout path inserted below will become a side effect of the caller and when that
     //     // side effect is refined by the caller's caller, the refinement will do the purge if the
     //     // qualifier of the path is a heap block path.
-
     //     // Get path to the heap block to deallocate
     //     let heap_block_path = self.actual_args[0].0.clone();
-
     //     // Create a layout
     //     let length = self.actual_args[1].1.clone();
     //     let alignment = self.actual_args[2].1.clone();
@@ -495,7 +489,6 @@ where
     //         },
     //         1,
     //     );
-
     //     // Get a layout path and update the environment
     //     let layout_path =
     //         Path::new_layout(heap_block_path).refine_paths(&self.block_visitor.state());
@@ -503,7 +496,6 @@ where
     //         .body_visitor
     //         .state
     //         .update_value_at(layout_path, layout);
-
     //     // Signal to the caller that there is no return result
     //     symbolic_value::BOTTOM.into()
     // }
@@ -544,7 +536,6 @@ where
     //     assert!(self.actual_args.len() == 4);
     //     // Get path to the heap block to reallocate
     //     let heap_block_path = Path::new_deref(self.actual_args[0].0.clone());
-
     //     // Create a layout
     //     let length = self.actual_args[1].1.clone();
     //     let alignment = self.actual_args[2].1.clone();
@@ -568,7 +559,6 @@ where
     //         },
     //         1,
     //     );
-
     //     // Get a layout path and update the environment
     //     let layout_path =
     //         Path::new_layout(heap_block_path).refine_paths(&self.block_visitor.state());
@@ -581,7 +571,6 @@ where
     //         .body_visitor
     //         .state
     //         .update_value_at(layout_path2, layout_param);
-
     //     // Return the original heap block reference as the result
     //     self.actual_args[0].1.clone()
     // }
@@ -602,27 +591,21 @@ where
     //     let base_val = &self.actual_args[0].1;
     //     let offset_val = &self.actual_args[1].1;
     //     let result = base_val.offset(offset_val.clone());
-
     //     let solver = &self.block_visitor.body_visitor.z3_solver;
-
     //     let base = Path::get_as_path(self.actual_args[0].1.clone());
     //     let base_len = Path::new_field(base, 1);
     //     let offset = self.actual_args[1].0.clone();
-
     //     let constraint_system =
     //         LinearConstraintSystem::from(&self.block_visitor.state().numerical_domain);
     //     for cst in &constraint_system {
     //         solver.assert(&solver.get_as_z3_expression(cst));
     //     }
-
     //     let mut exp = LinearExpression::default();
     //     exp = exp + base_len - offset;
     //     let cst = LinearConstraint::LessEq(exp);
     //     solver.assert(&solver.get_as_z3_expression(&cst));
-
     //     let solver_result = solver.solve();
     //     solver.reset();
-
     //     if solver_result == SmtResult::Sat {
     //         let warning = self
     //             .block_visitor
@@ -639,7 +622,6 @@ where
     //     } else {
     //         debug!("Proved that offset is safe!");
     //     }
-
     //     // if self.block_visitor.body_visitor.check_for_errors && self.function_being_analyzed_is_root() {
     //     //     self.check_offset(&result)
     //     // }
@@ -959,30 +941,30 @@ where
             1,
         );
         let check_result = assert_checker.check_assert_condition(overflow_safe_cond.clone(), true, &state);
-        let info = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] There's a get() call"),
-                );
-        info.emit();
-        // 发出诊断信息
-        match check_result {
-            CheckerResult::Safe => (),
-            CheckerResult::Unsafe => {
-                let error = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] Provably error: index out of bound in get() call"),
-                );
-                error.emit();
-            }
-            CheckerResult::Warning => {
-                let warning = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] Possible error: index out of bound in get() call"),
-                );
-                // warning.emit();
-                warning.cancel();
-            }
-        }
+        // let info = body_visitor.context.session.dcx().struct_span_warn(
+        //             body_visitor.current_span,
+        //             format!("[Rust-API-Bypass] There's a get() call"),
+        //         );
+        // info.emit();
+        // // 发出诊断信息
+        // match check_result {
+        //     CheckerResult::Safe => (),
+        //     CheckerResult::Unsafe => {
+        //         let error = body_visitor.context.session.dcx().struct_span_warn(
+        //             body_visitor.current_span,
+        //             format!("[Rust-API-Bypass] Provably error: index out of bound in get() call"),
+        //         );
+        //         error.emit();
+        //     }
+        //     CheckerResult::Warning => {
+        //         let warning = body_visitor.context.session.dcx().struct_span_warn(
+        //             body_visitor.current_span,
+        //             format!("[Rust-API-Bypass] Possible error: index out of bound in get() call"),
+        //         );
+        //         // warning.emit();
+        //         warning.cancel();
+        //     }
+        // }
 
         // 为 get 方法创建 Option<T> 类型的返回值
         if let Some(target_path) = destination_path {
@@ -1025,107 +1007,99 @@ where
         return false;
     }
 
-    fn handle_get_checked_mut(&mut self) -> bool{
-        assert!(self.actual_args.len() == 2);
-        #[allow(irrefutable_let_patterns)]
-        let destination_path = if let dest = self.destination {
-            Some(self.block_visitor.get_path_for_place(&dest))
-        } else {
-            None
-        };
-        assert!(destination_path.is_some());
-        let state = self.block_visitor.state().clone();
-        let body_visitor = &mut self.block_visitor.body_visitor;
-
-        let array = &self.actual_args[0].0;
-        let array_len = Path::new_length(array.clone()).refine_paths(&body_visitor.state);
-        let array_len_val = SymbolicValue::make_from(
-            Expression::Variable {
-                path: array_len.clone(),
-                var_type: ExpressionType::Usize,
-            },
-            1,
-        );
-        let index_val = &self.actual_args[1].1;
-
-        let assert_checker = AssertionChecker::new(body_visitor);
-        let overflow_safe_cond = SymbolicValue::make_from(
-            Expression::LessThan {
-                left: index_val.clone(),
-                right: array_len_val,
-            },
-            1,
-        );
-        let check_result = assert_checker.check_assert_condition(overflow_safe_cond.clone(), true, &state);
-        let info = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] There's a get_mut() call"),
-                );
-        info.emit();
-        // 发出诊断信息
-        match check_result {
-            CheckerResult::Safe => (),
-            CheckerResult::Unsafe => {
-                let error = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] Provably error: index out of bound in get_mut() call"),
-                );
-                error.emit();
-            }
-            CheckerResult::Warning => {
-                let warning = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] Possible error: index out of bound in get_mut() call"),
-                );
-                // warning.emit();
-                warning.cancel();
-            }
-        }
-
-        // 为 get_mut 方法创建 Option<&mut T> 类型的返回值
-        if let Some(target_path) = destination_path {
-            // 获取数组元素的类型
-            let _element_type = get_element_type(self.actual_argument_types[0]);
-            
-            // 根据边界检查结果创建不同的返回值
-            let result_val = match check_result {
-                CheckerResult::Safe | CheckerResult::Warning => {
-                    // 安全情况：返回 Some(&mut element)
-                    let array_path = &self.actual_args[0].0;
-                    let indexed_path = Path::new_index(array_path.clone(), index_val.clone())
-                        .refine_paths(&self.block_visitor.body_visitor.state);
-                    
-                    // 返回可变引用的路径
-                    let mutable_ref_path = Path::new_deref(indexed_path)
-                        .refine_paths(&self.block_visitor.body_visitor.state);
-                    
-                    SymbolicValue::make_from(
-                        Expression::Variable {
-                            path: mutable_ref_path,
-                            var_type: ExpressionType::NonPrimitive,
-                        },
-                        1,
-                    )
-                },
-                CheckerResult::Unsafe => {
-                    // 不安全情况：返回表示 None 的值
-                    SymbolicValue::make_from(
-                        Expression::CompileTimeConstant(ConstantValue::Bottom),
-                        1,
-                    )
-                }
-            };
-            
-            // 更新目标路径的值
-            self.block_visitor
-                .body_visitor
-                .state
-                .update_value_at(target_path.clone(), result_val);
-                
-            return true;
-        }
-        return false;
-    }
+    // fn handle_get_checked_mut(&mut self) -> bool{
+    //     assert!(self.actual_args.len() == 2);
+    //     #[allow(irrefutable_let_patterns)]
+    //     let destination_path = if let dest = self.destination {
+    //         Some(self.block_visitor.get_path_for_place(&dest))
+    //     } else {
+    //         None
+    //     };
+    //     assert!(destination_path.is_some());
+    //     let state = self.block_visitor.state().clone();
+    //     let body_visitor = &mut self.block_visitor.body_visitor;
+    //     let array = &self.actual_args[0].0;
+    //     let array_len = Path::new_length(array.clone()).refine_paths(&body_visitor.state);
+    //     let array_len_val = SymbolicValue::make_from(
+    //         Expression::Variable {
+    //             path: array_len.clone(),
+    //             var_type: ExpressionType::Usize,
+    //         },
+    //         1,
+    //     );
+    //     let index_val = &self.actual_args[1].1;
+    //     let assert_checker = AssertionChecker::new(body_visitor);
+    //     let overflow_safe_cond = SymbolicValue::make_from(
+    //         Expression::LessThan {
+    //             left: index_val.clone(),
+    //             right: array_len_val,
+    //         },
+    //         1,
+    //     );
+    //     let check_result = assert_checker.check_assert_condition(overflow_safe_cond.clone(), true, &state);
+    //     let info = body_visitor.context.session.dcx().struct_span_warn(
+    //                 body_visitor.current_span,
+    //                 format!("[Rust-API-Bypass] There's a get_mut() call"),
+    //             );
+    //     info.emit();
+    //     // 发出诊断信息
+    //     match check_result {
+    //         CheckerResult::Safe => (),
+    //         CheckerResult::Unsafe => {
+    //             let error = body_visitor.context.session.dcx().struct_span_warn(
+    //                 body_visitor.current_span,
+    //                 format!("[Rust-API-Bypass] Provably error: index out of bound in get_mut() call"),
+    //             );
+    //             error.emit();
+    //         }
+    //         CheckerResult::Warning => {
+    //             let warning = body_visitor.context.session.dcx().struct_span_warn(
+    //                 body_visitor.current_span,
+    //                 format!("[Rust-API-Bypass] Possible error: index out of bound in get_mut() call"),
+    //             );
+    //             // warning.emit();
+    //             warning.cancel();
+    //         }
+    //     }
+    //     // 为 get_mut 方法创建 Option<&mut T> 类型的返回值
+    //     if let Some(target_path) = destination_path {
+    //         // 获取数组元素的类型
+    //         let _element_type = get_element_type(self.actual_argument_types[0]);
+    //         // 根据边界检查结果创建不同的返回值
+    //         let result_val = match check_result {
+    //             CheckerResult::Safe | CheckerResult::Warning => {
+    //                 // 安全情况：返回 Some(&mut element)
+    //                 let array_path = &self.actual_args[0].0;
+    //                 let indexed_path = Path::new_index(array_path.clone(), index_val.clone())
+    //                     .refine_paths(&self.block_visitor.body_visitor.state);                   
+    //                 // 返回可变引用的路径
+    //                 let mutable_ref_path = Path::new_deref(indexed_path)
+    //                     .refine_paths(&self.block_visitor.body_visitor.state);         
+    //                 SymbolicValue::make_from(
+    //                     Expression::Variable {
+    //                         path: mutable_ref_path,
+    //                         var_type: ExpressionType::NonPrimitive,
+    //                     },
+    //                     1,
+    //                 )
+    //             },
+    //             CheckerResult::Unsafe => {
+    //                 // 不安全情况：返回表示 None 的值
+    //                 SymbolicValue::make_from(
+    //                     Expression::CompileTimeConstant(ConstantValue::Bottom),
+    //                     1,
+    //                 )
+    //             }
+    //         };       
+    //         // 更新目标路径的值
+    //         self.block_visitor
+    //             .body_visitor
+    //             .state
+    //             .update_value_at(target_path.clone(), result_val);               
+    //         return true;
+    //     }
+    //     return false;
+    // }
 
     fn handle_split_at_checked(&mut self) -> bool{
         assert!(self.actual_args.len() == 2);
@@ -1159,30 +1133,30 @@ where
             1,
         );
         let check_result = assert_checker.check_assert_condition(overflow_safe_cond.clone(), true, &state);
-        let info = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] There's a split_at() call"),
-                );
-        info.emit();
-        // 发出诊断信息
-        match check_result {
-            CheckerResult::Safe => (),
-            CheckerResult::Unsafe => {
-                let error = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] Provably error: index out of bound in split_at_checked() call"),
-                );
-                error.emit();
-            }
-            CheckerResult::Warning => {
-                let warning = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] Possible error: index out of bound in split_at_checked() call"),
-                );
-                // warning.emit();
-                warning.cancel();
-            }
-        }
+        // let info = body_visitor.context.session.dcx().struct_span_warn(
+        //             body_visitor.current_span,
+        //             format!("[Rust-API-Bypass] There's a split_at() call"),
+        //         );
+        // info.emit();
+        // // 发出诊断信息
+        // match check_result {
+        //     CheckerResult::Safe => (),
+        //     CheckerResult::Unsafe => {
+        //         let error = body_visitor.context.session.dcx().struct_span_warn(
+        //             body_visitor.current_span,
+        //             format!("[Rust-API-Bypass] Provably error: index out of bound in split_at_checked() call"),
+        //         );
+        //         error.emit();
+        //     }
+        //     CheckerResult::Warning => {
+        //         let warning = body_visitor.context.session.dcx().struct_span_warn(
+        //             body_visitor.current_span,
+        //             format!("[Rust-API-Bypass] Possible error: index out of bound in split_at_checked() call"),
+        //         );
+        //         // warning.emit();
+        //         warning.cancel();
+        //     }
+        // }
 
         // 为 split_at_checked 方法创建 Option<(&[T], &[T])> 类型的返回值
         if let Some(target_path) = destination_path {
@@ -1229,107 +1203,102 @@ where
         return false;
     }
 
-    fn handle_split_at_mut_checked(&mut self) -> bool{
-        assert!(self.actual_args.len() == 2);
-        #[allow(irrefutable_let_patterns)]
-        let destination_path = if let dest = self.destination {
-            Some(self.block_visitor.get_path_for_place(&dest))
-        } else {
-            None
-        };
-        assert!(destination_path.is_some());
-        let state = self.block_visitor.state().clone();
-        let body_visitor = &mut self.block_visitor.body_visitor;
-
-        let array = &self.actual_args[0].0;
-        let array_len = Path::new_length(array.clone()).refine_paths(&body_visitor.state);
-        let array_len_val = SymbolicValue::make_from(
-            Expression::Variable {
-                path: array_len.clone(),
-                var_type: ExpressionType::Usize,
-            },
-            1,
-        );
-        let index_val = &self.actual_args[1].1;
-
-        let assert_checker = AssertionChecker::new(body_visitor);
-        let overflow_safe_cond = SymbolicValue::make_from(
-            Expression::LessOrEqual {
-                left: index_val.clone(),
-                right: array_len_val,
-            },
-            1,
-        );
-        let check_result = assert_checker.check_assert_condition(overflow_safe_cond.clone(), true, &state);
-        let info = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] There's a split_at_mut() call"),
-                );
-        info.emit();
-        // 发出诊断信息
-        match check_result {
-            CheckerResult::Safe => (),
-            CheckerResult::Unsafe => {
-                let error = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] Provably error: index out of bound in split_at_mut_checked() call"),
-                );
-                error.emit();
-            }
-            CheckerResult::Warning => {
-                let warning = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] Possible error: index out of bound in split_at_mut_checked() call"),
-                );
-                // warning.emit();
-                warning.cancel();
-            }
-        }
-
-        // 为 split_at_mut_checked 方法创建 Option<(&mut [T], &mut [T])> 类型的返回值
-        if let Some(target_path) = destination_path {
-            // 根据边界检查结果创建不同的返回值
-            let result_val = match check_result {
-                CheckerResult::Safe => {
-                    // 安全情况：返回 Some((left_slice, right_slice))
-                    // 创建表示可变切片元组的符号值
-                    SymbolicValue::make_from(
-                        Expression::Variable {
-                            path: target_path.clone(),
-                            var_type: ExpressionType::NonPrimitive,
-                        },
-                        1,
-                    )
-                },
-                CheckerResult::Unsafe => {
-                    // 不安全情况：返回 None
-                    SymbolicValue::make_from(
-                        Expression::CompileTimeConstant(ConstantValue::Bottom),
-                        1,
-                    )
-                },
-                CheckerResult::Warning => {
-                    // 警告情况：返回未知的 Option 值
-                    SymbolicValue::make_from(
-                        Expression::Variable {
-                            path: target_path.clone(),
-                            var_type: ExpressionType::NonPrimitive,
-                        },
-                        1,
-                    )
-                }
-            };
-            
-            // 更新目标路径的值
-            self.block_visitor
-                .body_visitor
-                .state
-                .update_value_at(target_path.clone(), result_val);
-                
-            return true;
-        }
-        return false;
-    }
+    // fn handle_split_at_mut_checked(&mut self) -> bool{
+    //     assert!(self.actual_args.len() == 2);
+    //     #[allow(irrefutable_let_patterns)]
+    //     let destination_path = if let dest = self.destination {
+    //         Some(self.block_visitor.get_path_for_place(&dest))
+    //     } else {
+    //         None
+    //     };
+    //     assert!(destination_path.is_some());
+    //     let state = self.block_visitor.state().clone();
+    //     let body_visitor = &mut self.block_visitor.body_visitor;
+    //     let array = &self.actual_args[0].0;
+    //     let array_len = Path::new_length(array.clone()).refine_paths(&body_visitor.state);
+    //     let array_len_val = SymbolicValue::make_from(
+    //         Expression::Variable {
+    //             path: array_len.clone(),
+    //             var_type: ExpressionType::Usize,
+    //         },
+    //         1,
+    //     );
+    //     let index_val = &self.actual_args[1].1;
+    //     let assert_checker = AssertionChecker::new(body_visitor);
+    //     let overflow_safe_cond = SymbolicValue::make_from(
+    //         Expression::LessOrEqual {
+    //             left: index_val.clone(),
+    //             right: array_len_val,
+    //         },
+    //         1,
+    //     );
+    //     let check_result = assert_checker.check_assert_condition(overflow_safe_cond.clone(), true, &state);
+    //     let info = body_visitor.context.session.dcx().struct_span_warn(
+    //                 body_visitor.current_span,
+    //                 format!("[Rust-API-Bypass] There's a split_at_mut() call"),
+    //             );
+    //     info.emit();
+    //     // 发出诊断信息
+    //     match check_result {
+    //         CheckerResult::Safe => (),
+    //         CheckerResult::Unsafe => {
+    //             let error = body_visitor.context.session.dcx().struct_span_warn(
+    //                 body_visitor.current_span,
+    //                 format!("[Rust-API-Bypass] Provably error: index out of bound in split_at_mut_checked() call"),
+    //             );
+    //             error.emit();
+    //         }
+    //         CheckerResult::Warning => {
+    //             let warning = body_visitor.context.session.dcx().struct_span_warn(
+    //                 body_visitor.current_span,
+    //                 format!("[Rust-API-Bypass] Possible error: index out of bound in split_at_mut_checked() call"),
+    //             );
+    //             // warning.emit();
+    //             warning.cancel();
+    //         }
+    //     }
+    //     // 为 split_at_mut_checked 方法创建 Option<(&mut [T], &mut [T])> 类型的返回值
+    //     if let Some(target_path) = destination_path {
+    //         // 根据边界检查结果创建不同的返回值
+    //         let result_val = match check_result {
+    //             CheckerResult::Safe => {
+    //                 // 安全情况：返回 Some((left_slice, right_slice))
+    //                 // 创建表示可变切片元组的符号值
+    //                 SymbolicValue::make_from(
+    //                     Expression::Variable {
+    //                         path: target_path.clone(),
+    //                         var_type: ExpressionType::NonPrimitive,
+    //                     },
+    //                     1,
+    //                 )
+    //             },
+    //             CheckerResult::Unsafe => {
+    //                 // 不安全情况：返回 None
+    //                 SymbolicValue::make_from(
+    //                     Expression::CompileTimeConstant(ConstantValue::Bottom),
+    //                     1,
+    //                 )
+    //             },
+    //             CheckerResult::Warning => {
+    //                 // 警告情况：返回未知的 Option 值
+    //                 SymbolicValue::make_from(
+    //                     Expression::Variable {
+    //                         path: target_path.clone(),
+    //                         var_type: ExpressionType::NonPrimitive,
+    //                     },
+    //                     1,
+    //                 )
+    //             }
+    //         };
+    //         // 更新目标路径的值
+    //         self.block_visitor
+    //             .body_visitor
+    //             .state
+    //             .update_value_at(target_path.clone(), result_val);
+    //         return true;
+    //     }
+    //     return false;
+    // }
 
 
     fn handle_checked_add(&mut self) -> bool {
@@ -1880,7 +1849,6 @@ where
                     format!("[MirChecker] Provably error: index out of bound",),
                 );
 
-                // 这里原来在mirchecker2024是注释掉的, 但是疑似会导致ICE, 遂恢复
                 body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
                 return;
             }
@@ -1890,7 +1858,6 @@ where
                     format!("[MirChecker] Possible error: index out of bound"),
                 );
                 warning.cancel();
-                // 这里原来在mirchecker2024是注释掉的, 但是疑似会导致ICE, 遂恢复
                 // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
         }
