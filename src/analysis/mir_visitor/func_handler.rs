@@ -2,17 +2,54 @@
 // 虽然DefId可以唯一的标识一个库函数, 但是考虑到一个库函数可以在多处被调用的情况, 我们还是把DefId+Span同时作为区分, 不用DefId单独来区分, 所以直接在WTO visitor中用HashSet来收集
 
 use std::rc::Rc;
-
 use rustc_hir::def_id::DefId;
 use rustc_span::Span;
-
 use crate::analysis::memory::{known_names::KnownNames, path::Path, symbolic_value::SymbolicValue};
+use std::collections::HashSet;
+use std::collections::HashMap;
+use log::debug;
 
-#[derive(Debug, Hash,PartialEq, Eq, Clone)]
+#[derive(Debug, Hash,PartialEq, Eq, Clone, Copy)]
 pub enum FuncClass {
     Index,
     Nullness,
     Type,
+}
+
+#[derive(Debug,Clone)]
+pub struct FunctionBase{
+    pub value: HashMap<FuncClass, HashSet<String>>
+}
+
+impl FunctionBase {
+    pub fn new() -> Self{
+        let mut functions = HashMap::new();
+        functions.insert(
+            FuncClass::Index, 
+            HashSet::from([
+                "core::slice::<impl [T]>::get".to_string(),
+                "core::slice::<impl [T]>::get".to_string(),
+                "std::char::from_u32".to_string(),
+                // to be updated
+            ])
+        );
+
+        Self {value:functions}
+    }
+
+    pub fn show(&self){
+        debug!("The function we care:");
+        debug!("{:?}",self.value);
+    }
+
+    pub fn contains_and_get_kind(&self, func_name:&String) -> Option<(FuncClass)>{
+        for (kind, set) in &self.value{
+            if set.contains(func_name) {
+                return Some(kind.clone());
+            }
+        }
+        None
+    }
 }
 
 #[derive(Debug,Hash,Eq,PartialEq,Clone)]
@@ -55,12 +92,4 @@ impl FuncHandler{
         }
     }
 
-    // This function is to test whether to extract the single abstact value of a numerical variable
-    // pub fn show(&self){
-    //     info!("Here is the infomation of the FuncHandler");
-    //     info!("The abstract value:");
-    //     for item in self.args.clone(){
-    //         debug!("The numerical value of {:?}: {:?}", self.)
-    //     }
-    // }
 }
