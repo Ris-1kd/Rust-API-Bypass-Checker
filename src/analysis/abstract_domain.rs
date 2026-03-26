@@ -1,5 +1,5 @@
 use crate::analysis::memory::constant_value::ConstantValue;
-use crate::analysis::memory::expression::Expression;
+use crate::analysis::memory::expression::{Expression, ExpressionType};
 use crate::analysis::memory::path::{Path, PathEnum};
 use crate::analysis::memory::symbolic_domain::SymbolicDomain;
 use crate::analysis::memory::symbolic_value::{SymbolicValue, SymbolicValueTrait};
@@ -151,52 +151,172 @@ where
     }
 
     /// Updates the path to value map so that the given path now points to the given value.
+    ///
+    /// This "lightweight" version intentionally keeps the symbolic domain small:
+    /// - Numerical info goes to `numerical_domain`.
+    /// - Only Boolean predicates (and function constants) are kept in `symbolic_domain`.
+    /// - References / heap blocks / non-primitive values are not stored in `symbolic_domain`.
     pub fn update_value_at(&mut self, path: Rc<Path>, value: Rc<SymbolicValue>) {
+        use crate::analysis::memory::expression::ExpressionType;
+
         debug!("Updating value at {:?}, value: {:?}", path, value);
+
+        // Bottom/Top: forget any existing binding (both domains)
         if value.is_bottom() || value.is_top() {
-            debug!("Value is bottom or top, ignore");
+            debug!("Value is bottom or top, forget it");
             self.symbolic_domain.value_map.remove(&path);
             self.numerical_domain.forget(&path);
             return;
         }
 
-        // Handle numerical values, store them in numerical domain
-        // Case 1: value is already in numerical domain, so there is only a path in expression
-        if let Expression::Numerical(rpath) = &value.expression {
-            debug!("Value is numerical, store in numerical domain");
-            self.numerical_domain.assign_var(path, rpath.clone());
-        }
-        // Case 2: value is a compile time constant, and is of type integer
-        else if let Expression::CompileTimeConstant(constant_domain) = &value.expression {
-            if let Some(integer) = constant_domain.try_get_integer() {
-                debug!("Value is constant integer, store in numerical domain");
-                self.numerical_domain.assign_int(path, integer);
-            } else {
-                debug!("Value is constant but not integer, store in symbolic domain");
-                self.symbolic_domain.value_map.insert(path, value.clone());
+        let expr_ty = value.expression.infer_type();
+
+        // Hard drop: we don't want reference / heap / non-primitive in symbolic domain at this stage.
+        match &value.expression {
+            Expression::Reference(_) | Expression::HeapBlock { .. } => {
+                self.symbolic_domain.value_map.remove(&path);
+                self.numerical_domain.forget(&path);
+                return;
             }
-        }
-        // Case 3: value is a variable of type integer
-        else if let Expression::Variable {
-            path: rpath,
-            var_type,
-        } = &value.expression
-        {
-            if var_type.is_integer() {
-                debug!("Value is integer variable, store in both numerical and symbolic domain");
-                self.numerical_domain
-                    .assign_var(path.clone(), rpath.clone());
-                self.symbolic_domain.value_map.insert(path, value.clone());
-            } else {
-                debug!("Value is a variable but not integer store in symbolic domain");
-                self.symbolic_domain.value_map.insert(path, value.clone());
+            Expression::Variable { var_type, .. }
+                if *var_type == ExpressionType::Reference || *var_type == ExpressionType::NonPrimitive =>
+            {
+                self.symbolic_domain.value_map.remove(&path);
+                self.numerical_domain.forget(&path);
+                return;
             }
-        } else {
-            // Reach here if value is not numerical, store them in symbolic domain
-            debug!("Value is not numerical, store in symbolic domain");
-            self.symbolic_domain.value_map.insert(path, value.clone());
+            _ => {}
         }
+
+        // -----------------------------
+        // 1) Numerical domain updates
+        // -----------------------------
+        match &value.expression {
+            // Case 1: value already represented as a numerical var
+            Expression::Numerical(rpath) => {
+                self.numerical_domain.assign_var(path.clone(), rpath.clone());
+            }
+
+            // Case 2: integer constant (NOTE: bool constants are also encoded as Int(0/1) here)
+            Expression::CompileTimeConstant(c) => {
+                if let Some(i) = c.try_get_integer() {
+                    self.numerical_domain.assign_int(path.clone(), i);
+                }
+            }
+
+            // Case 3: integer variable (exclude Bool to avoid polluting the numerical domain with temps)
+            Expression::Variable { path: rpath, var_type } if var_type.is_integer() && *var_type != ExpressionType::Bool => {
+                self.numerical_domain.assign_var(path.clone(), rpath.clone());
+            }
+
+            _ => {}
+        }
+
+        // -----------------------------
+        // 2) Symbolic domain retention
+        // -----------------------------
+        // Keep:
+        // - Boolean predicates (critical for branch constraints)
+        // - Function constants (if you still need call-target resolution)
+        let mut keep_symbolic = false;
+
+        if expr_ty == ExpressionType::Bool {
+            keep_symbolic = true;
+        } else if matches!(
+            &value.expression,
+            Expression::CompileTimeConstant(ConstantValue::Function(_))
+        ) {
+            keep_symbolic = true;
+        }
+
+        if !keep_symbolic {
+            self.symbolic_domain.value_map.remove(&path);
+            return;
+        }
+
+        // Optional tightening:
+        // - Do not store trivial identity bindings like `x := x` (common noise).
+        // - For Bool `x := y`, try to resolve y to a non-trivial Bool predicate now; otherwise drop.
+        let value_to_store: Rc<SymbolicValue> = match &value.expression {
+            Expression::Variable { path: rpath, var_type } if *var_type == ExpressionType::Bool => {
+                // identity: local := local
+                if rpath == &path {
+                    self.symbolic_domain.value_map.remove(&path);
+                    return;
+                }
+
+                // Try to resolve `y` to a concrete predicate (e.g., `idx < len`) right now.
+                // If resolution fails or stays a plain variable, we drop it because alias chains
+                // are not chased in later consumers.
+                if let Some(resolved) = self.value_at(rpath) {
+                    let rty = resolved.expression.infer_type();
+                    let is_plain_var = matches!(resolved.expression, Expression::Variable { .. });
+                    if rty == ExpressionType::Bool && !is_plain_var {
+                        resolved
+                    } else {
+                        // not useful (still a variable / unknown), drop it to avoid growth
+                        self.symbolic_domain.value_map.remove(&path);
+                        return;
+                    }
+                } else {
+                    self.symbolic_domain.value_map.remove(&path);
+                    return;
+                }
+            }
+            _ => value.clone(),
+        };
+
+        self.symbolic_domain.value_map.insert(path, value_to_store);
     }
+
+    // pub fn update_value_at_backup(&mut self, path: Rc<Path>, value: Rc<SymbolicValue>) {
+    //     debug!("Updating value at {:?}, value: {:?}", path, value);
+    //     if value.is_bottom() || value.is_top() {
+    //         debug!("Value is bottom or top, ignore");
+    //         self.symbolic_domain.value_map.remove(&path);
+    //         self.numerical_domain.forget(&path);
+    //         return;
+    //     }
+
+    //     // Handle numerical values, store them in numerical domain
+    //     // Case 1: value is already in numerical domain, so there is only a path in expression
+    //     if let Expression::Numerical(rpath) = &value.expression {
+    //         debug!("Value is numerical, store in numerical domain");
+    //         self.numerical_domain.assign_var(path, rpath.clone());
+    //     }
+    //     // Case 2: value is a compile time constant, and is of type integer
+    //     else if let Expression::CompileTimeConstant(constant_domain) = &value.expression {
+    //         if let Some(integer) = constant_domain.try_get_integer() {
+    //             debug!("Value is constant integer, store in numerical domain");
+    //             self.numerical_domain.assign_int(path, integer);
+    //         } else {
+    //             debug!("Value is constant but not integer, store in symbolic domain");
+    //             self.symbolic_domain.value_map.insert(path, value.clone());
+    //         }
+    //     }
+    //     // Case 3: value is a variable of type integer
+    //     else if let Expression::Variable {
+    //         path: rpath,
+    //         var_type,
+    //     } = &value.expression
+    //     {
+    //         if var_type.is_integer() {
+    //             debug!("Value is integer variable, store in both numerical and symbolic domain");
+    //             self.numerical_domain
+    //                 .assign_var(path.clone(), rpath.clone());
+
+    //             // GPT给出意见在此处直接移除来防止symbolic domain大量膨胀
+    //             // self.symbolic_domain.value_map.insert(path, value.clone());
+    //         } else {
+    //             debug!("Value is a variable but not integer store in symbolic domain");
+    //             self.symbolic_domain.value_map.insert(path, value.clone());
+    //         }
+    //     } else {
+    //         // Reach here if value is not numerical, store them in symbolic domain
+    //         debug!("Value is not numerical, store in symbolic domain");
+    //         self.symbolic_domain.value_map.insert(path, value.clone());
+    //     }
+    // }
 
     pub fn join(&self, other: &Self) -> Self {
         let numerical = self.numerical_domain.join(&other.numerical_domain);
