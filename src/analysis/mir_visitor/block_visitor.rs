@@ -142,29 +142,6 @@ where
         debug!("------------------------------------------------------");
         debug!("Visiting a {:?} statement: {:?}", kind, statement);
 
-        // Only record span when encountering these statements
-        // Other statements do not provide useful information in output warnings
-        // if matches!(
-        //     kind,
-        //     mir::StatementKind::Assign(..)
-        //         | mir::StatementKind::SetDiscriminant { .. }
-        // ) {
-        //     self.body_visitor.current_span = source_info.span;
-        // }
-        // match kind {
-        //     mir::StatementKind::Assign(box (place, rvalue)) => {
-        //         self.visit_assign(place, rvalue.borrow())
-        //     }
-        //     mir::StatementKind::SetDiscriminant {
-        //         place,
-        //         variant_index,
-        //     } => self.visit_set_discriminant(place, *variant_index),
-        //     mir::StatementKind::StorageDead(local) => self.visit_storage_dead(*local),
-
-        //     // The rest are ignored
-        //     _ => (),
-        // }
-
         if matches!(
             kind,
             mir::StatementKind::Assign(..)
@@ -175,25 +152,26 @@ where
 
         match kind {
             mir::StatementKind::Assign(box (place, rvalue)) => self.visit_assign(place, rvalue),
-            mir::StatementKind::ConstEvalCounter => (),
-            // mir::StatementKind::FakeRead(..) => panic!(),
             mir::StatementKind::SetDiscriminant {
                 place,
                 variant_index,
             } => self.visit_set_discriminant(place, *variant_index),
-            // mir::StatementKind::Deinit(box place) => {
-            //     self.visit_deinit(place);
-            // }
-            // mir::StatementKind::StorageLive(local) => self.visit_storage_live(*local),
             mir::StatementKind::StorageDead(local) => self.visit_storage_dead(*local),
-            // mir::StatementKind::Retag(retag_kind, place) => self.visit_retag(*retag_kind, place),
+            mir::StatementKind::Nop => (),
+            mir::StatementKind::ConstEvalCounter => (),
+
+
+            // mir::StatementKind::FakeRead(..) => panic!(),
+            // mir::StatementKind::PlaceMention(_) => (),// mir::StatementKind::Retag(retag_kind, place) => self.visit_retag(*retag_kind, place),
             // mir::StatementKind::AscribeUserType(..) => panic!(),
             // mir::StatementKind::Coverage(..) => (),
             // mir::StatementKind::Intrinsic(box non_diverging_intrinsic) => {
             //     self.visit_non_diverging_intrinsic(non_diverging_intrinsic);
             // }
-            mir::StatementKind::Nop => (),
-            // mir::StatementKind::PlaceMention(_) => (),
+            // mir::StatementKind::Deinit(box place) => {
+            //     self.visit_deinit(place);
+            // }
+            // mir::StatementKind::StorageLive(local) => self.visit_storage_live(*local),
             _ => (),
         }
 
