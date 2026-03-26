@@ -726,7 +726,8 @@ where
                 body_visitor.current_span,
                 format!("[MirChecker] Possible error: run into panic code"),
             );
-            body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Panic);
+            // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Panic);
+            warning.cancel();
         }
     }
 
@@ -872,7 +873,8 @@ where
                 self.block_visitor.body_visitor.current_span,
                 format!("[MirChecker] Possible error: the ptr from different object"),
             );
-        warning.emit();
+        // warning.emit();
+        warning.cancel();
         return true;
     }
 
@@ -977,7 +979,8 @@ where
                     body_visitor.current_span,
                     format!("[Rust-API-Bypass] Possible error: index out of bound in get() call"),
                 );
-                warning.emit();
+                // warning.emit();
+                warning.cancel();
             }
         }
 
@@ -1074,7 +1077,8 @@ where
                     body_visitor.current_span,
                     format!("[Rust-API-Bypass] Possible error: index out of bound in get_mut() call"),
                 );
-                warning.emit();
+                // warning.emit();
+                warning.cancel();
             }
         }
 
@@ -1175,7 +1179,8 @@ where
                     body_visitor.current_span,
                     format!("[Rust-API-Bypass] Possible error: index out of bound in split_at_checked() call"),
                 );
-                warning.emit();
+                // warning.emit();
+                warning.cancel();
             }
         }
 
@@ -1276,7 +1281,8 @@ where
                     body_visitor.current_span,
                     format!("[Rust-API-Bypass] Possible error: index out of bound in split_at_mut_checked() call"),
                 );
-                warning.emit();
+                // warning.emit();
+                warning.cancel();
             }
         }
 
@@ -1373,7 +1379,8 @@ where
                     body_visitor.current_span,
                     format!("[Rust-API-Bypass] Possible error: integer overflow in checked_add()"),
                 );
-                warning.emit();
+                // warning.emit();
+                warning.cancel();
             }
         }
 
@@ -1452,7 +1459,8 @@ where
                     body_visitor.current_span,
                     format!("[Rust-API-Bypass] Possible error: first index out of bound in swap() call"),
                 );
-                warning.emit();
+                // warning.emit();
+                warning.cancel();
             }
         }
         
@@ -1470,7 +1478,8 @@ where
                     body_visitor.current_span,
                     format!("[MirChecker] Possible error: second index out of bound in swap() call"),
                 );
-                warning.emit();
+                // warning.emit();
+                warning.cancel();
             }
         }
 
@@ -1556,8 +1565,9 @@ where
                     body_visitor.current_span,
                     format!("[MirChecker] Possible error: index out of bound"),
                 );
+                warning.cancel();
                 // warning.emit();
-                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+                // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
         }
 
@@ -1641,7 +1651,8 @@ where
                     format!("[MirChecker] Possible error: index out of bound"),
                 );
                 // warning.emit();
-                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+                // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+                warning.cancel();
             }
         }
 
@@ -1818,8 +1829,9 @@ where
                     body_visitor.current_span,
                     format!("[MirChecker] Possible error: index out of bound"),
                 );
+                warning.cancel();
                 // warning.emit();
-                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+                // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
         }
         result.clone()
@@ -1877,8 +1889,9 @@ where
                     body_visitor.current_span,
                     format!("[MirChecker] Possible error: index out of bound"),
                 );
+                warning.cancel();
                 // 这里原来在mirchecker2024是注释掉的, 但是疑似会导致ICE, 遂恢复
-                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+                // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
         }
 
