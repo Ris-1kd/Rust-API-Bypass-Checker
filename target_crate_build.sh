@@ -51,7 +51,7 @@ rustup override set nightly-2025-01-10
 rm -rf target
 export RUSTC_WRAPPER="/home/yunlong/workspace/Bypassing/Rust-API-Bypass/target/debug/mir_wrapper"
 export MIR_WRAPPER_DUMP="/var/tmp/inv.json"
-export MIR_CHECKER_ARGS='["--show_entries"]'
+export MIR_CHECKER_ARGS='["--show_all_entries"]'
 
 # env | grep RUSTC
 
