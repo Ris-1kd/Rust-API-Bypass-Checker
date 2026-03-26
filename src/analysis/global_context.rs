@@ -3,7 +3,7 @@ use crate::analysis::option::AnalysisOption;
 use crate::analysis::wto::Wto;
 use crate::analysis::mir_visitor::func_handler::FunctionBase;
 use libc::FALLOC_FL_KEEP_SIZE;
-use log::{debug, info};
+use log::{debug, info, error};
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_middle::mir::{Operand, TerminatorKind}; // [新增] 为 call 扫描
@@ -145,9 +145,9 @@ impl<'tcx, 'compilation> GlobalContext<'tcx, 'compilation> {
         // show_all_entries: 展示然后结束, 或者无分析项
         if analysis_options.show_all_entries || all_entries.is_empty() {
             for (_, info) in &all_entries {
-                println!("{:?}", info);
+                info!("{:?}", info);
             }
-            println!("The total function number: {}", &all_entries.len());
+            info!("The total function number: {}", &all_entries.len());
             return None;
         }
 
@@ -176,7 +176,7 @@ impl<'tcx, 'compilation> GlobalContext<'tcx, 'compilation> {
             }
             if entry_point == None {
                 // 没有指定的DefId
-                println!("{} is not a valid entry point index! ", index);
+                error!("{} is not a valid entry point index! ", index);
                 return None
             }
         }
@@ -267,8 +267,9 @@ impl<'tcx, 'compilation> GlobalContext<'tcx, 'compilation> {
 
         if analysis_options.show_reachable_entries{
             for entry in &reachable_entries{
-                println!("{:?}, {}, {:?}",entry.def_id,entry.func_name, entry.callees);
+                info!("{:?}, {}, {:?}",entry.def_id,entry.func_name, entry.callees);
             } 
+            info!("The number of reachable functions: {}, the total number of all entries: {}", reachable_entries.len(), all_entries.len());
             return None
         }
 
