@@ -1,6 +1,9 @@
-fn main() {
-    // test swap
-    let mut a = [1, 2, 3, 4, 5];
-    let i = 6; // 越界的索引
-    let result = a.swap(i, i + 1);
+fn main (){
+    let mut v = vec![1,2,3,4,5,6];
+    let mut i = 0;
+
+    while i + 1 < v.len() {
+        v.swap(i, i+1);
+        i = i + 1;
+    }
 }

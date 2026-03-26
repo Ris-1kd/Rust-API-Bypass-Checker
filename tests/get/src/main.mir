@@ -10,14 +10,25 @@ fn main() -> () {
     let mut _8: usize;
     let mut _9: usize;
     let mut _10: (usize, bool);
+    let mut _11: bool;
+    let mut _12: usize;
+    let mut _14: &[i32];
+    let mut _15: &[i32; 5];
+    let mut _16: usize;
+    let mut _17: usize;
+    let mut _18: (usize, bool);
     scope 1 {
         debug a => _1;
         let mut _2: usize;
         scope 2 {
             debug i => _2;
             let _5: std::option::Option<&i32>;
+            let _13: std::option::Option<&i32>;
             scope 3 {
                 debug _b => _5;
+            }
+            scope 4 {
+                debug _c => _13;
             }
         }
     }
@@ -53,6 +64,30 @@ fn main() -> () {
     }
 
     bb5: {
+        _12 = copy _2;
+        _11 = Lt(move _12, const 7_usize);
+        switchInt(move _11) -> [0: bb9, otherwise: bb6];
+    }
+
+    bb6: {
+        _15 = &_1;
+        _14 = move _15 as &[i32] (PointerCoercion(Unsize, Implicit));
+        _16 = copy _2;
+        _13 = core::slice::<impl [i32]>::get::<usize>(move _14, move _16) -> [return: bb7, unwind continue];
+    }
+
+    bb7: {
+        _17 = copy _2;
+        _18 = AddWithOverflow(copy _17, const 1_usize);
+        assert(!move (_18.1: bool), "attempt to compute `{} + {}`, which would overflow", move _17, const 1_usize) -> [success: bb8, unwind continue];
+    }
+
+    bb8: {
+        _2 = move (_18.0: usize);
+        goto -> bb5;
+    }
+
+    bb9: {
         return;
     }
 }

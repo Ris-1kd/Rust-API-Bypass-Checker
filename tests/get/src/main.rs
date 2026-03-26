@@ -5,4 +5,9 @@ fn main() {
         let _b = a.get(i);
         i = i + 1;
     }
+
+    while i < 7 {
+        let _c = a.get(i);
+        i = i + 1;
+    }
 }
