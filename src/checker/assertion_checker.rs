@@ -117,18 +117,19 @@ where
                             );
                         }
                         CheckerResult::Warning => {
-                            let warning = self.body_visitor.context.session.dcx().struct_span_warn(
-                                span,
-                                format!(
-                                    "[MirChecker] Possible error: {:?}",
-                                    self.body_visitor.recover_var_name(msg.deref())
-                                ),
-                            );
-                            self.body_visitor.emit_diagnostic(
-                                warning,
-                                false,
-                                DiagnosticCause::from(msg.deref()),
-                            );
+                            // let warning = self.body_visitor.context.session.dcx().struct_span_warn(
+                            //     span,
+                            //     format!(
+                            //         "[MirChecker] Possible error: {:?}",
+                            //         self.body_visitor.recover_var_name(msg.deref())
+                            //     ),
+                            // );
+                            // warning.cancel();
+                            // self.body_visitor.emit_diagnostic(
+                            //     warning,
+                            //     false,
+                            //     DiagnosticCause::from(msg.deref()),
+                            // );
                         }
                     }
                 }
