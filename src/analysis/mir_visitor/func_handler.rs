@@ -28,8 +28,20 @@ impl FunctionBase {
             FuncClass::Index, 
             HashSet::from([
                 "core::slice::<impl [T]>::get".to_string(),
-                "core::slice::<impl [T]>::get".to_string(),
                 "std::char::from_u32".to_string(),
+                "core::slice::<impl [T]>::get_mut::<usize>".to_string(),
+                "std::ptr::Alignment::new".to_string(),
+                "core::slice::<impl [T]>::swap".to_string(),
+                "core::slice::<impl [T]>::split_at".to_string(),
+                "core::slice::<impl [T]>::split_at_mut".to_string(),
+                "core::slice::<impl [T]>::get::<usize>".to_string(),
+                "core::str::<impl str>::get::<std::ops::Range<usize>>".to_string(),
+                "core::slice::<impl [T]>::get_mut::<usize>".to_string(),
+                "std::alloc::Layout::from_size_align".to_string(),
+                "std::array::ascii::<impl [u8; N]>::as_ascii".to_string(),
+                "core::num::<impl u8>::as_ascii".to_string(),
+                "std::simd::Mask::<i32, 4>::test".to_string(),
+                "std::simd::Mask::<i32, 4>::set".to_string(),
                 // to be updated
             ])
         );
@@ -42,7 +54,7 @@ impl FunctionBase {
         debug!("{:?}",self.value);
     }
 
-    pub fn contains_and_get_kind(&self, func_name:&String) -> Option<(FuncClass)>{
+    pub fn contains_and_get_kind(&self, func_name:&String) -> Option<FuncClass>{
         for (kind, set) in &self.value{
             if set.contains(func_name) {
                 return Some(kind.clone());
