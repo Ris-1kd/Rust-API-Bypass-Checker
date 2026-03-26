@@ -4,7 +4,6 @@ use crate::analysis::analyzer::analysis_trait::StaticAnalysis;
 use crate::analysis::diagnostics::Diagnostic;
 use crate::analysis::global_context::GlobalContext;
 use crate::analysis::mir_visitor::body_visitor::WtoFixPointIterator;
-use crate::analysis::mir_visitor::func_handler::FuncHandler;
 use crate::analysis::numerical::apron_domain::{
     ApronAbstractDomain, ApronDomainType, ApronInterval, GetManagerTrait,
 };
@@ -153,17 +152,6 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
         wto_visitor.run();
 
         info!("The final current state of user's crate: {:?}", wto_visitor.state);
-        info!("The function we care: {:?}", wto_visitor.replace_funcs);
-
-        let temp:Vec<FuncHandler> = wto_visitor.replace_funcs.clone().into_iter().collect();
-        if !temp.is_empty() {
-            let temp_path = temp[0].args[1].0.clone();
-            let temp_numerical_domain = wto_visitor.state.numerical_domain.clone();
-            info!("here is a single test:");
-            info!("The numerical value:{:?}", temp_numerical_domain.get_interval(&temp_path));
-        } else {
-            info!("No function handlers found in replace_funcs");
-        }
         // Execute bug detector
         wto_visitor.run_checker();
 
