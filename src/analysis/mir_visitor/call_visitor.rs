@@ -16,7 +16,6 @@ use crate::analysis::memory::path::{Path, PathRefinement};
 use crate::analysis::memory::symbolic_value::{self, SymbolicValue, SymbolicValueTrait};
 use crate::analysis::mir_visitor::block_visitor::BlockVisitor;
 use crate::analysis::mir_visitor::body_visitor::WtoFixPointIterator;
-// use crate::analysis::mir_visitor::func_handler::{FuncHandler,FuncClass};
 use crate::analysis::mir_visitor::type_visitor::get_element_type;
 use crate::analysis::numerical::apron_domain::{
     ApronAbstractDomain, ApronDomainType, GetManagerTrait,
