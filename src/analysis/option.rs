@@ -17,7 +17,7 @@ pub struct AnalysisOption {
 
     // 移除, 分析指定入口用index明确指定 或者auto 二选一
     // pub entry_point: String,
-
+    
     pub entry_def_id_index: Option<u32>,
     pub auto_analysis: bool,
     pub domain_type: AbstractDomainType,
@@ -25,6 +25,7 @@ pub struct AnalysisOption {
     pub cleaning_delay: usize,
     pub narrowing_iteration: u32,
     pub show_all_entries: bool,
+    pub show_reachable_entries: bool,
     pub deny_warnings: bool,
     pub suppressed_warnings: Option<Vec<DiagnosticCause>>,    
 }
@@ -38,6 +39,7 @@ impl Default for AnalysisOption {
             cleaning_delay: 5,
             narrowing_iteration: 5,
             show_all_entries: false,
+            show_reachable_entries: false,
             deny_warnings: false,
             suppressed_warnings: None,
             auto_analysis: false,
@@ -54,6 +56,10 @@ impl AnalysisOption {
                 match &arg[2..] {
                     "show_all_entries" => {
                         res.show_all_entries = true;
+                        indeices_to_remove.push(i);
+                    }
+                    "show_reachable_entries" =>{
+                        res.show_reachable_entries = true;
                         indeices_to_remove.push(i);
                     }
                     "deny_warnings" => {
