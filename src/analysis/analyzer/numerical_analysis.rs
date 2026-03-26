@@ -74,18 +74,9 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
         let timer = Instant::now();
 
         info!("================== Numerical Analysis Starts ==================");
-        info!(
-            "Abstract Domain Type: {:?}",
-            self.context.analysis_options.domain_type
-        );
-        info!(
-            "Widening Delay: {}",
-            self.context.analysis_options.widening_delay
-        );
-        info!(
-            "Start Analyzing Entry Point Function: {}",
-            self.context.tcx.item_name(self.context.entry_point)
-        );
+        info!("Abstract Domain Type: {:?}", self.context.analysis_options.domain_type);
+        info!("Widening Delay: {}", self.context.analysis_options.widening_delay);
+        info!("Start Analyzing Entry Point Function: {}", self.context.tcx.item_name(self.context.entry_point));
 
         // Start analysis with the entry point
         let def_id = self.context.entry_point;
@@ -94,31 +85,7 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
             AbstractDomainType::Interval => {
                 self.analyze_function(def_id, AbstractDomain::<ApronInterval>::default());
             }
-            // AbstractDomainType::Octagon => {
-            //     self.analyze_function(def_id, AbstractDomain::<ApronOctagon>::default());
-            // }
-            // AbstractDomainType::Polyhedra => {
-            //     self.analyze_function(def_id, AbstractDomain::<ApronPolyhedra>::default());
-            // }
-            // AbstractDomainType::LinearEqualities => {
-            //     self.analyze_function(def_id, AbstractDomain::<ApronLinearEqualities>::default());
-            // }
-            // AbstractDomainType::PplPolyhedra => {
-            //     self.analyze_function(def_id, AbstractDomain::<ApronPplPolyhedra>::default());
-            // }
-            // AbstractDomainType::PplLinearCongruences => {
-            //     self.analyze_function(
-            //         def_id,
-            //         AbstractDomain::<ApronPplLinearCongruences>::default(),
-            //     );
-            // }
-            // AbstractDomainType::PkgridPolyhedraLinCongruences => {
-            //     self.analyze_function(
-            //         def_id,
-            //         AbstractDomain::<ApronPkgridPolyhedraLinCongruences>::default(),
-            //     );
-            // }
-            __ => {}
+            __ => {} // ignored all other numerical domains, only retain the interval.
         }
 
         info!("================== Numerical Analysis Ends ==================");
