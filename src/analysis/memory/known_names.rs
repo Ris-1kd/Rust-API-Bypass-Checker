@@ -70,11 +70,11 @@ pub enum KnownNames {
     StdSliceIndexGetUnchecked,
     StdSliceIndexGetUncheckedMut,
     // Now we get a specially get version
-    StdSliceIndexGetChecked,
-    StdSliceIndexGetCheckedMut,
+    StdSliceIndexGet,
+    StdSliceIndexGetMut,
     // split_at checked versions
-    StdSliceSplitAtChecked,
-    StdSliceSplitAtMutChecked,
+    StdSliceSplitAt,
+    StdSliceSplitAtMut,
     // swap method
     StdSliceSwap,
 
@@ -186,10 +186,10 @@ impl KnownNamesCache {
                     "into_vec" => KnownNames::StdIntoVec,
                     "get_unchecked_mut" => KnownNames::StdSliceIndexGetUncheckedMut,
                     "get_unchecked" => KnownNames::StdSliceIndexGetUnchecked,
-                    "get" => KnownNames::StdSliceIndexGetChecked,
-                    "get_mut" => KnownNames::StdSliceIndexGetCheckedMut,
-                    "split_at_checked" => KnownNames::StdSliceSplitAtChecked,
-                    "split_at_mut_checked" => KnownNames::StdSliceSplitAtMutChecked,
+                    "get" => KnownNames::StdSliceIndexGet,
+                    "get_mut" => KnownNames::StdSliceIndexGetMut,
+                    "split_at" => KnownNames::StdSliceSplitAt,
+                    "split_at_mut" => KnownNames::StdSliceSplitAtMut,
                     "swap" => KnownNames::StdSliceSwap,
                     _ => KnownNames::None,
                 })
