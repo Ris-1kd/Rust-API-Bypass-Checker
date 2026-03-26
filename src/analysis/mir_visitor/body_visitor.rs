@@ -169,33 +169,6 @@ where
         debug!("Initializing pre condition: {:?}", self.init_state);
     }
 
-    /// Run bug detectors
-    // pub fn run_checker(&mut self) {
-    //     // Do not check functions that have already been checked
-    //     if self.context.checked_def_ids.contains(&self.def_id) {
-    //         return;
-    //     }
-
-    //     self.context.checked_def_ids.insert(self.def_id);
-
-    //     let mut assertion_checker = AssertionChecker::<DomainType>::new(self);
-    //     assertion_checker.run();
-
-    //     // let mut unsafe_func_checker = UnsafeFuncChecker::<DomainType>::new(self);
-    //     // unsafe_func_checker.run();
-
-    //     let buffered_diagnostics: Vec<Option<Diagnostic<'compilation>>> = self
-    //         .buffered_diagnostics
-    //         .iter_mut()
-    //         .map(|d| d.take()) // 只解包 Some 值，忽略 None
-    //         .collect();
-
-    //     // Store diagnostic messages for this function
-    //     self.context
-    //         .diagnostics_for
-    //         .insert(self.def_id, buffered_diagnostics);
-    // }
-
     pub fn run_checker(&mut self) {
         // Only avoid running the checker twice; never skip draining diagnostics.
         let already_checked = self.context.checked_def_ids.contains(&self.def_id);
