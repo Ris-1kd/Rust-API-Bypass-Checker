@@ -27,3 +27,5 @@ static_vcruntime/
 unchecked_method_base/
 *.mir
 reachable_test/
+sequence/
+pre_result/
