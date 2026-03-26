@@ -124,7 +124,8 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
         info!("================== Numerical Analysis Ends ==================");
 
         info!("================== Start To Output Diagnostics ==================");
-        self.emit_diagnostics();
+        // 暂时屏蔽掉原mir-checker的所有诊断输出.
+        // self.emit_diagnostics();
 
         Ok(AnalysisInfo {
             analysis_time: timer.elapsed(),
