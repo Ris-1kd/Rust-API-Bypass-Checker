@@ -1,0 +1,16 @@
+Path,Library,Start_line,End_line,Unchecked Func,Checked Func,Safety Conditions,Safety Condition Category,User visible,Flag,Safe_start_line,Safe_end_line,Counterpart status,Checked-side note
+rust/library/std/src/thread/mod.rs,thread,461,0,"pub unsafe fn spawn_unchecked<F, T>(self, f: F) -> io::Result<JoinHandle<T>>
+    where
+        F: FnOnce() -> T,
+        F: Send,
+        T: Send,
+    {
+        Ok(JoinHandle(unsafe { self.spawn_unchecked_(f, None) }?))
+    }","pub fn spawn<F, T>(f: F) -> JoinHandle<T>
+where
+    F: FnOnce() -> T,
+    F: Send + 'static,
+    T: Send + 'static,
+{
+    Builder::new().spawn(f).expect(""failed to spawn thread"")
+}",thread,thread,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,Not recorded.

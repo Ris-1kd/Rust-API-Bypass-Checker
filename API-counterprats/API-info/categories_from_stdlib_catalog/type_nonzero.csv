@@ -1,0 +1,21 @@
+Path,Library,Start_line,End_line,Unchecked Func,Checked Func,Safety Conditions,Safety Condition Category,User visible,Flag,Safe_start_line,Safe_end_line,Counterpart status,Checked-side note
+rust/library/core/src/num/nonzero.rs,num/nonzero,419,434,"    pub const unsafe fn new_unchecked(n: T) -> Self {
+        match Self::new(n) {
+            Some(n) => n,
+            None => {
+                // SAFETY: The caller guarantees that `n` is non-zero, so this is unreachable.
+                unsafe {
+                    ub_checks::assert_unsafe_precondition!(
+                        check_language_ub,
+                        ""NonZero::new_unchecked requires the argument to be non-zero"",
+                        () => false,
+                    );
+                    intrinsics::unreachable()
+                }
+            }
+        }
+    }","    pub const fn new(n: T) -> Option<Self> {
+        // SAFETY: Memory layout optimization guarantees that `Option<NonZero<T>>` has
+        //         the same layout and size as `T`, with `0` representing `None`.
+        unsafe { intrinsics::transmute_unchecked(n) }
+    }",必须保证参数非零并且类型符合,type/nonzero,Not recorded.,Not recorded.,402,406,confirmed_pair,Not recorded.

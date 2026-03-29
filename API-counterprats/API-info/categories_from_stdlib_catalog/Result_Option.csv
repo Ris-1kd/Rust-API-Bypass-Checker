@@ -1,0 +1,35 @@
+Path,Library,Start_line,End_line,Unchecked Func,Checked Func,Safety Conditions,Safety Condition Category,User visible,Flag,Safe_start_line,Safe_end_line,Counterpart status,Checked-side note
+rust/library/core/src/result.rs,Option/Result,1650,1660,"    pub const unsafe fn unwrap_unchecked(self) -> T {
+        match self {
+            Ok(t) => t,
+            Err(e) => {
+                // FIXME(const-hack): to avoid E: const Destruct bound
+                super::mem::forget(e);
+                // SAFETY: the safety contract must be upheld by the caller.
+                unsafe { hint::unreachable_unchecked() }
+            }
+        }
+    }","    pub fn unwrap(self) -> T
+    where
+        E: fmt::Debug,
+    {
+        match self {
+            Ok(t) => t,
+            Err(e) => unwrap_failed(""called `Result::unwrap()` on an `Err` value"", &e),
+        }
+    }",枚举类型必须得是安全的,Result/Option,Not recorded.,Not recorded.,1227,1235,confirmed_pair,unwrap及其一系列
+rust/library/core/src/result.rs,Option/Result,1685,1691,"    pub unsafe fn unwrap_err_unchecked(self) -> E {
+        match self {
+            // SAFETY: the safety contract must be upheld by the caller.
+            Ok(_) => unsafe { hint::unreachable_unchecked() },
+            Err(e) => e,
+        }
+    }","    pub fn unwrap_err(self) -> E
+    where
+        T: fmt::Debug,
+    {
+        match self {
+            Ok(t) => unwrap_failed(""called `Result::unwrap_err()` on an `Ok` value"", &t),
+            Err(e) => e,
+        }
+    }",枚举类型必须得是安全的,Result/Option,Not recorded.,Not recorded.,1324,1332,confirmed_pair,unwrap及其一系列

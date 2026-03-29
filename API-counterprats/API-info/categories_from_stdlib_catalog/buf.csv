@@ -1,0 +1,10 @@
+Path,Library,Start_line,End_line,Unchecked Func,Checked Func,Safety Conditions,Safety Condition Category,User visible,Flag,Safe_start_line,Safe_end_line,Counterpart status,Checked-side note
+rust/library/std/src/sys/os_str/wtf8.rs,buf,87,89,"    pub unsafe fn from_encoded_bytes_unchecked(s: Vec<u8>) -> Self {
+        unsafe { Self { inner: Wtf8Buf::from_bytes_unchecked(s) } }
+    }",未找到相关safe,Not recorded.,buf,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,未找到相关safe
+rust/library/std/src/sys/os_str/wtf8.rs,buf,87,89,"    pub unsafe fn from_encoded_bytes_unchecked(s: Vec<u8>) -> Self {
+        unsafe { Self { inner: Wtf8Buf::from_bytes_unchecked(s) } }
+    }",未找到相关safe,Not recorded.,buf,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,未找到相关safe
+rust/library/std/src/sys/os_str/bytes.rs,os_str/buf,90,92,"    pub unsafe fn from_encoded_bytes_unchecked(s: Vec<u8>) -> Self {
+        Self { inner: s }
+    }",未找到相关safe,Not recorded.,buf,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,未找到相关safe

@@ -1,0 +1,474 @@
+Path,Library,Start_line,End_line,Unchecked Func,Checked Func,Safety Conditions,Safety Condition Category,User visible,Flag,Safe_start_line,Safe_end_line,Counterpart status,Checked-side note,Normalized Family,Normalization Rationale
+rust/library/core/src/hint.rs,core::hint,202,212,"pub const unsafe fn assert_unchecked(cond: bool) {
+    // SAFETY: The caller promised `cond` is true.
+    unsafe {
+        ub_checks::assert_unsafe_precondition!(
+            check_language_ub,
+            ""hint::assert_unchecked must never be called when the condition is false"",
+            (cond: bool = cond) => cond,
+        );
+        crate::intrinsics::assume(cond);
+    }
+}","pub const unsafe fn assume(b: bool) {
+    if !b {
+        // SAFETY: the caller must guarantee the argument is never `false`
+        unsafe { unreachable() }
+    }
+}
+or
+assert!()","Rarely used, it is equal to the cond is always true. 
+It invokes unreachable() inside and leads to UB if reached.",intrinsic,handled,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,Not recorded.,Primitive_Escape_Hatches,Original category is `intrinsic`; these are low-level escape hatches rather than clean checked wrappers.
+rust/library/core/src/hint.rs,core::hint,103,112,"pub const unsafe fn unreachable_unchecked() -> ! {
+    ub_checks::assert_unsafe_precondition!(
+        check_language_ub,
+        ""hint::unreachable_unchecked must never be reached"",
+        () => false
+    );
+    // SAFETY: the safety contract for `intrinsics::unreachable` must
+    // be upheld by the caller.
+    unsafe { intrinsics::unreachable() }
+}","pub const unsafe fn unreachable() -> !; ---> will UB
+ or
+unreachable!() ---> will panic","Rarely used, it's safe only when this code branch will never be reached. Otherwise, it will lead to UB.",intrinsic,handled,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,Not recorded.,Primitive_Escape_Hatches,Original category is `intrinsic`; these are low-level escape hatches rather than clean checked wrappers.
+rust/library/core/src/intrinsics/mod.rs,core::intrinsic,1988,2030,"pub const unsafe fn unchecked_add<T: Copy>(x: T, y: T) -> T;
+
+/// Returns the result of an unchecked subtraction, resulting in
+/// undefined behavior when `x - y > T::MAX` or `x - y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_sub` on the various
+/// integer types, such as [`u16::unchecked_sub`] and [`i64::unchecked_sub`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_sub<T: Copy>(x: T, y: T) -> T;
+
+/// Returns the result of an unchecked multiplication, resulting in
+/// undefined behavior when `x * y > T::MAX` or `x * y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_mul` on the various
+/// integer types, such as [`u16::unchecked_mul`] and [`i64::unchecked_mul`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_mul<T: Copy>(x: T, y: T) -> T;
+
+/// Performs rotate left.
+///
+/// Note that, unlike most intrinsics, this is safe to call;
+/// it does not require an `unsafe` block.
+/// Therefore, implementations must not require the user to uphold
+/// any safety invariants.
+///
+/// The stabilized versions of this intrinsic are available on the integer
+/// primitives via the `rotate_left` method. For example,
+/// [`u32::rotate_left`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+#[rustc_allow_const_fn_unstable(const_trait_impl, funnel_shifts)]
+#[miri::intrinsic_fallback_is_spec]
+pub const fn rotate_left<T: [const] fallback::FunnelShift>(x: T, shift: u32) -> T {
+    // Make sure to call the intrinsic for `funnel_shl`, not the fallback impl.
+    // SAFETY: we modulo `shift` so that the result is definitely less than the size of
+    // `T` in bits.
+    unsafe { unchecked_funnel_shl(x, x, shift % (mem::size_of::<T>() as u32 * 8)) }
+}",No directly corresponding safe function,"Not used directly, see library/core/src/num for details",intrinsic,handled,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,No directly corresponding safe function,Primitive_Escape_Hatches,Original category is `intrinsic`; these are low-level escape hatches rather than clean checked wrappers.
+rust/library/core/src/intrinsics/mod.rs,core::intrinsic,1947,2030,"pub const unsafe fn unchecked_div<T: Copy>(x: T, y: T) -> T;
+/// Returns the remainder of an unchecked division, resulting in
+/// undefined behavior when `y == 0` or `x == T::MIN && y == -1`
+///
+/// Safe wrappers for this intrinsic are available on the integer
+/// primitives via the `checked_rem` method. For example,
+/// [`u32::checked_rem`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_rem<T: Copy>(x: T, y: T) -> T;
+
+/// Performs an unchecked left shift, resulting in undefined behavior when
+/// `y < 0` or `y >= N`, where N is the width of T in bits.
+///
+/// Safe wrappers for this intrinsic are available on the integer
+/// primitives via the `checked_shl` method. For example,
+/// [`u32::checked_shl`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_shl<T: Copy, U: Copy>(x: T, y: U) -> T;
+/// Performs an unchecked right shift, resulting in undefined behavior when
+/// `y < 0` or `y >= N`, where N is the width of T in bits.
+///
+/// Safe wrappers for this intrinsic are available on the integer
+/// primitives via the `checked_shr` method. For example,
+/// [`u32::checked_shr`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_shr<T: Copy, U: Copy>(x: T, y: U) -> T;
+
+/// Returns the result of an unchecked addition, resulting in
+/// undefined behavior when `x + y > T::MAX` or `x + y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_add` on the various
+/// integer types, such as [`u16::unchecked_add`] and [`i64::unchecked_add`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_add<T: Copy>(x: T, y: T) -> T;
+
+/// Returns the result of an unchecked subtraction, resulting in
+/// undefined behavior when `x - y > T::MAX` or `x - y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_sub` on the various
+/// integer types, such as [`u16::unchecked_sub`] and [`i64::unchecked_sub`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_sub<T: Copy>(x: T, y: T) -> T;
+
+/// Returns the result of an unchecked multiplication, resulting in
+/// undefined behavior when `x * y > T::MAX` or `x * y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_mul` on the various
+/// integer types, such as [`u16::unchecked_mul`] and [`i64::unchecked_mul`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_mul<T: Copy>(x: T, y: T) -> T;
+
+/// Performs rotate left.
+///
+/// Note that, unlike most intrinsics, this is safe to call;
+/// it does not require an `unsafe` block.
+/// Therefore, implementations must not require the user to uphold
+/// any safety invariants.
+///
+/// The stabilized versions of this intrinsic are available on the integer
+/// primitives via the `rotate_left` method. For example,
+/// [`u32::rotate_left`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+#[rustc_allow_const_fn_unstable(const_trait_impl, funnel_shifts)]
+#[miri::intrinsic_fallback_is_spec]
+pub const fn rotate_left<T: [const] fallback::FunnelShift>(x: T, shift: u32) -> T {
+    // Make sure to call the intrinsic for `funnel_shl`, not the fallback impl.
+    // SAFETY: we modulo `shift` so that the result is definitely less than the size of
+    // `T` in bits.
+    unsafe { unchecked_funnel_shl(x, x, shift % (mem::size_of::<T>() as u32 * 8)) }
+}",No directly corresponding safe function,"Not used directly, see library/core/src/num for details",intrinsic,handled,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,No directly corresponding safe function,Primitive_Escape_Hatches,Original category is `intrinsic`; these are low-level escape hatches rather than clean checked wrappers.
+rust/library/core/src/intrinsics/mod.rs,core::intrinsic,2008,2030,"pub const unsafe fn unchecked_mul<T: Copy>(x: T, y: T) -> T;
+
+/// Performs rotate left.
+///
+/// Note that, unlike most intrinsics, this is safe to call;
+/// it does not require an `unsafe` block.
+/// Therefore, implementations must not require the user to uphold
+/// any safety invariants.
+///
+/// The stabilized versions of this intrinsic are available on the integer
+/// primitives via the `rotate_left` method. For example,
+/// [`u32::rotate_left`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+#[rustc_allow_const_fn_unstable(const_trait_impl, funnel_shifts)]
+#[miri::intrinsic_fallback_is_spec]
+pub const fn rotate_left<T: [const] fallback::FunnelShift>(x: T, shift: u32) -> T {
+    // Make sure to call the intrinsic for `funnel_shl`, not the fallback impl.
+    // SAFETY: we modulo `shift` so that the result is definitely less than the size of
+    // `T` in bits.
+    unsafe { unchecked_funnel_shl(x, x, shift % (mem::size_of::<T>() as u32 * 8)) }
+}",No directly corresponding safe function,"Not used directly, see library/core/src/num for details",intrinsic,handled,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,No directly corresponding safe function,Primitive_Escape_Hatches,Original category is `intrinsic`; these are low-level escape hatches rather than clean checked wrappers.
+rust/library/core/src/intrinsics/mod.rs,core::intrinsic,1957,2030,"pub const unsafe fn unchecked_rem<T: Copy>(x: T, y: T) -> T;
+
+/// Performs an unchecked left shift, resulting in undefined behavior when
+/// `y < 0` or `y >= N`, where N is the width of T in bits.
+///
+/// Safe wrappers for this intrinsic are available on the integer
+/// primitives via the `checked_shl` method. For example,
+/// [`u32::checked_shl`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_shl<T: Copy, U: Copy>(x: T, y: U) -> T;
+/// Performs an unchecked right shift, resulting in undefined behavior when
+/// `y < 0` or `y >= N`, where N is the width of T in bits.
+///
+/// Safe wrappers for this intrinsic are available on the integer
+/// primitives via the `checked_shr` method. For example,
+/// [`u32::checked_shr`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_shr<T: Copy, U: Copy>(x: T, y: U) -> T;
+
+/// Returns the result of an unchecked addition, resulting in
+/// undefined behavior when `x + y > T::MAX` or `x + y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_add` on the various
+/// integer types, such as [`u16::unchecked_add`] and [`i64::unchecked_add`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_add<T: Copy>(x: T, y: T) -> T;
+
+/// Returns the result of an unchecked subtraction, resulting in
+/// undefined behavior when `x - y > T::MAX` or `x - y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_sub` on the various
+/// integer types, such as [`u16::unchecked_sub`] and [`i64::unchecked_sub`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_sub<T: Copy>(x: T, y: T) -> T;
+
+/// Returns the result of an unchecked multiplication, resulting in
+/// undefined behavior when `x * y > T::MAX` or `x * y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_mul` on the various
+/// integer types, such as [`u16::unchecked_mul`] and [`i64::unchecked_mul`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_mul<T: Copy>(x: T, y: T) -> T;
+
+/// Performs rotate left.
+///
+/// Note that, unlike most intrinsics, this is safe to call;
+/// it does not require an `unsafe` block.
+/// Therefore, implementations must not require the user to uphold
+/// any safety invariants.
+///
+/// The stabilized versions of this intrinsic are available on the integer
+/// primitives via the `rotate_left` method. For example,
+/// [`u32::rotate_left`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+#[rustc_allow_const_fn_unstable(const_trait_impl, funnel_shifts)]
+#[miri::intrinsic_fallback_is_spec]
+pub const fn rotate_left<T: [const] fallback::FunnelShift>(x: T, shift: u32) -> T {
+    // Make sure to call the intrinsic for `funnel_shl`, not the fallback impl.
+    // SAFETY: we modulo `shift` so that the result is definitely less than the size of
+    // `T` in bits.
+    unsafe { unchecked_funnel_shl(x, x, shift % (mem::size_of::<T>() as u32 * 8)) }
+}",No directly corresponding safe function,"Not used directly, see library/core/src/num for details",intrinsic,handled,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,No directly corresponding safe function,Primitive_Escape_Hatches,Original category is `intrinsic`; these are low-level escape hatches rather than clean checked wrappers.
+rust/library/core/src/intrinsics/mod.rs,core::intrinsic,1968,2030,"pub const unsafe fn unchecked_shl<T: Copy, U: Copy>(x: T, y: U) -> T;
+/// Performs an unchecked right shift, resulting in undefined behavior when
+/// `y < 0` or `y >= N`, where N is the width of T in bits.
+///
+/// Safe wrappers for this intrinsic are available on the integer
+/// primitives via the `checked_shr` method. For example,
+/// [`u32::checked_shr`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_shr<T: Copy, U: Copy>(x: T, y: U) -> T;
+
+/// Returns the result of an unchecked addition, resulting in
+/// undefined behavior when `x + y > T::MAX` or `x + y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_add` on the various
+/// integer types, such as [`u16::unchecked_add`] and [`i64::unchecked_add`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_add<T: Copy>(x: T, y: T) -> T;
+
+/// Returns the result of an unchecked subtraction, resulting in
+/// undefined behavior when `x - y > T::MAX` or `x - y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_sub` on the various
+/// integer types, such as [`u16::unchecked_sub`] and [`i64::unchecked_sub`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_sub<T: Copy>(x: T, y: T) -> T;
+
+/// Returns the result of an unchecked multiplication, resulting in
+/// undefined behavior when `x * y > T::MAX` or `x * y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_mul` on the various
+/// integer types, such as [`u16::unchecked_mul`] and [`i64::unchecked_mul`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_mul<T: Copy>(x: T, y: T) -> T;
+
+/// Performs rotate left.
+///
+/// Note that, unlike most intrinsics, this is safe to call;
+/// it does not require an `unsafe` block.
+/// Therefore, implementations must not require the user to uphold
+/// any safety invariants.
+///
+/// The stabilized versions of this intrinsic are available on the integer
+/// primitives via the `rotate_left` method. For example,
+/// [`u32::rotate_left`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+#[rustc_allow_const_fn_unstable(const_trait_impl, funnel_shifts)]
+#[miri::intrinsic_fallback_is_spec]
+pub const fn rotate_left<T: [const] fallback::FunnelShift>(x: T, shift: u32) -> T {
+    // Make sure to call the intrinsic for `funnel_shl`, not the fallback impl.
+    // SAFETY: we modulo `shift` so that the result is definitely less than the size of
+    // `T` in bits.
+    unsafe { unchecked_funnel_shl(x, x, shift % (mem::size_of::<T>() as u32 * 8)) }
+}",No directly corresponding safe function,"Not used directly, see library/core/src/num for details",intrinsic,handled,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,No directly corresponding safe function,Primitive_Escape_Hatches,Original category is `intrinsic`; these are low-level escape hatches rather than clean checked wrappers.
+rust/library/core/src/intrinsics/mod.rs,core::intrinsic,1978,2030,"pub const unsafe fn unchecked_shr<T: Copy, U: Copy>(x: T, y: U) -> T;
+
+/// Returns the result of an unchecked addition, resulting in
+/// undefined behavior when `x + y > T::MAX` or `x + y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_add` on the various
+/// integer types, such as [`u16::unchecked_add`] and [`i64::unchecked_add`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_add<T: Copy>(x: T, y: T) -> T;
+
+/// Returns the result of an unchecked subtraction, resulting in
+/// undefined behavior when `x - y > T::MAX` or `x - y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_sub` on the various
+/// integer types, such as [`u16::unchecked_sub`] and [`i64::unchecked_sub`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_sub<T: Copy>(x: T, y: T) -> T;
+
+/// Returns the result of an unchecked multiplication, resulting in
+/// undefined behavior when `x * y > T::MAX` or `x * y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_mul` on the various
+/// integer types, such as [`u16::unchecked_mul`] and [`i64::unchecked_mul`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_mul<T: Copy>(x: T, y: T) -> T;
+
+/// Performs rotate left.
+///
+/// Note that, unlike most intrinsics, this is safe to call;
+/// it does not require an `unsafe` block.
+/// Therefore, implementations must not require the user to uphold
+/// any safety invariants.
+///
+/// The stabilized versions of this intrinsic are available on the integer
+/// primitives via the `rotate_left` method. For example,
+/// [`u32::rotate_left`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+#[rustc_allow_const_fn_unstable(const_trait_impl, funnel_shifts)]
+#[miri::intrinsic_fallback_is_spec]
+pub const fn rotate_left<T: [const] fallback::FunnelShift>(x: T, shift: u32) -> T {
+    // Make sure to call the intrinsic for `funnel_shl`, not the fallback impl.
+    // SAFETY: we modulo `shift` so that the result is definitely less than the size of
+    // `T` in bits.
+    unsafe { unchecked_funnel_shl(x, x, shift % (mem::size_of::<T>() as u32 * 8)) }
+}",No directly corresponding safe function,"Not used directly, see library/core/src/num for details",intrinsic,handled,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,No directly corresponding safe function,Primitive_Escape_Hatches,Original category is `intrinsic`; these are low-level escape hatches rather than clean checked wrappers.
+rust/library/core/src/intrinsics/mod.rs,core::intrinsic,1998,2030,"pub const unsafe fn unchecked_sub<T: Copy>(x: T, y: T) -> T;
+
+/// Returns the result of an unchecked multiplication, resulting in
+/// undefined behavior when `x * y > T::MAX` or `x * y < T::MIN`.
+///
+/// The stable counterpart of this intrinsic is `unchecked_mul` on the various
+/// integer types, such as [`u16::unchecked_mul`] and [`i64::unchecked_mul`].
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn unchecked_mul<T: Copy>(x: T, y: T) -> T;
+
+/// Performs rotate left.
+///
+/// Note that, unlike most intrinsics, this is safe to call;
+/// it does not require an `unsafe` block.
+/// Therefore, implementations must not require the user to uphold
+/// any safety invariants.
+///
+/// The stabilized versions of this intrinsic are available on the integer
+/// primitives via the `rotate_left` method. For example,
+/// [`u32::rotate_left`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+#[rustc_allow_const_fn_unstable(const_trait_impl, funnel_shifts)]
+#[miri::intrinsic_fallback_is_spec]
+pub const fn rotate_left<T: [const] fallback::FunnelShift>(x: T, shift: u32) -> T {
+    // Make sure to call the intrinsic for `funnel_shl`, not the fallback impl.
+    // SAFETY: we modulo `shift` so that the result is definitely less than the size of
+    // `T` in bits.
+    unsafe { unchecked_funnel_shl(x, x, shift % (mem::size_of::<T>() as u32 * 8)) }
+}",No directly corresponding safe function,"Not used directly, see library/core/src/num for details",intrinsic,handled,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,No directly corresponding safe function,Primitive_Escape_Hatches,Original category is `intrinsic`; these are low-level escape hatches rather than clean checked wrappers.
+rust/library/core/src/intrinsics/mod.rs,core::intrinsic,855,923,"pub const unsafe fn transmute_unchecked<Src, Dst>(src: Src) -> Dst;
+
+/// Returns `true` if the actual type given as `T` requires drop
+/// glue; returns `false` if the actual type provided for `T`
+/// implements `Copy`.
+///
+/// If the actual type neither requires drop glue nor implements
+/// `Copy`, then the return value of this function is unspecified.
+///
+/// Note that, unlike most intrinsics, this can only be called at compile-time
+/// as backends do not have an implementation for it. The only caller (its
+/// stable counterpart) wraps this intrinsic call in a `const` block so that
+/// backends only see an evaluated constant.
+///
+/// The stabilized version of this intrinsic is [`mem::needs_drop`](crate::mem::needs_drop).
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const fn needs_drop<T: ?Sized>() -> bool;
+
+/// Calculates the offset from a pointer.
+///
+/// This is implemented as an intrinsic to avoid converting to and from an
+/// integer, since the conversion would throw away aliasing information.
+///
+/// This can only be used with `Ptr` as a raw pointer type (`*mut` or `*const`)
+/// to a `Sized` pointee and with `Delta` as `usize` or `isize`.  Any other
+/// instantiations may arbitrarily misbehave, and that's *not* a compiler bug.
+///
+/// # Safety
+///
+/// If the computed offset is non-zero, then both the starting and resulting pointer must be
+/// either in bounds or at the end of an allocation. If either pointer is out
+/// of bounds or arithmetic overflow occurs then this operation is undefined behavior.
+///
+/// The stabilized version of this intrinsic is [`pointer::offset`].
+#[must_use = ""returns a new pointer rather than modifying its argument""]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn offset<Ptr: bounds::BuiltinDeref, Delta>(dst: Ptr, offset: Delta) -> Ptr;
+
+/// Calculates the offset from a pointer, potentially wrapping.
+///
+/// This is implemented as an intrinsic to avoid converting to and from an
+/// integer, since the conversion inhibits certain optimizations.
+///
+/// # Safety
+///
+/// Unlike the `offset` intrinsic, this intrinsic does not restrict the
+/// resulting pointer to point into or at the end of an allocated
+/// object, and it wraps with two's complement arithmetic. The resulting
+/// value is not necessarily valid to be used to actually access memory.
+///
+/// The stabilized version of this intrinsic is [`pointer::wrapping_offset`].
+#[must_use = ""returns a new pointer rather than modifying its argument""]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const unsafe fn arith_offset<T>(dst: *const T, offset: isize) -> *const T;
+
+/// Projects to the `index`-th element of `slice_ptr`, as the same kind of pointer
+/// as the slice was provided -- so `&mut [T] → &mut T`, `&[T] → &T`,
+/// `*mut [T] → *mut T`, or `*const [T] → *const T` -- without a bounds check.
+///
+/// This is exposed via `<usize as SliceIndex>::get(_unchecked)(_mut)`,
+/// and isn't intended to be used elsewhere.
+///
+/// Expands in MIR to `{&, &mut, &raw const, &raw mut} (*slice_ptr)[index]`,","pub const unsafe fn transmute<Src, Dst>(src: Src) -> Dst;","Fundamentally unsafe, handle separately.",intrinsic,handled,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,Not recorded.,Primitive_Escape_Hatches,Original category is `intrinsic`; these are low-level escape hatches rather than clean checked wrappers.

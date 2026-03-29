@@ -1,0 +1,262 @@
+Path,Library,Start_line,End_line,Unchecked Func,Checked Func,Safety Conditions,Safety Condition Category,User visible,Flag,Safe_start_line,Safe_end_line,Counterpart status,Checked-side note,Normalized Family,Normalization Rationale
+rust/library/core/src/slice/mod.rs,slice/String,1338,1349,"    pub const unsafe fn as_chunks_unchecked<const N: usize>(&self) -> &[[T; N]] {
+        assert_unsafe_precondition!(
+            check_language_ub,
+            ""slice::as_chunks_unchecked requires `N != 0` and the slice to split exactly into `N`-element chunks"",
+            (n: usize = N, len: usize = self.len()) => n != 0 && len.is_multiple_of(n),
+        );
+        // SAFETY: Caller must guarantee that `N` is nonzero and exactly divides the slice length
+        let new_len = unsafe { exact_div(self.len(), N) };
+        // SAFETY: We cast a slice of `new_len * N` elements into
+        // a slice of `new_len` many `N` elements chunks.
+        unsafe { from_raw_parts(self.as_ptr().cast(), new_len) }
+    }","    pub const fn as_chunks<const N: usize>(&self) -> (&[[T; N]], &[T]) {
+        assert!(N != 0, ""chunk size must be non-zero"");
+        let len_rounded_down = self.len() / N * N;
+        // SAFETY: The rounded-down value is always the same or smaller than the
+        // original length, and thus must be in-bounds of the slice.
+        let (multiple_of_n, remainder) = unsafe { self.split_at_unchecked(len_rounded_down) };
+        // SAFETY: We already panicked for zero, and ensured by construction
+        // that the length of the subslice is a multiple of N.
+        let array_slice = unsafe { multiple_of_n.as_chunks_unchecked() };
+        (array_slice, remainder)
+    }",用户必须保证N不是零并且可以整除,bound/nonzero,Not recorded.,Not recorded.,1396,1406,confirmed_pair,Not recorded.,Bounds_and_Ordering,These APIs require non-zero sizes together with divisibility / in-bounds structural conditions.
+rust/library/core/src/slice/mod.rs,slice/String,1498,1509,"    pub const unsafe fn as_chunks_unchecked_mut<const N: usize>(&mut self) -> &mut [[T; N]] {
+        assert_unsafe_precondition!(
+            check_language_ub,
+            ""slice::as_chunks_unchecked requires `N != 0` and the slice to split exactly into `N`-element chunks"",
+            (n: usize = N, len: usize = self.len()) => n != 0 && len.is_multiple_of(n)
+        );
+        // SAFETY: Caller must guarantee that `N` is nonzero and exactly divides the slice length
+        let new_len = unsafe { exact_div(self.len(), N) };
+        // SAFETY: We cast a slice of `new_len * N` elements into
+        // a slice of `new_len` many `N` elements chunks.
+        unsafe { from_raw_parts_mut(self.as_mut_ptr().cast(), new_len) }
+    }","    pub const fn as_chunks_mut<const N: usize>(&mut self) -> (&mut [[T; N]], &mut [T]) {
+        assert!(N != 0, ""chunk size must be non-zero"");
+        let len_rounded_down = self.len() / N * N;
+        // SAFETY: The rounded-down value is always the same or smaller than the
+        // original length, and thus must be in-bounds of the slice.
+        let (multiple_of_n, remainder) = unsafe { self.split_at_mut_unchecked(len_rounded_down) };
+        // SAFETY: We already panicked for zero, and ensured by construction
+        // that the length of the subslice is a multiple of N.
+        let array_slice = unsafe { multiple_of_n.as_chunks_unchecked_mut() };
+        (array_slice, remainder)
+    }",用户必须保证N不是零并且可以整除,bound/nonzero,Not recorded.,Not recorded.,1552,1562,confirmed_pair,Not recorded.,Bounds_and_Ordering,These APIs require non-zero sizes together with divisibility / in-bounds structural conditions.
+rust/library/core/src/io/borrowed_buf.rs,buf,294,298,"    pub unsafe fn advance_unchecked(&mut self, n: usize) -> &mut Self {
+        self.buf.filled += n;
+        self.buf.init = cmp::max(self.buf.init, self.buf.filled);
+        self
+    }","    pub fn advance(&mut self, n: usize) -> &mut Self {
+        // The subtraction cannot underflow by invariant of this type.
+        assert!(n <= self.buf.init - self.buf.filled);
+
+        self.buf.filled += n;
+        self
+    }","如果没有n个初始化, 则panic",complex,Not recorded.,Not recorded.,275,281,confirmed_pair,Not recorded.,Bounds_and_Ordering,These APIs still fundamentally enforce in-bounds or range/order constraints.
+rust/library/core/src/ptr/mut_ptr.rs,null,1913,1919,"    pub const unsafe fn get_unchecked_mut<I>(self, index: I) -> *mut I::Output
+    where
+        I: [const] SliceIndex<[T]>,
+    {
+        // SAFETY: the caller ensures that `self` is dereferenceable and `index` in-bounds.
+        unsafe { index.get_unchecked_mut(self) }
+    }",未找到相关safe,Not recorded.,complex,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,未找到相关safe,Bounds_and_Ordering,These APIs still fundamentally enforce in-bounds or range/order constraints.
+rust/library/core/src/ptr/mut_ptr.rs,null,1859,1869,"    pub unsafe fn split_at_mut_unchecked(self, mid: usize) -> (*mut [T], *mut [T]) {
+        let len = self.len();
+        let ptr = self.as_mut_ptr();
+
+        // SAFETY: Caller must pass a valid pointer and an index that is in-bounds.
+        let tail = unsafe { ptr.add(mid) };
+        (
+            crate::ptr::slice_from_raw_parts_mut(ptr, mid),
+            crate::ptr::slice_from_raw_parts_mut(tail, len - mid),
+        )
+    }","pub unsafe fn split_at_mut(self, mid: usize) -> (*mut [T], *mut [T]) {
+        assert!(mid <= self.len());
+        // SAFETY: The assert above is only a safety-net as long as `self.len()` is correct
+        // The actual safety requirements of this function are the same as for `split_at_mut_unchecked`
+        unsafe { self.split_at_mut_unchecked(mid) }
+    }",Not recorded.,complex,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,Not recorded.,Bounds_and_Ordering,These APIs still fundamentally enforce in-bounds or range/order constraints.
+rust/library/core/src/ptr/non_null.rs,null,1664,1671,"    pub const unsafe fn get_unchecked_mut<I>(self, index: I) -> NonNull<I::Output>
+    where
+        I: [const] SliceIndex<[T]>,
+    {
+        // SAFETY: the caller ensures that `self` is dereferenceable and `index` in-bounds.
+        // As a consequence, the resulting pointer cannot be null.
+        unsafe { NonNull::new_unchecked(self.as_ptr().get_unchecked_mut(index)) }
+    }",未找到相关safe,Not recorded.,complex,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,未找到相关safe,Bounds_and_Ordering,These APIs still fundamentally enforce in-bounds or range/order constraints.
+rust/library/core/src/ptr/const_ptr.rs,slice/string,1537,1543,"    pub const unsafe fn get_unchecked<I>(self, index: I) -> *const I::Output
+    where
+        I: [const] SliceIndex<[T]>,
+    {
+        // SAFETY: the caller ensures that `self` is dereferenceable and `index` in-bounds.
+        unsafe { index.get_unchecked(self) }
+    }",未找到相关safe,Not recorded.,complex,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,未找到相关safe,Bounds_and_Ordering,These APIs still fundamentally enforce in-bounds or range/order constraints.
+rust/library/core/src/slice/mod.rs,slice/string,639,647,"    pub const unsafe fn get_unchecked<I>(&self, index: I) -> &I::Output
+    where
+        I: [const] SliceIndex<Self>,
+    {
+        // SAFETY: the caller must uphold most of the safety requirements for `get_unchecked`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &*index.get_unchecked(self) }
+    }","    pub const fn get<I>(&self, index: I) -> Option<&I::Output>
+    where
+        I: [const] SliceIndex<Self>,
+    {
+        index.get(self)
+    }",访问不越界,index,Not recorded.,Not recorded.,572,577,confirmed_pair,Not recorded.,Bounds_and_Ordering,These APIs primarily require in-bounds indices or ordering/range constraints.
+rust/library/core/src/slice/mod.rs,slice/string,684,692,"    pub const unsafe fn get_unchecked_mut<I>(&mut self, index: I) -> &mut I::Output
+    where
+        I: [const] SliceIndex<Self>,
+    {
+        // SAFETY: the caller must uphold the safety requirements for `get_unchecked_mut`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &mut *index.get_unchecked_mut(self) }
+    }","    pub const fn get_mut<I>(&mut self, index: I) -> Option<&mut I::Output>
+    where
+        I: [const] SliceIndex<Self>,
+    {
+        index.get_mut(self)
+    }",数组访问不越界,index,Not recorded.,Not recorded.,599,604,confirmed_pair,Not recorded.,Bounds_and_Ordering,These APIs primarily require in-bounds indices or ordering/range constraints.
+rust/library/core/src/slice/mod.rs,slice/String,2038,2054,"    pub const unsafe fn split_at_unchecked(&self, mid: usize) -> (&[T], &[T]) {
+        // FIXME(const-hack): the const function `from_raw_parts` is used to make this
+        // function const; previously the implementation used
+        // `(self.get_unchecked(..mid), self.get_unchecked(mid..))`
+
+        let len = self.len();
+        let ptr = self.as_ptr();
+
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""slice::split_at_unchecked requires the index to be within the slice"",
+            (mid: usize = mid, len: usize = len) => mid <= len,
+        );
+
+        // SAFETY: Caller has to check that `0 <= mid <= self.len()`
+        unsafe { (from_raw_parts(ptr, mid), from_raw_parts(ptr.add(mid), unchecked_sub(len, mid))) }
+    }","    pub const fn split_at_checked(&self, mid: usize) -> Option<(&[T], &[T])> {
+        if mid <= self.len() {
+            // SAFETY: `[ptr; mid]` and `[mid; len]` are inside `self`, which
+            // fulfills the requirements of `split_at_unchecked`.
+            Some(unsafe { self.split_at_unchecked(mid) })
+        } else {
+            None
+        }
+    }",用户必须保证参数mid在0到self.len之间,index,Not recorded.,Not recorded.,2153,2161,confirmed_pair,Not recorded.,Bounds_and_Ordering,These APIs primarily require in-bounds indices or ordering/range constraints.
+rust/library/core/src/slice/mod.rs,slice/string,2092,2112,"    pub const unsafe fn split_at_mut_unchecked(&mut self, mid: usize) -> (&mut [T], &mut [T]) {
+        let len = self.len();
+        let ptr = self.as_mut_ptr();
+
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""slice::split_at_mut_unchecked requires the index to be within the slice"",
+            (mid: usize = mid, len: usize = len) => mid <= len,
+        );
+
+        // SAFETY: Caller has to check that `0 <= mid <= self.len()`.
+        //
+        // `[ptr; mid]` and `[mid; len]` are not overlapping, so returning a mutable reference
+        // is fine.
+        unsafe {
+            (
+                from_raw_parts_mut(ptr, mid),
+                from_raw_parts_mut(ptr.add(mid), unchecked_sub(len, mid)),
+            )
+        }
+    }","    pub const fn split_at_mut_checked(&mut self, mid: usize) -> Option<(&mut [T], &mut [T])> {
+        if mid <= self.len() {
+            // SAFETY: `[ptr; mid]` and `[mid; len]` are inside `self`, which
+            // fulfills the requirements of `split_at_unchecked`.
+            Some(unsafe { self.split_at_mut_unchecked(mid) })
+        } else {
+            None
+        }
+    }",用户必须保证参数mid在0到self.len之间,index,Not recorded.,Not recorded.,2192,2200,confirmed_pair,Not recorded.,Bounds_and_Ordering,These APIs primarily require in-bounds indices or ordering/range constraints.
+rust/library/core/src/slice/mod.rs,slice/string,948,964,"    pub const unsafe fn swap_unchecked(&mut self, a: usize, b: usize) {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""slice::swap_unchecked requires that the indices are within the slice"",
+            (
+                len: usize = self.len(),
+                a: usize = a,
+                b: usize = b,
+            ) => a < len && b < len,
+        );
+
+        let ptr = self.as_mut_ptr();
+        // SAFETY: caller has to guarantee that `a < self.len()` and `b < self.len()`
+        unsafe {
+            ptr::swap(ptr.add(a), ptr.add(b));
+        }
+    }","    pub const fn swap(&mut self, a: usize, b: usize) {
+        // FIXME: use swap_unchecked here (https://github.com/rust-lang/rust/pull/88540#issuecomment-944344343)
+        // Can't take two mutable loans from one vector, so instead use raw pointers.
+        let pa = &raw mut self[a];
+        let pb = &raw mut self[b];
+        // SAFETY: `pa` and `pb` have been created from safe mutable references and refer
+        // to elements in the slice and therefore are guaranteed to be valid and aligned.
+        // Note that accessing the elements behind `a` and `b` is checked and will
+        // panic when out of bounds.
+        unsafe {
+            ptr::swap(pa, pb);
+        }
+    }",需要保证参数对应两个切片的索引大于切片的长度,index,Not recorded.,Not recorded.,905,917,confirmed_pair,Not recorded.,Bounds_and_Ordering,These APIs primarily require in-bounds indices or ordering/range constraints.
+rust/library/core/src/str/mod.rs,slice/string,683,688,"    pub unsafe fn get_unchecked<I: SliceIndex<str>>(&self, i: I) -> &I::Output {
+        // SAFETY: the caller must uphold the safety contract for `get_unchecked`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &*i.get_unchecked(self) }
+    }","    pub const fn get<I: [const] SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
+        i.get(self)
+    }","数组不能越界
+/// * The starting index must not exceed the ending index;
+    /// * Indexes must be within bounds of the original slice;
+    /// * Indexes must lie on UTF-8 sequence boundaries.",index,Not recorded.,Not recorded.,618,620,confirmed_pair,Not recorded.,Bounds_and_Ordering,These APIs primarily require in-bounds indices or ordering/range constraints.
+rust/library/core/src/str/mod.rs,slice/string,718,723,"    pub unsafe fn get_unchecked_mut<I: SliceIndex<str>>(&mut self, i: I) -> &mut I::Output {
+        // SAFETY: the caller must uphold the safety contract for `get_unchecked_mut`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &mut *i.get_unchecked_mut(self) }
+    }","    pub const fn get_mut<I: [const] SliceIndex<str>>(&mut self, i: I) -> Option<&mut I::Output> {
+        i.get_mut(self)
+    }","数组不能越界
+/// * The starting index must not exceed the ending index;
+    /// * Indexes must be within bounds of the original slice;
+    /// * Indexes must lie on UTF-8 sequence boundaries.",index,Not recorded.,Not recorded.,651,653,confirmed_pair,Not recorded.,Bounds_and_Ordering,These APIs primarily require in-bounds indices or ordering/range constraints.
+rust/library/portable-simd/crates/core_simd/src/masks.rs,vector,261,266,"    pub unsafe fn set_unchecked(&mut self, index: usize, value: bool) {
+        // Safety: the caller must confirm this invariant
+        unsafe {
+            *self.0.as_mut_array().get_unchecked_mut(index) = if value { T::TRUE } else { T::FALSE }
+        }
+    }","    pub fn set(&mut self, index: usize, value: bool) {
+        self.0[index] = if value { T::TRUE } else { T::FALSE }
+    }",安全条件是index小于等于向量长度,index,Not recorded.,Not recorded.,274,276,confirmed_pair,Not recorded.,Bounds_and_Ordering,These APIs primarily require in-bounds indices or ordering/range constraints.
+rust/library/portable-simd/crates/core_simd/src/masks.rs,vector,240,243,"    pub unsafe fn test_unchecked(&self, index: usize) -> bool {
+        // Safety: the caller must confirm this invariant
+        unsafe { T::eq(*self.0.as_array().get_unchecked(index), T::TRUE) }
+    }","    pub fn test(&self, index: usize) -> bool {
+        T::eq(self.0[index], T::TRUE)
+    }",安全条件是index要小于等于数组边界,index,Not recorded.,Not recorded.,252,254,confirmed_pair,Not recorded.,Bounds_and_Ordering,These APIs primarily require in-bounds indices or ordering/range constraints.
+rust/library/core/src/alloc/layout.rs,alloc,132,144,"    pub const unsafe fn from_size_align_unchecked(size: usize, align: usize) -> Self {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""Layout::from_size_align_unchecked requires that align is a power of 2 \
+            and the rounded-up allocation size does not exceed isize::MAX"",
+            (
+                size: usize = size,
+                align: usize = align,
+            ) => Layout::is_size_align_valid(size, align)
+        );
+        // SAFETY: the caller is required to uphold the preconditions.
+        unsafe { Layout { size, align: mem::transmute(align) } }
+    }","    pub const fn from_size_align(size: usize, align: usize) -> Result<Self, LayoutError> {
+        if Layout::is_size_align_valid(size, align) {
+            // SAFETY: Layout::is_size_align_valid checks the preconditions for this call.
+            unsafe { Ok(Layout { size, align: mem::transmute(align) }) }
+        } else {
+            Err(LayoutError)
+        }
+    }","一个用于分配内存的方法, 安全条件是用户需要检查
+内存对齐参数是2的幂并且不能超过整数最大值",index?,Not recorded.,Not recorded.,59,66,confirmed_pair,Not recorded.,Bounds_and_Ordering,These APIs primarily require in-bounds indices or ordering/range constraints.

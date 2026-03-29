@@ -1,0 +1,421 @@
+Path,Library,Start_line,End_line,Unchecked Func,Checked Func,Safety Conditions,Safety Condition Category,User visible,Flag,Safe_start_line,Safe_end_line,Counterpart status,Checked-side note,Normalized Family,Normalization Rationale
+rust/library/core/src/num/int_macros.rs,algorithm,863,877,"        pub const unsafe fn unchecked_mul(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_mul cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_mul(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_mul(self, rhs)
+            }
+        }","        pub const fn checked_mul(self, rhs: Self) -> Option<Self> {
+            let (a, b) = self.overflowing_mul(rhs);
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }",Not recorded.,complex,Not recorded.,Not recorded.,803,806,confirmed_pair,Not recorded.,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/int_macros.rs,algorithm,1284,1297,"        pub const unsafe fn unchecked_neg(self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_neg cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                ) => !lhs.overflowing_neg().1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_sub(0, self)
+            }
+        }","        pub const fn checked_neg(self) -> Option<Self> {
+            let (a, b) = self.overflowing_neg();
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }",Not recorded.,complex,Not recorded.,Not recorded.,1264,1267,confirmed_pair,Not recorded.,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/int_macros.rs,algorithm,1401,1414,"        pub const unsafe fn unchecked_shl(self, rhs: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shl cannot overflow""),
+                (
+                    rhs: u32 = rhs,
+                ) => rhs < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_shl(self, rhs)
+            }
+        }","        pub const fn checked_shl(self, rhs: u32) -> Option<Self> {
+            // Not using overflowing_shl as that's a wrapping shift
+            if rhs < Self::BITS {
+                // SAFETY: just checked the RHS is in-range
+                Some(unsafe { self.unchecked_shl(rhs) })
+            } else {
+                None
+            }
+        }",Not recorded.,complex,Not recorded.,Not recorded.,1344,1352,confirmed_pair,Not recorded.,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/int_macros.rs,algorithm,1580,1593,"        pub const unsafe fn unchecked_shr(self, rhs: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shr cannot overflow""),
+                (
+                    rhs: u32 = rhs,
+                ) => rhs < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_shr(self, rhs)
+            }
+        }","        pub const fn checked_shr(self, rhs: u32) -> Option<Self> {
+            // Not using overflowing_shr as that's a wrapping shift
+            if rhs < Self::BITS {
+                // SAFETY: just checked the RHS is in-range
+                Some(unsafe { self.unchecked_shr(rhs) })
+            } else {
+                None
+            }
+        }",Not recorded.,complex,Not recorded.,Not recorded.,1523,1531,confirmed_pair,Not recorded.,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/int_macros.rs,algorithm,723,737,"        pub const unsafe fn unchecked_sub(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_sub cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_sub(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_sub(self, rhs)
+            }
+        }","        pub const fn checked_sub(self, rhs: Self) -> Option<Self> {
+            let (a, b) = self.overflowing_sub(rhs);
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }",Not recorded.,complex,Not recorded.,Not recorded.,663,666,confirmed_pair,Not recorded.,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/uint_macros.rs,algorithm,886,900,"        pub const unsafe fn unchecked_add(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_add cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_add(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_add(self, rhs)
+            }
+        }","        pub const fn checked_add(self, rhs: Self) -> Option<Self> {
+            // This used to use `overflowing_add`, but that means it ends up being
+            // a `wrapping_add`, losing some optimization opportunities. Notably,
+            // phrasing it this way helps `.checked_add(1)` optimize to a check
+            // against `MAX` and a `add nuw`.
+            // Per <https://github.com/rust-lang/rust/pull/124114#issuecomment-2066173305>,
+            // LLVM is happy to re-form the intrinsic later if useful.
+
+            if intrinsics::unlikely(intrinsics::add_with_overflow(self, rhs).1) {
+                None
+            } else {
+                // SAFETY: Just checked it doesn't overflow
+                Some(unsafe { intrinsics::unchecked_add(self, rhs) })
+            }
+        }",Not recorded.,complex,Not recorded.,Not recorded.,815,829,confirmed_pair,不重复,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/uint_macros.rs,algorithm,1631,1643,"        pub const unsafe fn unchecked_disjoint_bitor(self, other: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_disjoint_bitor cannot have overlapping bits""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = other,
+                ) => (lhs & rhs) == 0,
+            );
+
+            // SAFETY: Same precondition
+            unsafe { intrinsics::disjoint_bitor(self, other) }
+        }",不重复,Not recorded.,complex,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,不重复,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/uint_macros.rs,algorithm,1274,1288,"        pub const unsafe fn unchecked_mul(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_mul cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_mul(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_mul(self, rhs)
+            }
+        }","        pub const fn checked_mul(self, rhs: Self) -> Option<Self> {
+            let (a, b) = self.overflowing_mul(rhs);
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }",Not recorded.,complex,Not recorded.,Not recorded.,1214,1217,confirmed_pair,不重复,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/uint_macros.rs,algorithm,1959,1972,"        pub const unsafe fn unchecked_shl(self, rhs: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shl cannot overflow""),
+                (
+                    rhs: u32 = rhs,
+                ) => rhs < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_shl(self, rhs)
+            }
+        }","        pub const fn checked_shl(self, rhs: u32) -> Option<Self> {
+            // Not using overflowing_shl as that's a wrapping shift
+            if rhs < Self::BITS {
+                // SAFETY: just checked the RHS is in-range
+                Some(unsafe { self.unchecked_shl(rhs) })
+            } else {
+                None
+            }
+        }",Not recorded.,complex,Not recorded.,Not recorded.,1902,1910,confirmed_pair,不重复,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/uint_macros.rs,algorithm,2144,2157,"        pub const unsafe fn unchecked_shr(self, rhs: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shr cannot overflow""),
+                (
+                    rhs: u32 = rhs,
+                ) => rhs < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_shr(self, rhs)
+            }
+        }","        pub const fn checked_shr(self, rhs: u32) -> Option<Self> {
+            // Not using overflowing_shr as that's a wrapping shift
+            if rhs < Self::BITS {
+                // SAFETY: just checked the RHS is in-range
+                Some(unsafe { self.unchecked_shr(rhs) })
+            } else {
+                None
+            }
+        }",Not recorded.,complex,Not recorded.,Not recorded.,2087,2095,confirmed_pair,不重复,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/uint_macros.rs,algorithm,1065,1079,"        pub const unsafe fn unchecked_sub(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_sub cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_sub(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_sub(self, rhs)
+            }
+        }","        pub const fn checked_sub(self, rhs: Self) -> Option<Self> {
+            // Per PR#103299, there's no advantage to the `overflowing` intrinsic
+            // for *unsigned* subtraction and we just emit the manual check anyway.
+            // Thus, rather than using `overflowing_sub` that produces a wrapping
+            // subtraction, check it ourself so we can use an unchecked one.
+
+            if self < rhs {
+                None
+            } else {
+                // SAFETY: just checked this can't overflow
+                Some(unsafe { intrinsics::unchecked_sub(self, rhs) })
+            }
+        }",Not recorded.,complex,Not recorded.,Not recorded.,971,983,confirmed_pair,不重复,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/f128.rs,num/nonzero,952,959,"    pub unsafe fn to_int_unchecked<Int>(self) -> Int
+    where
+        Self: FloatToInt<Int>,
+    {
+        // SAFETY: the caller must uphold the safety contract for
+        // `FloatToInt::to_int_unchecked`.
+        unsafe { FloatToInt::<Int>::to_int_unchecked(self) }
+    }",未找到相关safe,Not recorded.,complex,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,未找到相关safe,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/f16.rs,num/nonzero,946,953,"    pub unsafe fn to_int_unchecked<Int>(self) -> Int
+    where
+        Self: FloatToInt<Int>,
+    {
+        // SAFETY: the caller must uphold the safety contract for
+        // `FloatToInt::to_int_unchecked`.
+        unsafe { FloatToInt::<Int>::to_int_unchecked(self) }
+    }",Not recorded.,Not recorded.,complex,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,Not recorded.,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/f32.rs,num/nonzero,1150,1157,"    pub unsafe fn to_int_unchecked<Int>(self) -> Int
+    where
+        Self: FloatToInt<Int>,
+    {
+        // SAFETY: the caller must uphold the safety contract for
+        // `FloatToInt::to_int_unchecked`.
+        unsafe { FloatToInt::<Int>::to_int_unchecked(self) }
+    }",未找到相关safe,Not recorded.,complex,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,未找到相关safe,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/f64.rs,num/nonzero,1149,1156,"    pub unsafe fn to_int_unchecked<Int>(self) -> Int
+    where
+        Self: FloatToInt<Int>,
+    {
+        // SAFETY: the caller must uphold the safety contract for
+        // `FloatToInt::to_int_unchecked`.
+        unsafe { FloatToInt::<Int>::to_int_unchecked(self) }
+    }",未找到相关safe,Not recorded.,complex,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,未找到相关safe,Arithmetic_Representability,These APIs are governed by arithmetic overflow or representability constraints.
+rust/library/core/src/num/int_macros.rs,algorithm,583,597,"        pub const unsafe fn unchecked_add(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_add cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_add(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_add(self, rhs)
+            }
+        }","        pub const fn checked_add(self, rhs: Self) -> Option<Self> {
+            let (a, b) = self.overflowing_add(rhs);
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }","必须保证不会溢出, 参考intrinsic::unchecked_add",overflow,Not recorded.,Not recorded.,523,526,confirmed_pair,Not recorded.,Arithmetic_Representability,These APIs guard arithmetic overflow / representability conditions.
+rust/library/core/src/num/nonzero.rs,num/nonzero,1723,1726,"        pub const unsafe fn unchecked_add(self, other: $Int) -> Self {
+            // SAFETY: The caller ensures there is no overflow.
+            unsafe { Self::new_unchecked(self.get().unchecked_add(other)) }
+        }","        pub const fn checked_add(self, other: $Int) -> Option<Self> {
+            if let Some(result) = self.get().checked_add(other) {
+                // SAFETY:
+                // - `checked_add` returns `None` on overflow
+                // - `self` is non-zero
+                // - the only way to get zero from an addition without overflow is for both
+                //   sides to be zero
+                //
+                // So the result cannot be zero.
+                Some(unsafe { Self::new_unchecked(result) })
+            } else {
+                None
+            }
+        }",必须保证参数参数非零并且不会溢出,overflow/nonzero,Not recorded.,Not recorded.,1646,1659,confirmed_pair,Not recorded.,Arithmetic_Representability,These APIs guard arithmetic overflow / representability conditions.
+rust/library/core/src/num/nonzero.rs,num/nonzero,1155,1158,"            pub const unsafe fn unchecked_mul(self, other: Self) -> Self {
+                // SAFETY: The caller ensures there is no overflow.
+                unsafe { Self::new_unchecked(self.get().unchecked_mul(other.get())) }
+            }","            pub const fn checked_mul(self, other: Self) -> Option<Self> {
+                if let Some(result) = self.get().checked_mul(other.get()) {
+                    // SAFETY:
+                    // - `checked_mul` returns `None` on overflow
+                    // - `self` and `other` are non-zero
+                    // - the only way to get zero from a multiplication without overflow is for one
+                    //   of the sides to be zero
+                    //
+                    // So the result cannot be zero.
+                    Some(unsafe { Self::new_unchecked(result) })
+                } else {
+                    None
+                }
+            }",必须保证参数非零并且不会溢出,overflow/nonzero,Not recorded.,Not recorded.,1068,1081,confirmed_pair,Not recorded.,Arithmetic_Representability,These APIs guard arithmetic overflow / representability conditions.
+rust/library/core/src/intrinsics/mod.rs,algorithm,1616,1723,"pub unsafe fn float_to_int_unchecked<Float: Copy, Int: Copy>(value: Float) -> Int;
+
+/// Float addition that allows optimizations based on algebraic rules.
+///
+/// Stabilized as [`f16::algebraic_add`], [`f32::algebraic_add`], [`f64::algebraic_add`] and [`f128::algebraic_add`].
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const fn fadd_algebraic<T: Copy>(a: T, b: T) -> T;
+
+/// Float subtraction that allows optimizations based on algebraic rules.
+///
+/// Stabilized as [`f16::algebraic_sub`], [`f32::algebraic_sub`], [`f64::algebraic_sub`] and [`f128::algebraic_sub`].
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const fn fsub_algebraic<T: Copy>(a: T, b: T) -> T;
+
+/// Float multiplication that allows optimizations based on algebraic rules.
+///
+/// Stabilized as [`f16::algebraic_mul`], [`f32::algebraic_mul`], [`f64::algebraic_mul`] and [`f128::algebraic_mul`].
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const fn fmul_algebraic<T: Copy>(a: T, b: T) -> T;
+
+/// Float division that allows optimizations based on algebraic rules.
+///
+/// Stabilized as [`f16::algebraic_div`], [`f32::algebraic_div`], [`f64::algebraic_div`] and [`f128::algebraic_div`].
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const fn fdiv_algebraic<T: Copy>(a: T, b: T) -> T;
+
+/// Float remainder that allows optimizations based on algebraic rules.
+///
+/// Stabilized as [`f16::algebraic_rem`], [`f32::algebraic_rem`], [`f64::algebraic_rem`] and [`f128::algebraic_rem`].
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const fn frem_algebraic<T: Copy>(a: T, b: T) -> T;
+
+/// Returns the number of bits set in an integer type `T`
+///
+/// Note that, unlike most intrinsics, this is safe to call;
+/// it does not require an `unsafe` block.
+/// Therefore, implementations must not require the user to uphold
+/// any safety invariants.
+///
+/// The stabilized versions of this intrinsic are available on the integer
+/// primitives via the `count_ones` method. For example,
+/// [`u32::count_ones`]
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const fn ctpop<T: Copy>(x: T) -> u32;
+
+/// Returns the number of leading unset bits (zeroes) in an integer type `T`.
+///
+/// Note that, unlike most intrinsics, this is safe to call;
+/// it does not require an `unsafe` block.
+/// Therefore, implementations must not require the user to uphold
+/// any safety invariants.
+///
+/// The stabilized versions of this intrinsic are available on the integer
+/// primitives via the `leading_zeros` method. For example,
+/// [`u32::leading_zeros`]
+///
+/// # Examples
+///
+/// ```
+/// #![feature(core_intrinsics)]
+/// # #![allow(internal_features)]
+///
+/// use std::intrinsics::ctlz;
+///
+/// let x = 0b0001_1100_u8;
+/// let num_leading = ctlz(x);
+/// assert_eq!(num_leading, 3);
+/// ```
+///
+/// An `x` with value `0` will return the bit width of `T`.
+///
+/// ```
+/// #![feature(core_intrinsics)]
+/// # #![allow(internal_features)]
+///
+/// use std::intrinsics::ctlz;
+///
+/// let x = 0u16;
+/// let num_leading = ctlz(x);
+/// assert_eq!(num_leading, 16);
+/// ```
+#[rustc_intrinsic_const_stable_indirect]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+pub const fn ctlz<T: Copy>(x: T) -> u32;
+
+/// Like `ctlz`, but extra-unsafe as it returns `undef` when
+/// given an `x` with value `0`.
+///
+/// This intrinsic does not have a stable counterpart.
+///
+/// # Examples
+///
+/// ```
+/// #![feature(core_intrinsics)]
+/// # #![allow(internal_features)]
+///
+/// use std::intrinsics::ctlz_nonzero;
+///
+/// let x = 0b0001_1100_u8;
+/// let num_leading = unsafe { ctlz_nonzero(x) };",安全函数被对应实例化,类型转换,type,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,安全函数被对应实例化,Arithmetic_Representability,Float/int conversion APIs are better modeled as representability checks than dynamic tags.

@@ -1,0 +1,10 @@
+Path,Library,Start_line,End_line,Unchecked Func,Checked Func,Safety Conditions,Safety Condition Category,User visible,Flag,Safe_start_line,Safe_end_line,Counterpart status,Checked-side note
+rust/library/std/src/sys/sync/once_box.rs,sync,42,44,"    pub unsafe fn get_unchecked(&self) -> Pin<&T> {
+        unsafe { Pin::new_unchecked(&*self.ptr.load(Relaxed)) }
+    }","    pub fn get_or_init(&self, f: impl FnOnce() -> Pin<Box<T>>) -> Pin<&T> {
+        let ptr = self.ptr.load(Acquire);
+        match unsafe { ptr.as_ref() } {
+            Some(val) => unsafe { Pin::new_unchecked(val) },
+            None => self.initialize(f),
+        }
+    }",Not recorded.,sync,Not recorded.,Not recorded.,47,53,confirmed_pair,Not recorded.

@@ -1,0 +1,245 @@
+Path,Library,Start_line,End_line,Unchecked Func,Checked Func,Safety Conditions,Safety Condition Category,User visible,Flag,Safe_start_line,Safe_end_line,Counterpart status,Checked-side note
+rust/library/core/src/array/ascii.rs,array,39,44,"    pub const unsafe fn as_ascii_unchecked(&self) -> &[ascii::Char; N] {
+        let byte_ptr: *const [u8; N] = self;
+        let ascii_ptr = byte_ptr as *const [ascii::Char; N];
+        // SAFETY: The caller promised all the bytes are ASCII
+        unsafe { &*ascii_ptr }
+    }","    pub const fn as_ascii(&self) -> Option<&[ascii::Char; N]> {
+        if self.is_ascii() {
+            // SAFETY: Just checked that it's ASCII
+            Some(unsafe { self.as_ascii_unchecked() })
+        } else {
+            None
+        }
+    }",保证所有的字符都是ascii,index,Not recorded.,Not recorded.,21,28,confirmed_pair,Not recorded.
+rust/library/core/src/ascii/ascii_char.rs,ascii,516,530,"    pub const unsafe fn digit_unchecked(d: u8) -> Self {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""`ascii::Char::digit_unchecked` input cannot exceed 9."",
+            (d: u8 = d) => d < 10
+        );
+
+        // SAFETY: `'0'` through `'9'` are U+00030 through U+0039,
+        // so because `d` must be 64 or less the addition can return at most
+        // 112 (0x70), which doesn't overflow and is within the ASCII range.
+        unsafe {
+            let byte = b'0'.unchecked_add(d);
+            Self::from_u8_unchecked(byte)
+        }
+    }","    pub const fn digit(d: u8) -> Option<Self> {
+        if d < 10 {
+            // SAFETY: Just checked it's in-range.
+            Some(unsafe { Self::digit_unchecked(d) })
+        } else {
+            None
+        }
+    }",保证参数对应ascii码中0-9的范围,index,Not recorded.,Not recorded.,489,496,confirmed_pair,Not recorded.
+rust/library/core/src/ascii/ascii_char.rs,ascii,478,481,"    pub const unsafe fn from_u8_unchecked(b: u8) -> Self {
+        // SAFETY: Our safety precondition is that `b` is in-range.
+        unsafe { transmute(b) }
+    }","    pub const fn from_u8(b: u8) -> Option<Self> {
+        if b <= 127 {
+            // SAFETY: Just checked that `b` is in-range
+            Some(unsafe { Self::from_u8_unchecked(b) })
+        } else {
+            None
+        }
+    }",必须保证参数属于ascii码范围,index,Not recorded.,Not recorded.,461,468,confirmed_pair,Not recorded.
+rust/library/core/src/char/methods.rs,char,237,240,"    pub const unsafe fn from_u32_unchecked(i: u32) -> char {
+        // SAFETY: the safety contract must be upheld by the caller.
+        unsafe { super::convert::from_u32_unchecked(i) }
+    }","    pub const fn from_u32(i: u32) -> Option<char> {
+        super::convert::from_u32(i)
+    }",u32类型参数在所在unicode码表中,index,Not recorded.,Not recorded.,196,198,confirmed_pair,Not recorded.
+rust/library/core/src/char/mod.rs,char,141,144,"pub const unsafe fn from_u32_unchecked(i: u32) -> char {
+    // SAFETY: the safety contract must be upheld by the caller.
+    unsafe { self::convert::from_u32_unchecked(i) }
+}","pub const fn from_u32(i: u32) -> Option<char> {
+    self::convert::from_u32(i)
+}",u32类型参数在所在unicode码表中,index,Not recorded.,Not recorded.,131,133,confirmed_pair,Not recorded.
+../../refs/rust/library/core/src/ptr/alignment.rs,ptr,76,86,"pub const unsafe fn new_unchecked(align: usize) -> Self {
+        assert_unsafe_precondition!(
+            check_language_ub,
+            ""Alignment::new_unchecked requires a power of two"",
+            (align: usize = align) => align.is_power_of_two()
+        );
+
+        // SAFETY: By precondition, this must be a power of two, and
+        // our variants encompass all possible powers of two.
+        unsafe { mem::transmute::<usize, Alignment>(align) }
+    }","pub const fn new(align: usize) -> Option<Self> {
+        if align.is_power_of_two() {
+            // SAFETY: Just checked it only has one bit set
+            Some(unsafe { Self::new_unchecked(align) })
+        } else {
+            None
+        }
+    }",对齐参数必须为2的幂并且不能为0,index,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,Not recorded.
+rust/library/core/src/slice/ascii.rs,slice/string,45,50,"    pub const unsafe fn as_ascii_unchecked(&self) -> &[ascii::Char] {
+        let byte_ptr: *const [u8] = self;
+        let ascii_ptr = byte_ptr as *const [ascii::Char];
+        // SAFETY: The caller promised all the bytes are ASCII
+        unsafe { &*ascii_ptr }
+    }","    pub const fn as_ascii(&self) -> Option<&[ascii::Char]> {
+        if self.is_ascii() {
+            // SAFETY: Just checked that it's ASCII
+            Some(unsafe { self.as_ascii_unchecked() })
+        } else {
+            None
+        }
+    }",用户必须保证参数都符合ascii范围内,index,Not recorded.,Not recorded.,27,34,confirmed_pair,Not recorded.
+rust/library/core/src/slice/mod.rs,slice/string,639,647,"    pub const unsafe fn get_unchecked<I>(&self, index: I) -> &I::Output
+    where
+        I: [const] SliceIndex<Self>,
+    {
+        // SAFETY: the caller must uphold most of the safety requirements for `get_unchecked`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &*index.get_unchecked(self) }
+    }","    pub const fn get<I>(&self, index: I) -> Option<&I::Output>
+    where
+        I: [const] SliceIndex<Self>,
+    {
+        index.get(self)
+    }",访问不越界,index,Not recorded.,Not recorded.,572,577,confirmed_pair,Not recorded.
+rust/library/core/src/slice/mod.rs,slice/string,684,692,"    pub const unsafe fn get_unchecked_mut<I>(&mut self, index: I) -> &mut I::Output
+    where
+        I: [const] SliceIndex<Self>,
+    {
+        // SAFETY: the caller must uphold the safety requirements for `get_unchecked_mut`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &mut *index.get_unchecked_mut(self) }
+    }","    pub const fn get_mut<I>(&mut self, index: I) -> Option<&mut I::Output>
+    where
+        I: [const] SliceIndex<Self>,
+    {
+        index.get_mut(self)
+    }",数组访问不越界,index,Not recorded.,Not recorded.,599,604,confirmed_pair,Not recorded.
+rust/library/core/src/slice/mod.rs,slice/String,2038,2054,"    pub const unsafe fn split_at_unchecked(&self, mid: usize) -> (&[T], &[T]) {
+        // FIXME(const-hack): the const function `from_raw_parts` is used to make this
+        // function const; previously the implementation used
+        // `(self.get_unchecked(..mid), self.get_unchecked(mid..))`
+
+        let len = self.len();
+        let ptr = self.as_ptr();
+
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""slice::split_at_unchecked requires the index to be within the slice"",
+            (mid: usize = mid, len: usize = len) => mid <= len,
+        );
+
+        // SAFETY: Caller has to check that `0 <= mid <= self.len()`
+        unsafe { (from_raw_parts(ptr, mid), from_raw_parts(ptr.add(mid), unchecked_sub(len, mid))) }
+    }","    pub const fn split_at_checked(&self, mid: usize) -> Option<(&[T], &[T])> {
+        if mid <= self.len() {
+            // SAFETY: `[ptr; mid]` and `[mid; len]` are inside `self`, which
+            // fulfills the requirements of `split_at_unchecked`.
+            Some(unsafe { self.split_at_unchecked(mid) })
+        } else {
+            None
+        }
+    }",用户必须保证参数mid在0到self.len之间,index,Not recorded.,Not recorded.,2153,2161,confirmed_pair,Not recorded.
+rust/library/core/src/slice/mod.rs,slice/string,2092,2112,"    pub const unsafe fn split_at_mut_unchecked(&mut self, mid: usize) -> (&mut [T], &mut [T]) {
+        let len = self.len();
+        let ptr = self.as_mut_ptr();
+
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""slice::split_at_mut_unchecked requires the index to be within the slice"",
+            (mid: usize = mid, len: usize = len) => mid <= len,
+        );
+
+        // SAFETY: Caller has to check that `0 <= mid <= self.len()`.
+        //
+        // `[ptr; mid]` and `[mid; len]` are not overlapping, so returning a mutable reference
+        // is fine.
+        unsafe {
+            (
+                from_raw_parts_mut(ptr, mid),
+                from_raw_parts_mut(ptr.add(mid), unchecked_sub(len, mid)),
+            )
+        }
+    }","    pub const fn split_at_mut_checked(&mut self, mid: usize) -> Option<(&mut [T], &mut [T])> {
+        if mid <= self.len() {
+            // SAFETY: `[ptr; mid]` and `[mid; len]` are inside `self`, which
+            // fulfills the requirements of `split_at_unchecked`.
+            Some(unsafe { self.split_at_mut_unchecked(mid) })
+        } else {
+            None
+        }
+    }",用户必须保证参数mid在0到self.len之间,index,Not recorded.,Not recorded.,2192,2200,confirmed_pair,Not recorded.
+rust/library/core/src/slice/mod.rs,slice/string,948,964,"    pub const unsafe fn swap_unchecked(&mut self, a: usize, b: usize) {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""slice::swap_unchecked requires that the indices are within the slice"",
+            (
+                len: usize = self.len(),
+                a: usize = a,
+                b: usize = b,
+            ) => a < len && b < len,
+        );
+
+        let ptr = self.as_mut_ptr();
+        // SAFETY: caller has to guarantee that `a < self.len()` and `b < self.len()`
+        unsafe {
+            ptr::swap(ptr.add(a), ptr.add(b));
+        }
+    }","    pub const fn swap(&mut self, a: usize, b: usize) {
+        // FIXME: use swap_unchecked here (https://github.com/rust-lang/rust/pull/88540#issuecomment-944344343)
+        // Can't take two mutable loans from one vector, so instead use raw pointers.
+        let pa = &raw mut self[a];
+        let pb = &raw mut self[b];
+        // SAFETY: `pa` and `pb` have been created from safe mutable references and refer
+        // to elements in the slice and therefore are guaranteed to be valid and aligned.
+        // Note that accessing the elements behind `a` and `b` is checked and will
+        // panic when out of bounds.
+        unsafe {
+            ptr::swap(pa, pb);
+        }
+    }",需要保证参数对应两个切片的索引大于切片的长度,index,Not recorded.,Not recorded.,905,917,confirmed_pair,Not recorded.
+rust/library/core/src/str/mod.rs,slice/string,683,688,"    pub unsafe fn get_unchecked<I: SliceIndex<str>>(&self, i: I) -> &I::Output {
+        // SAFETY: the caller must uphold the safety contract for `get_unchecked`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &*i.get_unchecked(self) }
+    }","    pub const fn get<I: [const] SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
+        i.get(self)
+    }","数组不能越界
+/// * The starting index must not exceed the ending index;
+    /// * Indexes must be within bounds of the original slice;
+    /// * Indexes must lie on UTF-8 sequence boundaries.",index,Not recorded.,Not recorded.,618,620,confirmed_pair,Not recorded.
+rust/library/core/src/str/mod.rs,slice/string,718,723,"    pub unsafe fn get_unchecked_mut<I: SliceIndex<str>>(&mut self, i: I) -> &mut I::Output {
+        // SAFETY: the caller must uphold the safety contract for `get_unchecked_mut`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &mut *i.get_unchecked_mut(self) }
+    }","    pub const fn get_mut<I: [const] SliceIndex<str>>(&mut self, i: I) -> Option<&mut I::Output> {
+        i.get_mut(self)
+    }","数组不能越界
+/// * The starting index must not exceed the ending index;
+    /// * Indexes must be within bounds of the original slice;
+    /// * Indexes must lie on UTF-8 sequence boundaries.",index,Not recorded.,Not recorded.,651,653,confirmed_pair,Not recorded.
+../../refs/rust/library/std/src/sys_common/wtf8.rs,Unicode./char,60,62,"pub unsafe fn from_u32_unchecked(value: u32) -> CodePoint {
+        CodePoint { value }
+    }","pub fn from_u32(value: u32) -> Option<CodePoint> {
+        match value {
+            0..=0x10FFFF => Some(CodePoint { value }),
+            _ => None,
+        }
+    }",安全条件是value范围在特定范围内,index,Not recorded.,Not recorded.,?,?,unsafe_entry_only_or_unclear_pair,Not recorded.
+rust/library/portable-simd/crates/core_simd/src/masks.rs,vector,261,266,"    pub unsafe fn set_unchecked(&mut self, index: usize, value: bool) {
+        // Safety: the caller must confirm this invariant
+        unsafe {
+            *self.0.as_mut_array().get_unchecked_mut(index) = if value { T::TRUE } else { T::FALSE }
+        }
+    }","    pub fn set(&mut self, index: usize, value: bool) {
+        self.0[index] = if value { T::TRUE } else { T::FALSE }
+    }",安全条件是index小于等于向量长度,index,Not recorded.,Not recorded.,274,276,confirmed_pair,Not recorded.
+rust/library/portable-simd/crates/core_simd/src/masks.rs,vector,240,243,"    pub unsafe fn test_unchecked(&self, index: usize) -> bool {
+        // Safety: the caller must confirm this invariant
+        unsafe { T::eq(*self.0.as_array().get_unchecked(index), T::TRUE) }
+    }","    pub fn test(&self, index: usize) -> bool {
+        T::eq(self.0[index], T::TRUE)
+    }",安全条件是index要小于等于数组边界,index,Not recorded.,Not recorded.,252,254,confirmed_pair,Not recorded.
