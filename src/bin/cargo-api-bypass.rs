@@ -8,18 +8,18 @@ use std::ffi::OsString;
 use std::path::Path;
 use std::process::Command;
 
-const CARGO_MIR_CHECKER_HELP: &str = r#"Static analysis tool for Rust programs
+const CARGO_BYPASSER_HELP: &str = r#"Bypasser static analysis tool for Rust programs
 
 Usage:
-    cargo mir-checker
+    cargo api-bypass
 "#;
 
 fn show_help() {
-    println!("{}", CARGO_MIR_CHECKER_HELP);
+    println!("{}", CARGO_BYPASSER_HELP);
 }
 
 fn show_version() {
-    println!("rust-mir-checker {}", env!("CARGO_PKG_VERSION"));
+    println!("rust-bypasser {}", env!("CARGO_PKG_VERSION"));
 }
 
 fn show_error(msg: String) -> ! {
@@ -108,9 +108,9 @@ fn current_crate() -> cargo_metadata::Package {
     package
 }
 
-fn mir_checker() -> Command {
+fn bypasser() -> Command {
     let mut path = std::env::current_exe().expect("current executable path invalid");
-    path.set_file_name("mir-checker");
+    path.set_file_name("api-bypass");
     Command::new(path)
 }
 
@@ -119,7 +119,7 @@ fn cargo() -> Command {
 }
 
 fn main() {
-    // Check for version and help flags even when invoked as `cargo-mir-checker`.
+    // Check for version and help flags even when invoked through the cargo wrapper.
     if std::env::args().any(|a| a == "--help" || a == "-h") {
         show_help();
         return;
@@ -134,17 +134,17 @@ fn main() {
         let path = Path::new(&arg1);
         if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
             match file_name {
-                "mir-checker" => {
-                    // 当以 `cargo mir-checker` 调用时执行此分支
-                    in_cargo_mir_checker();
+                "api-bypass" | "bypasser" | "mir-checker" => {
+                    // 当以 `cargo api-bypass` 调用时执行此分支
+                    in_cargo_bypasser();
                 }
                 "rustc" => {
-                    // 当以 `cargo-mir-checker` 运行 `cargo rustc`，且 `RUSTC_WRAPPER` 环境变量设置为自身时执行此分支
+                    // 当以 wrapper 方式运行 `cargo rustc`，且 `RUSTC_WRAPPER` 环境变量设置为自身时执行此分支
                     inside_cargo_rustc();
                 }
                 _ => {
                     show_error(format!(
-                        "`cargo-mir-checker` must be called with either `mir-checker` or `rustc` as first argument.",
+                        "`cargo-api-bypass` must be called with either `api-bypass`/`bypasser` or `rustc` as first argument.",
                     ));
                 }
             }
@@ -155,30 +155,16 @@ fn main() {
         show_error("缺少必要的命令行参数。".to_string());
     }
 
-    // if let Some("mir-checker") = std::env::args().nth(1).as_ref().map(AsRef::as_ref) {
-    //     // This arm is for when `cargo mir-checker` is called. We call `cargo rustc` for each applicable target,
-    //     // but with the `RUSTC` env var set to the `cargo-mir-checker` binary so that we come back in the other branch,
-    //     // and dispatch the invocations to `rustc` and `mir-checker`, respectively.
-    //     in_cargo_mir_checker();
-    // } else if let Some("rustc") = std::env::args().nth(1).as_ref().map(AsRef::as_ref) {
-    //     // This arm is executed when `cargo-mir-checker` runs `cargo rustc` with the `RUSTC_WRAPPER` env var set to itself:
-    //     // dependencies get dispatched to `rustc`, the final library/binary to `mir-checker`.
-    //     inside_cargo_rustc();
-    // } else {
-    //     show_error(
-    //         "`cargo-mir-checker` must be called with either `mir-checker` or `rustc` as first argument.".to_string(),
-    //     )
-    // }
 }
 
 // This will construct command line like:
-// `cargo rustc --bin some_crate_name -v -- cargo-mir-checker-marker-begin --top_crate_name some_top_crate_name --domain interval -v cargo-mir-checker-marker-end`
+// `cargo rustc --bin some_crate_name -v -- cargo-api-bypass-marker-begin --top_crate_name some_top_crate_name --domain interval -v cargo-api-bypass-marker-end`
 // And set the following environment variables:
-// `RUSTC_WRAPPER` is set to `cargo-mir-checker` itself so the execution will come back to the second branch as described above
-// `MIR_CHECKER_ARGS` is set to the user-provided arguments for `mir-checker`
-// `MIR_CHEKCER_TOP_CRATE_NAME` is set to the name of the crate being analyzed
-// `MIR_CHECKER_VERBOSE` is set if `-v` is provided
-fn in_cargo_mir_checker() {
+// `RUSTC_WRAPPER` is set to `cargo-api-bypass` itself so the execution will come back to the second branch as described above
+// `BYPASSER_ARGS` is set to the user-provided arguments for `bypasser`
+// `BYPASSER_TOP_CRATE_NAME` is set to the name of the crate being analyzed
+// `BYPASSER_VERBOSE` is set if `-v` is provided
+fn in_cargo_bypasser() {
     let verbose = has_arg_flag("-v");
 
     let current_crate = current_crate();
@@ -193,7 +179,7 @@ fn in_cargo_mir_checker() {
 
         // Now we run `cargo rustc $FLAGS $ARGS`, giving the user the
         // chance to add additional arguments. `FLAGS` is set to identify
-        // this target.  The user gets to control what gets actually passed to mir-checker.
+        // this target. The user gets to control what gets actually passed to bypasser.
         let mut cmd = cargo();
         cmd.arg("check"); // using `check` may speed up the analysis than using `rustc`
         // match kind.as_str() {
@@ -207,7 +193,6 @@ fn in_cargo_mir_checker() {
         // }
 
         // modified here to fix the "TargetKind" compilation error.
-        use std::fmt::Display;
         if target.kind.iter().any(|k| k.to_string() == "bin") {
             cmd.arg("--bin").arg(&target.name);
         } else if target.kind.iter().any(|k| k.to_string() == "lib") {
@@ -229,15 +214,19 @@ fn in_cargo_mir_checker() {
         // our actual target crate.
         // Since we're using "cargo check", we have no other way of passing
         // these arguments.
-        // We also add `MIR_CHEKCER_TOP_CRATE_NAME` to specify the top-level
+        // We also add `BYPASSER_TOP_CRATE_NAME` to specify the top-level
         // crate name that we want to analyze, by doing this we can dispatch
-        // dependencies to the real `rustc` and top-level crate to `mir-checker`
+        // dependencies to the real `rustc` and top-level crate to `bypasser`
         let args_vec: Vec<String> = args.collect();
+        cmd.env(
+            "BYPASSER_ARGS",
+            serde_json::to_string(&args_vec).expect("failed to serialize args"),
+        );
         cmd.env(
             "MIR_CHECKER_ARGS",
             serde_json::to_string(&args_vec).expect("failed to serialize args"),
         );
-        // cmd.env("MIR_CHECKER_TOP_CRATE_NAME", current_crate.name.clone());
+        cmd.env("BYPASSER_TOP_CRATE_NAME", current_crate.name.as_str().to_string());
         cmd.env("MIR_CHECKER_TOP_CRATE_NAME", current_crate.name.as_str().to_string());
 
 
@@ -246,7 +235,8 @@ fn in_cargo_mir_checker() {
         cmd.env("RUSTC_WRAPPER", path);
 
         if verbose {
-            cmd.env("MIR_CHECKER_VERBOSE", ""); // this makes `inside_cargo_rustc` verbose.
+            cmd.env("BYPASSER_VERBOSE", "");
+            cmd.env("MIR_CHECKER_VERBOSE", ""); // compatibility
             eprintln!("+ {:?}", cmd);
         }
 
@@ -264,36 +254,41 @@ fn in_cargo_mir_checker() {
 }
 
 // This will construct command line like:
-// `mir-checker --crate-name some_crate_name --edition=2018 src/lib.rs --crate-type lib --domain interval`
-// And sets the environment variable `MIR_CHECKER_BE_RUSTC`
-// if `mir-checker` is going to analyze crates that are dependencies
+// `api-bypass --crate-name some_crate_name --edition=2018 src/lib.rs --crate-type lib --domain interval`
+// And sets the environment variable `BYPASSER_BE_RUSTC`
+// if `bypasser` is going to analyze crates that are dependencies
 fn inside_cargo_rustc() {
-    let mut cmd = mir_checker();
-    cmd.args(std::env::args().skip(2)); // skip `cargo-mir-checker rustc`
+    let mut cmd = bypasser();
+    cmd.args(std::env::args().skip(2)); // skip `cargo-api-bypass rustc`
 
     // Add sysroot
     let sysroot = utils::compile_time_sysroot().expect("Cannot find sysroot");
     cmd.arg("--sysroot");
     cmd.arg(sysroot);
 
-    let top_crate_name =
-        std::env::var("MIR_CHECKER_TOP_CRATE_NAME").expect("missing MIR_CHECKER_TOP_CRATE_NAME");
+    let top_crate_name = std::env::var("BYPASSER_TOP_CRATE_NAME")
+        .or_else(|_| std::env::var("MIR_CHECKER_TOP_CRATE_NAME"))
+        .expect("missing BYPASSER_TOP_CRATE_NAME");
     let top_crate_name = top_crate_name.replace("-", "_"); // Cargo seems to rename hyphens to underscores
 
     if get_arg_flag_value("--crate-name").as_deref() == Some(&top_crate_name) {
-        // If we are analyzing the crate that we want to analyze, add args for `mir-checker`
-        let magic = std::env::var("MIR_CHECKER_ARGS").expect("missing MIR_CHECKER_ARGS");
-        let mir_checker_args: Vec<String> =
-            serde_json::from_str(&magic).expect("failed to deserialize MIR_CHECKER_ARGS");
-        cmd.args(mir_checker_args);
+        // If we are analyzing the crate that we want to analyze, add args for `bypasser`
+        let magic = std::env::var("BYPASSER_ARGS")
+            .or_else(|_| std::env::var("MIR_CHECKER_ARGS"))
+            .expect("missing BYPASSER_ARGS");
+        let bypasser_args: Vec<String> =
+            serde_json::from_str(&magic).expect("failed to deserialize BYPASSER_ARGS");
+        cmd.args(bypasser_args);
     } else {
         // If we are analyzing dependencies, set this environment variable so
-        // that `mir-checker` will behave just like the real `rustc` and do the
+        // that `bypasser` will behave just like the real `rustc` and do the
         // compilation instead of analysis
+        cmd.env("BYPASSER_BE_RUSTC", "1");
         cmd.env("MIR_CHECKER_BE_RUSTC", "1");
     }
 
-    let verbose = std::env::var_os("MIR_CHECKER_VERBOSE").is_some();
+    let verbose = std::env::var_os("BYPASSER_VERBOSE").is_some()
+        || std::env::var_os("MIR_CHECKER_VERBOSE").is_some();
     if verbose {
         eprintln!("+ {:?}", cmd);
     }
@@ -304,6 +299,6 @@ fn inside_cargo_rustc() {
                 std::process::exit(exit.code().unwrap_or(42));
             }
         }
-        Err(ref e) => panic!("error during mir-checker run: {:?}", e),
+        Err(ref e) => panic!("error during bypasser run: {:?}", e),
     }
 }
