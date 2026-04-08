@@ -30,7 +30,7 @@ pub fn run_with_rustc_args(mut rustc_args: Vec<String>) -> i32 {
         }
 
         // 依赖 crate / 纯编译模式：行为与 rustc 等价
-        if env::var_os("MIR_CHECKER_BE_RUSTC").is_some() {
+        if env::var_os("BYPASSER_BE_RUSTC").is_some() || env::var_os("MIR_CHECKER_BE_RUSTC").is_some() {
             let early_dcx = EarlyDiagCtxt::new(ErrorOutputType::default());
             rustc_driver::init_rustc_env_logger(&early_dcx);
 
@@ -54,7 +54,7 @@ pub fn run_with_rustc_args(mut rustc_args: Vec<String>) -> i32 {
         let analysis_options = option::AnalysisOption::from_args(&mut rustc_args);
         log::info!("Analysis Option: {:?}", analysis_options);
 
-        let mut callbacks = analysis::callback::MirCheckerCallbacks::new(analysis_options);
+        let mut callbacks = analysis::callback::BypasserCallbacks::new(analysis_options);
         let run_compiler = rustc_driver::RunCompiler::new(&rustc_args, &mut callbacks);
         run_compiler.run()
     });
@@ -66,7 +66,7 @@ pub fn run_with_rustc_args(mut rustc_args: Vec<String>) -> i32 {
     process::exit(exit_code);
 }
 
-/// 给 bin/mir-checker.rs 调用：从当前进程 env::args 读取
+/// 给 bin/api-bypass.rs 调用：从当前进程 env::args 读取
 pub fn run_from_env_args() -> i32 {
     let rustc_args = env::args_os()
         .enumerate()
