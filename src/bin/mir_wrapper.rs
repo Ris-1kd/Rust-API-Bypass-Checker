@@ -9,7 +9,7 @@ extern crate rustc_session;
 
 
 
-use std::{env, fs, process::Command};
+use std::{env, fs};
 use serde_json::{json, Value};
 
 fn main() {
@@ -67,8 +67,10 @@ fn main() {
         full.push(rustc_path.clone());
         full.extend(rustc_args);
 
+        std::env::set_var("BYPASSER_BE_RUSTC", "1");
         std::env::set_var("MIR_CHECKER_BE_RUSTC", "1");
         let code = rust_api_bypass::driver::run_with_rustc_args(full);
+        std::env::remove_var("BYPASSER_BE_RUSTC");
         std::env::remove_var("MIR_CHECKER_BE_RUSTC");
 
         std::process::exit(code);
@@ -81,11 +83,11 @@ fn main() {
     full.extend(rustc_args);
 
     // 可选：用环境变量追加分析参数（格式：JSON 数组，例如 ["--entry","foo","--domain","interval"]）
-    if let Ok(extra) = env::var("MIR_CHECKER_ARGS") {
+    if let Ok(extra) = env::var("BYPASSER_ARGS").or_else(|_| env::var("MIR_CHECKER_ARGS")) {
         if let Ok(v) = serde_json::from_str::<Vec<String>>(&extra) {
             full.extend(v);
         } else {
-            eprintln!("warning: MIR_CHECKER_ARGS is not valid JSON array, ignored");
+            eprintln!("warning: BYPASSER_ARGS is not valid JSON array, ignored");
         }
     }
 
@@ -113,6 +115,7 @@ fn dump_invocation(path: &str, argv: &Vec<String>) {
         "PATH",
         "RUST_BACKTRACE",
         "RUST_LOG",
+        "BYPASSER_ARGS",
         "MIR_CHECKER_ARGS",
     ];
 
