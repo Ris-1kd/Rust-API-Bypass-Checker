@@ -147,6 +147,7 @@ impl AnalysisOption {
                 'm' => res.push(DiagnosticCause::Memory),  // Memory-safety issues
                 'p' => res.push(DiagnosticCause::Panic),   // Run into panic code
                 'i' => res.push(DiagnosticCause::Index),   // Out-of-bounds access
+                'u' => res.push(DiagnosticCause::Unsupported), // Unsupported fragment
                 _ => return None,                          // Invalid flags
             }
         }
