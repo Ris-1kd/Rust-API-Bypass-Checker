@@ -2,7 +2,6 @@ use crate::analysis::diagnostics::DiagnosticsForDefId;
 use crate::analysis::option::AnalysisOption;
 use crate::analysis::wto::Wto;
 use crate::analysis::mir_visitor::func_handler::FunctionBase;
-use libc::FALLOC_FL_KEEP_SIZE;
 use log::{debug, info, error};
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
@@ -88,6 +87,12 @@ pub struct GlobalContext<'tcx, 'compilation> {
 
     /// Generated diagnostic messages for each DefId
     pub diagnostics_for: DiagnosticsForDefId<'compilation>,
+
+    /// Count of special-call sites handled inside the supported fragment.
+    pub supported_special_calls: usize,
+
+    /// Count of special-call sites explicitly downgraded to unsupported/unknown.
+    pub unsupported_special_calls: usize,
 }
 
 impl<'tcx, 'compilation> fmt::Debug for GlobalContext<'tcx, 'compilation> {
@@ -160,9 +165,8 @@ impl<'tcx, 'compilation> GlobalContext<'tcx, 'compilation> {
         // };
 
         if analysis_options.auto_analysis {
+            info!("Auto analysis is currently disabled in numerical-only mode");
             return None;
-            // 先处理完单独的分析在考虑全部自动化分析的事
-            todo!();
         }
 
         let mut entry_point: Option<DefId> = None;
@@ -285,6 +289,8 @@ impl<'tcx, 'compilation> GlobalContext<'tcx, 'compilation> {
             function_name_cache: HashMap::new(),
             analysis_options,
             diagnostics_for: DiagnosticsForDefId::default(),
+            supported_special_calls: 0,
+            unsupported_special_calls: 0,
         })
     }
 
@@ -417,7 +423,7 @@ impl<'tcx, 'compilation> GlobalContext<'tcx, 'compilation> {
         // _func_base.contains_and_get_kind(func_name)
         let func_name: String = _tcx.def_path_str(_callee);
         
-        if let Some(kind) = _func_base.contains_and_get_kind(&func_name){
+        if let Some(_kind) = _func_base.contains_and_get_kind(&func_name){
             return Some(_callee.clone())
         }
         None
