@@ -28,4 +28,9 @@ pub enum AnalysisError {
 
 pub struct AnalysisInfo {
     pub analysis_time: Duration,
+    pub total_diagnostics: usize,
+    pub supported_diagnostics: usize,
+    pub unsupported_diagnostics: usize,
+    pub supported_special_calls: usize,
+    pub unsupported_special_calls: usize,
 }
