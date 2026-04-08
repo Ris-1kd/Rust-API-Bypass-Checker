@@ -13,7 +13,6 @@ use crate::analysis::memory::constant_value::{ConstantValue, FunctionReference};
 use crate::analysis::memory::expression::{Expression, ExpressionType};
 use crate::analysis::memory::k_limits;
 use crate::analysis::memory::path::{Path, PathEnum, PathRefinement, PathSelector};
-use crate::analysis::memory::symbolic_domain::SymbolicDomain;
 use crate::analysis::memory::symbolic_value::{
     self, SymbolicValue, SymbolicValueRefinement, SymbolicValueTrait,
 };
@@ -177,7 +176,6 @@ where
 
         debug!("State after visiting statement:");
         debug!("Numerical: {:?}", self.state().numerical_domain);
-        debug!("Symbolic:  {:?}", self.state().symbolic_domain);
         debug!("------------------------------------------------------\n");
     }
 
@@ -250,7 +248,6 @@ where
         }
         debug!("State after visiting terminator:");
         debug!("Numerical: {:?}", self.state().numerical_domain);
-        debug!("Symbolic:  {:?}", self.state().symbolic_domain);
         debug!("------------------------------------------------------\n");
     }
 
@@ -272,12 +269,10 @@ where
             self.body_visitor.fresh_variable_offset,
             self.mir.arg_count,
         );
-        if !self.state().symbolic_domain.depend_on(&path) {
-            debug!("{:?} is not depended in symbolic domain, clean it", path);
-            self.body_visitor
-                .state
-                .update_value_at(path, symbolic_value::BOTTOM.into());
-        }
+        debug!("{:?} is dead in numerical-only mode, forgetting it", path);
+        self.body_visitor
+            .state
+            .update_value_at(path, symbolic_value::BOTTOM.into());
     }
 
     fn visit_set_discriminant(
@@ -342,6 +337,7 @@ where
 
     // Extract `mir::Local` from `mir::Rvalue` if there exits some
     // The result is a list of `Local` because a `Rvalue` may associate multiple `Local`s
+    #[allow(dead_code)]
     fn extract_local_from_rvalue(&self, rvalue: &mir::Rvalue<'tcx>) -> Option<Vec<mir::Local>> {
         use mir::Rvalue::*;
         match rvalue {
@@ -386,9 +382,45 @@ where
         //     "Current tainted variables: {:?}",
         //     self.body_visitor.tainted_variables
         // );
+        let cached_value = self.try_symbolic_rvalue(rvalue);
         let path = self.visit_place(place);
         debug!("Get LHS Path: {:?}", path);
         self.visit_rvalue(path, rvalue);
+        if let Some(value) = cached_value {
+            self.body_visitor
+                .place_to_abstract_value
+                .insert(*place, value);
+        } else {
+            self.body_visitor.place_to_abstract_value.remove(place);
+        }
+    }
+
+    fn try_symbolic_rvalue(&mut self, rvalue: &mir::Rvalue<'tcx>) -> Option<Rc<SymbolicValue>> {
+        match rvalue {
+            mir::Rvalue::Use(operand) => Some(self.visit_operand(operand)),
+            mir::Rvalue::Cast(_, operand, ty) => Some(
+                self.visit_operand(operand)
+                    .cast(ExpressionType::from(ty.kind())),
+            ),
+            mir::Rvalue::UnaryOp(mir::UnOp::Not, operand) => {
+                Some(self.visit_operand(operand).logical_not())
+            }
+            mir::Rvalue::BinaryOp(bin_op, box (left_operand, right_operand)) => {
+                let left = self.visit_operand(left_operand);
+                let right = self.visit_operand(right_operand);
+                let value = match bin_op {
+                    mir::BinOp::Eq => left.equals(right),
+                    mir::BinOp::Ge => left.greater_or_equal(right),
+                    mir::BinOp::Gt => left.greater_than(right),
+                    mir::BinOp::Le => left.less_or_equal(right),
+                    mir::BinOp::Lt => left.less_than(right),
+                    mir::BinOp::Ne => left.not_equals(right),
+                    _ => return None,
+                };
+                Some(value)
+            }
+            _ => None,
+        }
     }
 
     pub fn visit_function_reference(
@@ -430,7 +462,7 @@ where
                 qualifier,
                 selector,
                 ..
-            } if **selector == PathSelector::Deref => {
+            } if *selector.as_ref() == PathSelector::Deref => {
                 let refined_qualifier = qualifier.refine_paths(&self.state());
                 let qualifier_ty = self
                     .body_visitor
@@ -461,7 +493,7 @@ where
                 qualifier,
                 selector,
                 ..
-            } if **selector == PathSelector::Deref => {
+            } if *selector.as_ref() == PathSelector::Deref => {
                 if let PathEnum::Alias { value } = &qualifier.value {
                     match &value.expression {
                         Expression::Join { left, right, .. } => {
@@ -884,45 +916,13 @@ where
     #[allow(dead_code)]
     fn deconstruct_reference_to_constant_array(
         &mut self,
-        bytes: &[u8],
-        elem_type: ExpressionType,
-        len: Option<u128>,
-        array_ty: Ty<'tcx>,
+        _bytes: &[u8],
+        _elem_type: ExpressionType,
+        _len: Option<u128>,
+        _array_ty: Ty<'tcx>,
     ) -> Rc<SymbolicValue> {
-        let byte_len = bytes.len();
-        let alignment = self
-            .body_visitor
-            .get_u128_const_val((elem_type.bit_length() / 8) as u128);
-        let byte_len_value = self.body_visitor.get_u128_const_val(byte_len as u128);
-        let array_value = self
-            .body_visitor
-            .get_new_heap_block(byte_len_value, alignment, array_ty);
-        let array_path = Path::get_as_path(array_value);
-        let mut last_index: u128 = 0;
-        let mut value_map = self.state().symbolic_domain.value_map.clone();
-        for (i, operand) in self
-            .get_element_values(bytes, elem_type, len)
-            .into_iter()
-            .enumerate()
-        {
-            last_index = i as u128;
-            if i < k_limits::MAX_BYTE_ARRAY_LENGTH {
-                let index_value = self.body_visitor.get_u128_const_val(last_index);
-                let index_path = Path::new_index(array_path.clone(), index_value);
-                value_map.insert(index_path, operand);
-            } else {
-                info!(
-                    "constant array has {} elements, but maximum tracked is {}",
-                    i,
-                    k_limits::MAX_BYTE_ARRAY_LENGTH
-                );
-            }
-        }
-        let length_path = Path::new_length(array_path.clone());
-        let length_value = self.body_visitor.get_u128_const_val(last_index + 1);
-        value_map.insert(length_path, length_value);
-        self.body_visitor.state.symbolic_domain.value_map = value_map;
-        SymbolicValue::make_reference(array_path)
+        debug!("Constant array deconstruction is disabled in numerical-only mode");
+        symbolic_value::TOP.into()
     }
 
     // fn get_reference_to_constant(
@@ -1164,12 +1164,12 @@ where
         // Test whether tainted variables reach the `Return` terminator.
 
         // `_0` is always used for return value
-        let ret = mir::Local::from_u32(0);
+        let _ret = mir::Local::from_u32(0);
         // if self.body_visitor.tainted_variables.contains(&ret) {
         //     debug!("Found possible double-free or use-after-free!");
         //     let warning = self.body_visitor.context.session.dcx().struct_span_warn(
         //         self.body_visitor.current_span,
-        //         "[MirChecker] Possible error n visit return: double-free or use-after-free",
+        //         "[Bypasser] Possible error n visit return: double-free or use-after-free",
         //     );
         //     self.body_visitor
         //         .emit_diagnostic(warning, true, DiagnosticCause::Memory);
@@ -1191,7 +1191,7 @@ where
         //     let warning = self.body_visitor.context.session.dcx().struct_span_warn(
         //         self.body_visitor.current_span,
         //         format!(
-        //             "[MirChecker] Possible error in visit drop: double-free or use-after-free for {:?}",
+        //             "[Bypasser] Possible error in visit drop: double-free or use-after-free for {:?}",
         //             self.body_visitor.get_var_name(&mir::Operand::Move(*place))
         //         ),
         //     );
@@ -1208,32 +1208,9 @@ where
             .body_visitor
             .lookup_path_and_refine_result(dropped_path.clone(), dropped_path_ty);
 
-        // Get related heaps from the symbolic domain
-        // E.g. if droped_path is `local_1`, and there are `local_1.0.0.0: &(local_1000001), local_1000001.0.0: heap_0`
-        // then we should record `heap_0`
-        fn get_related_heaps(
-            dropped_path: Rc<Path>,
-            symbolic_domain: &SymbolicDomain,
-        ) -> Option<Rc<SymbolicValue>> {
-            for (path, value) in &symbolic_domain.value_map {
-                if path.is_rooted_by(&dropped_path) {
-                    match value.expression {
-                        Expression::HeapBlock { .. } => {
-                            return Some(value.clone());
-                        }
-                        _ => {
-                            let new_path = Path::get_as_path(value.clone());
-                            return get_related_heaps(new_path, symbolic_domain);
-                        }
-                    }
-                }
-            }
-            None
-        }
-        let related_heap = get_related_heaps(dropped_path.clone(), &self.state().symbolic_domain);
         debug!(
-            "Visiting Drop: path: {:?}, value: {:?}, related_heaps: {:?}",
-            dropped_path, dropped_val, related_heap
+            "Visiting Drop in numerical-only mode: path: {:?}, value: {:?}",
+            dropped_path, dropped_val
         );
 
         // if let Some(related_heap) = related_heap {
@@ -1246,7 +1223,7 @@ where
         //         let warning = self.body_visitor.context.session.dcx().struct_span_warn(
         //             self.body_visitor.current_span,
         //             format!(
-        //                 "[MirChecker] Possible error: double-free or use-after-free for {:?}",
+        //                 "[Bypasser] Possible error: double-free or use-after-free for {:?}",
         //                 self.body_visitor.get_var_name(&mir::Operand::Move(*place))
         //             ),
         //         );
@@ -1430,54 +1407,9 @@ where
 
     fn get_function_constant_args(
         &self,
-        actual_args: &[(Rc<Path>, Rc<SymbolicValue>)],
+        _actual_args: &[(Rc<Path>, Rc<SymbolicValue>)],
     ) -> Vec<(Rc<Path>, Rc<SymbolicValue>)> {
-        let mut result = vec![];
-        // TODO: Do we need to directly access the symbolic domain?
-        for (path, value) in self.state().symbolic_domain.value_map.iter() {
-            if let Expression::CompileTimeConstant(ConstantValue::Function(..)) = &value.expression
-            {
-                for (i, (arg_path, arg_val)) in actual_args.iter().enumerate() {
-                    if (*path) == *arg_path || path.is_rooted_by(arg_path) {
-                        let param_path_root =
-                            Path::new_parameter(i + 1, self.body_visitor.fresh_variable_offset);
-                        let param_path = path.replace_root(arg_path, param_path_root);
-                        result.push((param_path, value.clone()));
-                        break;
-                    } else {
-                        match &arg_val.expression {
-                            Expression::Reference(ipath)
-                            | Expression::Variable { path: ipath, .. } => {
-                                if (*path) == *ipath || path.is_rooted_by(ipath) {
-                                    let param_path_root = Path::new_parameter(
-                                        i + 1,
-                                        self.body_visitor.fresh_variable_offset,
-                                    );
-                                    let param_path = path.replace_root(arg_path, param_path_root);
-                                    result.push((param_path, value.clone()));
-                                    break;
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-        }
-        for (i, (path, value)) in actual_args.iter().enumerate() {
-            if let PathEnum::Alias { value: val } = &path.value {
-                if *val == *value {
-                    if let Expression::CompileTimeConstant(ConstantValue::Function(..)) =
-                        &value.expression
-                    {
-                        let param_path =
-                            Path::new_parameter(i + 1, self.body_visitor.fresh_variable_offset);
-                        result.push((param_path, value.clone()));
-                    }
-                }
-            }
-        }
-        result
+        Vec::new()
     }
 
     fn get_operand_path(&mut self, operand: &mir::Operand<'tcx>) -> Rc<Path> {
@@ -1577,17 +1509,34 @@ where
     fn visit_assert(
         &mut self,
         cond: &mir::Operand<'tcx>,
-        _expected: bool,
+        expected: bool,
         _msg: &mir::AssertMessage<'tcx>,
-        _target: mir::BasicBlock,
+        target: mir::BasicBlock,
         _unwind: mir::UnwindAction,
     ) {
-        let cond_value = self.visit_operand(cond);
+        let cond_value = if let Some(place) = cond.place() {
+            self.body_visitor
+                .place_to_abstract_value
+                .get(&place)
+                .cloned()
+                .unwrap_or_else(|| self.visit_operand(cond))
+        } else {
+            self.visit_operand(cond)
+        };
         if let Some(place) = cond.place() {
             self.body_visitor
                 .place_to_abstract_value
-                .insert(place, cond_value);
+                .insert(place, cond_value.clone());
         }
+        let exit_condition = if expected {
+            cond_value
+        } else {
+            cond_value.logical_not()
+        };
+        self.body_visitor
+            .state
+            .exit_conditions
+            .insert(target, exit_condition);
     }
     
     // fn visit_inline_asm(&mut self) {
@@ -1884,7 +1833,13 @@ where
                     .update_value_at(path, val.logical_not());
             }
             mir::UnOp::PtrMetadata => {
-                // FIXME: Implement this
+                let operand_path = self.get_operand_path(operand);
+                let length_path = Path::new_length(operand_path).refine_paths(&self.state());
+                let length_value = self.body_visitor.lookup_path_and_refine_result(
+                    length_path,
+                    self.body_visitor.context.tcx.types.usize,
+                );
+                self.body_visitor.state.update_value_at(path, length_value);
             }
         }
     }
@@ -3249,12 +3204,9 @@ where
                         if *ordinal >= self.body_visitor.fresh_variable_offset {
                             // A fresh variable from the callee adds no information that is not
                             // already inherent in the target location.
-                            // TODO: Do we need to directly access the symbolic domain?
                             self.body_visitor
                                 .state
-                                .symbolic_domain
-                                .value_map
-                                .remove(&tpath);
+                                .update_value_at(tpath.clone(), symbolic_value::BOTTOM.into());
                             continue;
                         }
                         if rtype == ExpressionType::NonPrimitive {
