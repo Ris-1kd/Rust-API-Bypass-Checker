@@ -17,6 +17,7 @@ pub enum DiagnosticCause {
     Memory,     // Memory-safety issues
     Panic,      // Run into panic code
     Index,      // Out-of-bounds access
+    Unsupported, // Outside the supported analysis fragment
     Other,      // Other
 }
 
