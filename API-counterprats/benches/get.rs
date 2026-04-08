@@ -32,7 +32,7 @@ fn bench_vec_get_vs_get_unchecked_cache_hot(c: &mut Criterion) {
     let total_ops_per_iter: u64 = (idxs_len as u64) * (rounds as u64);
 
     let mut group = c.benchmark_group("cache_hot_vec_get");
-    group.warm_up_time(Duration::from_secs(10));
+    group.warm_up_time(Duration::from_secs(3));
     group.measurement_time(Duration::from_secs(8));
     group.sample_size(80);
     group.throughput(Throughput::Elements(total_ops_per_iter));

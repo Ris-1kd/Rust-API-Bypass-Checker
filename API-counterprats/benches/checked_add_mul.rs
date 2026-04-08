@@ -54,7 +54,7 @@ fn bench_checked_add_mul(c: &mut Criterion) {
     let mut group = c.benchmark_group("cache_hot_checked_ops");
     group.throughput(Throughput::Elements(OPS as u64));
     group.sample_size(80);
-    group.warm_up_time(Duration::from_secs(1));
+    group.warm_up_time(Duration::from_secs(3));
     group.measurement_time(Duration::from_secs(5));
 
     // -----------------------

@@ -35,6 +35,7 @@ fn bench_as_chunks_mut_pairs(c: &mut Criterion) {
 
     let mut g = c.benchmark_group("cache_hot_as_chunks_mut");
     g.throughput(Throughput::Elements(OPS as u64));
+    g.warm_up_time(Duration::from_secs(3));
     g.sample_size(80);
     g.measurement_time(Duration::from_secs(5));
 

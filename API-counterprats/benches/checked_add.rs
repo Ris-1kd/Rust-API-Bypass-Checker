@@ -28,7 +28,7 @@ fn bench_checked_add_vs_unchecked_add_cache_hot(c: &mut Criterion) {
     let total_ops: u64 = (n as u64) * (rounds as u64);
 
     let mut group = c.benchmark_group("cache_hot_checked_add");
-    group.warm_up_time(Duration::from_secs(2));
+    group.warm_up_time(Duration::from_secs(3));
     group.measurement_time(Duration::from_secs(8));
     group.sample_size(80);
     group.throughput(Throughput::Elements(total_ops));

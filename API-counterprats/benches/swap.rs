@@ -40,7 +40,7 @@ fn bench_swap_vs_swap_unchecked_cache_hot(c: &mut Criterion) {
     let total_swaps_per_iter: u64 = (pairs_len as u64) * (rounds as u64);
 
     let mut group = c.benchmark_group("cache_hot_slice_swap");
-    group.warm_up_time(Duration::from_secs(2));
+    group.warm_up_time(Duration::from_secs(3));
     group.measurement_time(Duration::from_secs(8));
     group.sample_size(80);
     group.throughput(Throughput::Elements(total_swaps_per_iter));

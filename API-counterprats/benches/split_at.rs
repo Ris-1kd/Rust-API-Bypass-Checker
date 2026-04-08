@@ -41,6 +41,7 @@ fn bench_split_at_pairs(c: &mut Criterion) {
 
     let mut g1 = c.benchmark_group("cache_hot_split_at");
     g1.throughput(Throughput::Elements(OPS as u64));
+    g1.warm_up_time(Duration::from_secs(3));
     g1.sample_size(80);
     g1.measurement_time(Duration::from_secs(5));
 
@@ -114,6 +115,7 @@ fn bench_split_at_pairs(c: &mut Criterion) {
 
     let mut g2 = c.benchmark_group("cache_hot_split_at_mut");
     g2.throughput(Throughput::Elements(OPS as u64));
+    g2.warm_up_time(Duration::from_secs(3));
     g2.sample_size(80);
     g2.measurement_time(Duration::from_secs(5));
 
