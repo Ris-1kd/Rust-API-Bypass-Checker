@@ -50,7 +50,6 @@ pub mod analysis {
         pub mod k_limits;
         pub mod known_names;
         pub mod path;
-        pub mod symbolic_domain;
         pub mod symbolic_value;
         pub mod utils;
     }
