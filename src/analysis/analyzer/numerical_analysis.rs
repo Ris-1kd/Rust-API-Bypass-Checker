@@ -10,6 +10,7 @@ use crate::analysis::numerical::apron_domain::{
 use crate::analysis::option::AbstractDomainType;
 use log::info;
 use rustc_hir::def_id::DefId;
+use std::cmp::Ordering;
 use std::time::Instant;
 
 /// Traverse over a crate, analyze all functions and emit diagnoses
@@ -18,14 +19,8 @@ pub struct NumericalAnalysis<'tcx, 'a, 'compiler> {
     pub context: &'a mut GlobalContext<'tcx, 'compiler>,
 }
 
-impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
-    for NumericalAnalysis<'tcx, 'a, 'compiler>
-{
-    fn new(context: &'a mut GlobalContext<'tcx, 'compiler>) -> Self {
-        NumericalAnalysis { context }
-    }
-
-    fn emit_diagnostics(&mut self) {
+impl<'tcx, 'a, 'compiler> NumericalAnalysis<'tcx, 'a, 'compiler> {
+    fn collect_diagnostics(&mut self) -> Vec<Diagnostic<'compiler>> {
         let mut diagnostics: Vec<Diagnostic<'_>> = self
             .context
             .diagnostics_for
@@ -37,22 +32,12 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
 
         diagnostics.sort_by(|a, b| Diagnostic::compare(a, b));
 
-        // If `deny_warnings` flag is set, change all diagnoses' level to `error`
-        // This is used for debugging
-        // if self.context.analysis_options.deny_warnings {
-        //     for diag in &mut diagnostics {
-        //         diag.builder.level = rustc_errors::Level::Error;
-        //     }
-        // }
-
-        // According to `suppress_warnings` flag, filter out warnings that users want to ignore
         let diagnostics: Vec<Diagnostic<'_>> =
             if let Some(suppressed_warnings) = &self.context.analysis_options.suppressed_warnings {
                 let mut res: Vec<Diagnostic<'_>> = Vec::new();
                 for diag in diagnostics.into_iter() {
                     if suppressed_warnings.contains(&diag.cause) {
                         diag.cancel();
-                        // diag.emit();
                     } else {
                         res.push(diag);
                     }
@@ -61,13 +46,38 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
             } else {
                 diagnostics.into_iter().collect()
             };
-        let diagnostics_to_emit: Vec<Diagnostic<'_>> = diagnostics.into_iter().collect();
 
-        fn emit(db: Diagnostic<'_>) {
-            db.emit();
+        let mut deduped: Vec<Diagnostic<'_>> = Vec::new();
+        for diag in diagnostics.into_iter() {
+            let is_duplicate = deduped
+                .last()
+                .map(|prev| {
+                    prev.cause == diag.cause
+                        && Diagnostic::compare(prev, &diag) == Ordering::Equal
+                        && format!("{:?}", prev.builder) == format!("{:?}", diag.builder)
+                })
+                .unwrap_or(false);
+            if is_duplicate {
+                diag.cancel();
+            } else {
+                deduped.push(diag);
+            }
         }
+        deduped
+    }
+}
 
-        diagnostics_to_emit.into_iter().for_each(emit);
+impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
+    for NumericalAnalysis<'tcx, 'a, 'compiler>
+{
+    fn new(context: &'a mut GlobalContext<'tcx, 'compiler>) -> Self {
+        NumericalAnalysis { context }
+    }
+
+    fn emit_diagnostics(&mut self) {
+        self.collect_diagnostics()
+            .into_iter()
+            .for_each(|diag| diag.emit());
     }
 
     fn run(&mut self) -> Result<AnalysisInfo> {
@@ -90,12 +100,24 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
 
         info!("================== Numerical Analysis Ends ==================");
 
+        let diagnostics = self.collect_diagnostics();
+        let total_diagnostics = diagnostics.len();
+        let unsupported_diagnostics = diagnostics
+            .iter()
+            .filter(|diag| diag.cause == crate::analysis::diagnostics::DiagnosticCause::Unsupported)
+            .count();
+        let supported_diagnostics = total_diagnostics.saturating_sub(unsupported_diagnostics);
+
         info!("================== Start To Output Diagnostics ==================");
-        // 暂时屏蔽掉原mir-checker的所有诊断输出.
-        // self.emit_diagnostics();
+        diagnostics.into_iter().for_each(|diag| diag.emit());
 
         Ok(AnalysisInfo {
             analysis_time: timer.elapsed(),
+            total_diagnostics,
+            supported_diagnostics,
+            unsupported_diagnostics,
+            supported_special_calls: self.context.supported_special_calls,
+            unsupported_special_calls: self.context.unsupported_special_calls,
         })
     }
 
