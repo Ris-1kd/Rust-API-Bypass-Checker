@@ -1,7 +1,6 @@
 use crate::analysis::memory::constant_value::ConstantValue;
-use crate::analysis::memory::expression::{Expression, ExpressionType};
+use crate::analysis::memory::expression::Expression;
 use crate::analysis::memory::path::{Path, PathEnum};
-use crate::analysis::memory::symbolic_domain::SymbolicDomain;
 use crate::analysis::memory::symbolic_value::{SymbolicValue, SymbolicValueTrait};
 use crate::analysis::numerical::apron_domain::{
     ApronAbstractDomain, ApronDomainType, GetManagerTrait,
@@ -22,8 +21,6 @@ where
 {
     // Only stores the values of paths that are integers
     pub numerical_domain: ApronAbstractDomain<DomainType>,
-    // Stores all the symbolic values
-    pub symbolic_domain: SymbolicDomain,
     // Stores branch conditions
     pub exit_conditions: HashMap<mir::BasicBlock, Rc<SymbolicValue>>,
 }
@@ -34,11 +31,7 @@ where
     ApronAbstractDomain<DomainType>: GetManagerTrait,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "numerical: {:?}, symbolic: {:?}",
-            self.numerical_domain, self.symbolic_domain
-        )
+        write!(f, "numerical: {:?}", self.numerical_domain)
     }
 }
 
@@ -53,7 +46,7 @@ where
     }
 
     pub fn is_top(&self) -> bool {
-        self.symbolic_domain.is_top() && self.numerical_domain.is_top()
+        self.numerical_domain.is_top()
     }
 
     pub fn leq(&self, other: &Self) -> bool {
@@ -62,22 +55,18 @@ where
     }
 
     pub fn is_empty(&self) -> bool {
-        self.numerical_domain.is_top() && self.symbolic_domain.size() == 0
+        self.numerical_domain.is_top()
     }
 
     pub fn default() -> Self {
         Self {
             numerical_domain: ApronAbstractDomain::default(),
-            symbolic_domain: SymbolicDomain::default(),
             exit_conditions: HashMap::new(),
         }
     }
 
     pub fn get_paths_iter(&self) -> Vec<Rc<Path>> {
-        use itertools::Itertools;
-        let n = self.numerical_domain.get_paths_iter();
-        let s = self.symbolic_domain.get_paths_iter();
-        n.iter().merge(s.iter()).unique().cloned().collect()
+        self.numerical_domain.get_paths_iter()
     }
 
     /// Drop all local/parameter variables that belong to callee call frames created with a fresh
@@ -114,27 +103,32 @@ where
 
 
     pub fn remove(&mut self, path: &Rc<Path>) {
-        self.symbolic_domain.forget(path);
         self.numerical_domain.forget(path);
+    }
+
+    pub fn forget_paths_rooted_by(&mut self, root: &Rc<Path>) {
+        let to_remove: Vec<Rc<Path>> = self
+            .get_paths_iter()
+            .into_iter()
+            .filter(|path| **path == **root || path.is_rooted_by(root))
+            .collect();
+        for path in to_remove {
+            self.remove(&path);
+        }
     }
 
     pub fn rename(&mut self, old_path: &Rc<Path>, new_path: &Rc<Path>) {
         debug!("Renaming {:?} to {:?}", old_path, new_path);
         self.numerical_domain.rename(old_path, new_path);
-        self.symbolic_domain.rename(old_path, new_path);
     }
 
     pub fn duplicate(&mut self, old_path: &Rc<Path>, new_path: &Rc<Path>) {
         self.numerical_domain.duplicate(old_path, new_path);
-        self.symbolic_domain.duplicate(old_path, new_path);
     }
 
     /// Returns a reference to the value associated with the given path, if there is one.
     pub fn value_at(&self, path: &Rc<Path>) -> Option<Rc<SymbolicValue>> {
-        // self.symbolic_domain.value_map.get(path).map(|x| x.clone())
-        if let Some(sym_value) = self.symbolic_domain.value_map.get(path) {
-            Some(sym_value.clone())
-        } else if self.numerical_domain.contains(path) {
+        if self.numerical_domain.contains(path) {
             let interval = self.numerical_domain.get_interval(path);
             if let Ok(const_int) = Integer::try_from(interval) {
                 Some(SymbolicValue::make_from(
@@ -151,129 +145,38 @@ where
     }
 
     /// Updates the path to value map so that the given path now points to the given value.
-    ///
-    /// This "lightweight" version intentionally keeps the symbolic domain small:
-    /// - Numerical info goes to `numerical_domain`.
-    /// - Only Boolean predicates (and function constants) are kept in `symbolic_domain`.
-    /// - References / heap blocks / non-primitive values are not stored in `symbolic_domain`.
     pub fn update_value_at(&mut self, path: Rc<Path>, value: Rc<SymbolicValue>) {
-        use crate::analysis::memory::expression::ExpressionType;
-
         debug!("Updating value at {:?}, value: {:?}", path, value);
 
-        // Bottom/Top: forget any existing binding (both domains)
         if value.is_bottom() || value.is_top() {
-            debug!("Value is bottom or top, forget it");
-            self.symbolic_domain.value_map.remove(&path);
             self.numerical_domain.forget(&path);
             return;
         }
 
-        let expr_ty = value.expression.infer_type();
-
-        // Hard drop: we don't want reference / heap / non-primitive in symbolic domain at this stage.
         match &value.expression {
-            Expression::Reference(_) | Expression::HeapBlock { .. } => {
-                self.symbolic_domain.value_map.remove(&path);
-                self.numerical_domain.forget(&path);
-                return;
-            }
-            Expression::Variable { var_type, .. }
-                if *var_type == ExpressionType::Reference || *var_type == ExpressionType::NonPrimitive =>
-            {
-                self.symbolic_domain.value_map.remove(&path);
-                self.numerical_domain.forget(&path);
-                return;
-            }
-            _ => {}
-        }
-
-        // -----------------------------
-        // 1) Numerical domain updates
-        // -----------------------------
-        match &value.expression {
-            // Case 1: value already represented as a numerical var
             Expression::Numerical(rpath) => {
                 self.numerical_domain.assign_var(path.clone(), rpath.clone());
             }
-
-            // Case 2: integer constant (NOTE: bool constants are also encoded as Int(0/1) here)
             Expression::CompileTimeConstant(c) => {
                 if let Some(i) = c.try_get_integer() {
                     self.numerical_domain.assign_int(path.clone(), i);
+                } else {
+                    self.numerical_domain.forget(&path);
                 }
             }
-
-            // Case 3: integer variable (exclude Bool to avoid polluting the numerical domain with temps)
-            Expression::Variable { path: rpath, var_type } if var_type.is_integer() && *var_type != ExpressionType::Bool => {
+            Expression::Variable { path: rpath, var_type } if var_type.is_integer() => {
                 self.numerical_domain.assign_var(path.clone(), rpath.clone());
             }
-
-            _ => {}
-        }
-
-        // -----------------------------
-        // 2) Symbolic domain retention
-        // -----------------------------
-        // Keep:
-        // - Boolean predicates (critical for branch constraints)
-        // - Function constants (if you still need call-target resolution)
-        let mut keep_symbolic = false;
-
-        if expr_ty == ExpressionType::Bool {
-            keep_symbolic = true;
-        } else if matches!(
-            &value.expression,
-            Expression::CompileTimeConstant(ConstantValue::Function(_))
-        ) {
-            keep_symbolic = true;
-        }
-
-        if !keep_symbolic {
-            self.symbolic_domain.value_map.remove(&path);
-            return;
-        }
-
-        // Optional tightening:
-        // - Do not store trivial identity bindings like `x := x` (common noise).
-        // - For Bool `x := y`, try to resolve y to a non-trivial Bool predicate now; otherwise drop.
-        let value_to_store: Rc<SymbolicValue> = match &value.expression {
-            Expression::Variable { path: rpath, var_type } if *var_type == ExpressionType::Bool => {
-                // identity: local := local
-                if rpath == &path {
-                    self.symbolic_domain.value_map.remove(&path);
-                    return;
-                }
-
-                // Try to resolve `y` to a concrete predicate (e.g., `idx < len`) right now.
-                // If resolution fails or stays a plain variable, we drop it because alias chains
-                // are not chased in later consumers.
-                if let Some(resolved) = self.value_at(rpath) {
-                    let rty = resolved.expression.infer_type();
-                    let is_plain_var = matches!(resolved.expression, Expression::Variable { .. });
-                    if rty == ExpressionType::Bool && !is_plain_var {
-                        resolved
-                    } else {
-                        // not useful (still a variable / unknown), drop it to avoid growth
-                        self.symbolic_domain.value_map.remove(&path);
-                        return;
-                    }
-                } else {
-                    self.symbolic_domain.value_map.remove(&path);
-                    return;
-                }
+            _ => {
+                self.numerical_domain.forget(&path);
             }
-            _ => value.clone(),
-        };
-
-        self.symbolic_domain.value_map.insert(path, value_to_store);
+        }
     }
 
     // pub fn update_value_at_backup(&mut self, path: Rc<Path>, value: Rc<SymbolicValue>) {
     //     debug!("Updating value at {:?}, value: {:?}", path, value);
     //     if value.is_bottom() || value.is_top() {
     //         debug!("Value is bottom or top, ignore");
-    //         self.symbolic_domain.value_map.remove(&path);
     //         self.numerical_domain.forget(&path);
     //         return;
     //     }
@@ -291,7 +194,6 @@ where
     //             self.numerical_domain.assign_int(path, integer);
     //         } else {
     //             debug!("Value is constant but not integer, store in symbolic domain");
-    //             self.symbolic_domain.value_map.insert(path, value.clone());
     //         }
     //     }
     //     // Case 3: value is a variable of type integer
@@ -306,24 +208,19 @@ where
     //                 .assign_var(path.clone(), rpath.clone());
 
     //             // GPT给出意见在此处直接移除来防止symbolic domain大量膨胀
-    //             // self.symbolic_domain.value_map.insert(path, value.clone());
     //         } else {
     //             debug!("Value is a variable but not integer store in symbolic domain");
-    //             self.symbolic_domain.value_map.insert(path, value.clone());
     //         }
     //     } else {
     //         // Reach here if value is not numerical, store them in symbolic domain
     //         debug!("Value is not numerical, store in symbolic domain");
-    //         self.symbolic_domain.value_map.insert(path, value.clone());
     //     }
     // }
 
     pub fn join(&self, other: &Self) -> Self {
         let numerical = self.numerical_domain.join(&other.numerical_domain);
-        let symbolic = self.symbolic_domain.lub(&other.symbolic_domain);
         Self {
             numerical_domain: numerical,
-            symbolic_domain: symbolic,
             exit_conditions: HashMap::new(),
         }
     }
@@ -333,18 +230,14 @@ where
         let numerical = self.numerical_domain.meet(&other.numerical_domain);
         Self {
             numerical_domain: numerical,
-            symbolic_domain: other.symbolic_domain.clone(),
             exit_conditions: HashMap::new(),
         }
     }
 
     pub fn widening_with(&self, other: &Self) -> Self {
         let numerical = self.numerical_domain.widening_with(&other.numerical_domain);
-        let symbolic = self.symbolic_domain.widening_with(&other.symbolic_domain);
-
         Self {
             numerical_domain: numerical,
-            symbolic_domain: symbolic,
             exit_conditions: HashMap::new(),
         }
     }
@@ -357,30 +250,11 @@ where
 
         Self {
             numerical_domain: numerical,
-            // Seems like no need to do narrowing for symbolic domain
-            symbolic_domain: other.symbolic_domain.clone(),
             exit_conditions: HashMap::new(),
         }
     }
 
     pub fn subset(&self, other: &Self) -> bool {
-        let value_map1 = &self.symbolic_domain.value_map;
-        let value_map2 = &other.symbolic_domain.value_map;
-        if value_map1.len() > value_map2.len() {
-            return false;
-        }
-        for (path, val1) in value_map1.iter() {
-            match value_map2.get(path) {
-                Some(val2) => {
-                    if !(val1.subset(val2)) {
-                        return false;
-                    }
-                }
-                None => {
-                    return false;
-                }
-            }
-        }
-        true
+        self.numerical_domain.leq(&other.numerical_domain)
     }
 }
