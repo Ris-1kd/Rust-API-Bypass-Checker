@@ -18,7 +18,7 @@ use std::iter::Iterator;
 pub enum KnownNames {
     /// This is not a known name
     None,
-    MirCheckerVerify,
+    BypasserVerify,
     RustAlloc,
     RustAllocZeroed,
     RustDealloc,
@@ -305,7 +305,7 @@ impl KnownNamesCache {
                     "vec" => get_known_name_for_vec_namespace(def_path_data_iter),
                     "ptr" => get_known_name_for_ptr_namespace(def_path_data_iter),
                     // "core" => get_known_name_for_core_namespace(def_path_data_iter),
-                    "mir_checker_verify" => KnownNames::MirCheckerVerify,
+                    "mir_checker_verify" | "bypasser_verify" => KnownNames::BypasserVerify,
                     _ => {
                         debug!("Normal function: {:?}", n.as_str());
                         KnownNames::None
