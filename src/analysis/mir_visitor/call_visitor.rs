@@ -16,13 +16,12 @@ use crate::analysis::memory::path::{Path, PathRefinement};
 use crate::analysis::memory::symbolic_value::{self, SymbolicValue, SymbolicValueTrait};
 use crate::analysis::mir_visitor::block_visitor::BlockVisitor;
 use crate::analysis::mir_visitor::body_visitor::WtoFixPointIterator;
-use crate::analysis::mir_visitor::type_visitor::get_element_type;
 use crate::analysis::numerical::apron_domain::{
     ApronAbstractDomain, ApronDomainType, GetManagerTrait,
 };
+use crate::analysis::numerical::interval::{Bound, Interval};
 use crate::checker::assertion_checker::{AssertionChecker, CheckerResult};
 use crate::checker::checker_trait::CheckerTrait;
-use rug::Integer;
 use rustc_hir::def_id::DefId;
 // use rustc_middle::mir;
 // use rustc_middle::ty::subst::GenericArgsRef;
@@ -30,7 +29,7 @@ use rustc_hir::def_id::DefId;
 use rustc_middle::mir;
 use rustc_middle::ty::{GenericArgsRef, Ty, TyKind};
 use rustc_span::source_map::Spanned;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::{Debug, Formatter, Result};
 use std::rc::Rc;
 
@@ -314,6 +313,119 @@ where
         None
     }
 
+    fn record_supported_special_call(&mut self) {
+        self.block_visitor.body_visitor.context.supported_special_calls += 1;
+    }
+
+    fn forget_destination_value(&mut self) {
+        #[allow(irrefutable_let_patterns)]
+        let destination_path = if let dest = self.destination {
+            Some(self.block_visitor.get_path_for_place(&dest))
+        } else {
+            None
+        };
+        if let Some(target_path) = destination_path {
+            self.block_visitor
+                .body_visitor
+                .state
+                .update_value_at(target_path, symbolic_value::TOP.into());
+        }
+    }
+
+    fn emit_unsupported_special_call(&mut self, api_name: &str, reason: &str) -> bool {
+        self.block_visitor.body_visitor.context.unsupported_special_calls += 1;
+        self.forget_destination_value();
+        let warning = self
+            .block_visitor
+            .body_visitor
+            .context
+            .session
+            .dcx()
+            .struct_span_warn(
+                self.block_visitor.body_visitor.current_span,
+                format!(
+                    "[Bypasser] Unsupported analysis fragment at `{}`; result downgraded to unknown: {}",
+                    api_name, reason
+                ),
+            );
+        self.block_visitor.body_visitor.emit_diagnostic(
+            warning,
+            false,
+            DiagnosticCause::Unsupported,
+        );
+        true
+    }
+
+    fn is_supported_scalar_type(ty: Ty<'tcx>) -> bool {
+        matches!(
+            ty.kind(),
+            TyKind::Bool | TyKind::Char | TyKind::Int(_) | TyKind::Uint(_) | TyKind::Float(_)
+        )
+    }
+
+    fn is_supported_integer_type(ty: Ty<'tcx>) -> bool {
+        matches!(ty.kind(), TyKind::Int(_) | TyKind::Uint(_))
+    }
+
+    fn supported_sequence_element_type(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+        match ty.kind() {
+            TyKind::Array(elem, _) | TyKind::Slice(elem) => Some(*elem),
+            TyKind::Ref(_, inner, _) => match inner.kind() {
+                TyKind::Array(elem, _) | TyKind::Slice(elem) => Some(*elem),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    fn supports_local_bounds_check(&self) -> bool {
+        self.actual_argument_types
+            .first()
+            .and_then(|ty| self.supported_sequence_element_type(*ty))
+            .map(Self::is_supported_scalar_type)
+            .unwrap_or(false)
+    }
+
+    fn supports_local_swap_check(&self) -> bool {
+        let receiver_supported = self
+            .actual_argument_types
+            .first()
+            .and_then(|ty| self.supported_sequence_element_type(*ty))
+            .is_some();
+        let index_a_supported = self
+            .actual_argument_types
+            .get(1)
+            .copied()
+            .map(Self::is_supported_integer_type)
+            .unwrap_or(false);
+        let index_b_supported = self
+            .actual_argument_types
+            .get(2)
+            .copied()
+            .map(Self::is_supported_integer_type)
+            .unwrap_or(false);
+        receiver_supported && index_a_supported && index_b_supported
+    }
+
+    fn supports_bool_to_usize_from(&mut self) -> bool {
+        if self.actual_argument_types.len() != 1 {
+            return false;
+        }
+        if !matches!(self.actual_argument_types[0].kind(), TyKind::Bool) {
+            return false;
+        }
+        matches!(
+            self.block_visitor
+                .body_visitor
+                .type_visitor
+                .get_place_type(
+                    &self.destination,
+                    self.block_visitor.body_visitor.current_span,
+                ),
+            ExpressionType::Usize
+        )
+    }
+
     /// If the current call is to a well known function for which we don't have a cached summary,
     /// this function will update the environment as appropriate and return true. If the return
     /// result is false, just carry on with the normal logic.
@@ -326,12 +438,14 @@ where
         };
         match self.callee_known_name {
             KnownNames::VecFromRawParts => {
-                self.handle_from_raw_parts();
-                return true;
+                return self.emit_unsupported_special_call(
+                    "Vec::from_raw_parts",
+                    "heap-backed reconstruction and ownership transfer are outside the supported fragment",
+                );
             }
-            KnownNames::MirCheckerVerify => {
+            KnownNames::BypasserVerify => {
                 assert!(self.actual_args.len() == 1);
-                debug!("Handling special function MirCheckerVerify");
+                debug!("Handling special function BypasserVerify");
                 // if self.block_visitor.body_visitor.check_for_errors {
                 self.report_calls_to_special_functions();
                 // }
@@ -342,16 +456,32 @@ where
             KnownNames::RustDealloc => {
                 return true;
             }
+            KnownNames::RustAlloc | KnownNames::RustAllocZeroed => {
+                return self.emit_unsupported_special_call(
+                    "__rust_alloc",
+                    "heap allocation is outside the supported numerical fragment",
+                );
+            }
             KnownNames::StdPanickingBeginPanic | KnownNames::StdPanickingBeginPanicFmt => {
                 self.handle_panic();
                 return true;
             }
             KnownNames::StdIntoVec => {
-                self.handle_into_vec();
-                return true;
+                return self.emit_unsupported_special_call(
+                    "Into<Vec<_>>",
+                    "container reconstruction is outside the supported fragment",
+                );
             }
             KnownNames::CoreOpsIndex => {
-                self.handle_index();
+                if self.supports_local_bounds_check() {
+                    self.record_supported_special_call();
+                    self.handle_index();
+                } else {
+                    self.emit_unsupported_special_call(
+                        "Index::index",
+                        "only local bounds checks over primitive slice/array elements are supported",
+                    );
+                }
                 return true;
             }
             KnownNames::StdPtrMutPtrOffset
@@ -366,7 +496,10 @@ where
             | KnownNames::StdPtrConstPtrWrappingAdd
             | KnownNames::StdPtrMutPtrWrappingSub
             | KnownNames::StdPtrConstPtrWrappingSub => {
-                return self.handle_offset();
+                return self.emit_unsupported_special_call(
+                    "pointer::offset/add/sub",
+                    "pointer arithmetic and alias-sensitive memory reasoning are outside the supported fragment",
+                );
             }
             KnownNames::StdPtrMutPtrByteOffset
             | KnownNames::StdPtrConstPtrByteOffset
@@ -380,42 +513,120 @@ where
             | KnownNames::StdPtrConstPtrWrappingByteAdd
             | KnownNames::StdPtrMutPtrWrappingByteSub
             | KnownNames::StdPtrConstPtrWrappingByteSub => {
-                return self.handle_byte_offset();
+                return self.emit_unsupported_special_call(
+                    "pointer::byte_offset/byte_add/byte_sub",
+                    "byte-level pointer arithmetic is outside the supported fragment",
+                );
             }
             KnownNames::StdPtrConstPtrOffsetFrom | KnownNames::StdPtrMutPtrOffsetFrom => {
-                return self.handle_offset_from();
+                return self.emit_unsupported_special_call(
+                    "pointer::offset_from",
+                    "relational pointer reasoning is outside the supported fragment",
+                );
             }
             KnownNames::StdPtrConstPtrByteOffsetFrom | KnownNames::StdPtrMutPtrByteOffsetFrom => {
-                return self.handle_offset_from();
+                return self.emit_unsupported_special_call(
+                    "pointer::byte_offset_from",
+                    "relational pointer reasoning is outside the supported fragment",
+                );
             }
             KnownNames::StdSliceIndexGetUncheckedMut => {
-                return self.handle_get_unchecked_mut();
+                if self.supports_local_bounds_check() {
+                    self.record_supported_special_call();
+                    return self.handle_get_unchecked_mut();
+                }
+                return self.emit_unsupported_special_call(
+                    "slice::get_unchecked_mut",
+                    "only local bounds checks over primitive slice/array elements are supported",
+                );
             }
             KnownNames::StdSliceIndexGetUnchecked => {
-                return self.handle_get_unchecked();
+                if self.supports_local_bounds_check() {
+                    self.record_supported_special_call();
+                    return self.handle_get_unchecked();
+                }
+                return self.emit_unsupported_special_call(
+                    "slice::get_unchecked",
+                    "only local bounds checks over primitive slice/array elements are supported",
+                );
             }
-            KnownNames::StdSliceIndexGet    | KnownNames::StdSliceIndexGetMut
-             =>{
-                return self.handle_get_checked();
+            KnownNames::StdSliceIndexGet => {
+                if self.supports_local_bounds_check() {
+                    self.record_supported_special_call();
+                    return self.handle_get_checked();
+                }
+                return self.emit_unsupported_special_call(
+                    "slice::get",
+                    "only local bounds checks over primitive slice/array elements are supported",
+                );
+            }
+            KnownNames::StdSliceIndexGetMut => {
+                if self.supports_local_bounds_check() {
+                    self.record_supported_special_call();
+                    return self.handle_get_checked();
+                }
+                return self.emit_unsupported_special_call(
+                    "slice::get_mut",
+                    "only local bounds checks over primitive slice/array elements are supported",
+                );
             }
             // KnownNames::StdSliceIndexGetMut =>{
             //     return self.handle_get_checked_mut();
             // }
-            KnownNames::StdSliceSplitAt | KnownNames::StdSliceSplitAtMut =>{
-                return self.handle_split_at_checked();
+            KnownNames::StdSliceSplitAt | KnownNames::StdSliceSplitAtMut => {
+                if self.supports_local_bounds_check() {
+                    self.record_supported_special_call();
+                    return self.handle_split_at_checked();
+                }
+                return self.emit_unsupported_special_call(
+                    "slice::split_at[_mut]",
+                    "only local split-index checks over primitive slice/array elements are supported",
+                );
             }
             // KnownNames::StdSliceSplitAtMut =>{
             //     return self.handle_split_at_mut_checked();
             // }
             KnownNames::StdIntCheckedAdd => {
-                return self.handle_checked_add();
+                if self
+                    .actual_argument_types
+                    .first()
+                    .copied()
+                    .map(Self::is_supported_integer_type)
+                    .unwrap_or(false)
+                {
+                    self.record_supported_special_call();
+                    return self.handle_checked_add();
+                }
+                return self.emit_unsupported_special_call(
+                    "checked_add",
+                    "only integer scalar checked_add calls are supported",
+                );
             }
-            KnownNames::StdSliceSwap =>{
-                return self.handle_swap();
+            KnownNames::StdSliceSwap => {
+                if self.supports_local_swap_check() {
+                    self.record_supported_special_call();
+                    return self.handle_swap();
+                }
+                return self.emit_unsupported_special_call(
+                    "slice::swap",
+                    "only local index bounds checks over slice/array receivers are supported",
+                );
             }
-            KnownNames::StdFrom | KnownNames::StdAsMutPtr => {
-                self.handle_from();
-                return true;
+            KnownNames::StdFrom => {
+                if self.supports_bool_to_usize_from() {
+                    self.record_supported_special_call();
+                    return self.handle_bool_to_usize_from();
+                }
+                return self.emit_unsupported_special_call(
+                    "From",
+                    "only the local bool-to-usize conversion pattern is supported",
+                );
+            }
+            KnownNames::StdAsMutPtr => {
+                return self.emit_unsupported_special_call(
+                    "as_mut_ptr",
+                    "reference and ownership conversion side effects are outside the supported fragment",
+                );
             }
             _ => {
                 let result = self.try_to_inline_special_function();
@@ -443,7 +654,7 @@ where
     /// std.panicking.begin_panic then report a diagnostic or create a precondition as appropriate.
     fn report_calls_to_special_functions(&mut self) {
         match self.callee_known_name {
-            KnownNames::MirCheckerVerify => {
+            KnownNames::BypasserVerify => {
                 assert!(self.actual_args.len() == 1); // The type checker ensures this.
                 let (_, cond) = &self.actual_args[0];
                 // let message = self.coerce_to_string(&self.actual_args[1].1);
@@ -461,8 +672,6 @@ where
     /// special function.
     fn try_to_inline_special_function(&mut self) -> Rc<SymbolicValue> {
         match self.callee_known_name {
-            KnownNames::RustAlloc => self.handle_rust_alloc(),
-            KnownNames::RustAllocZeroed => self.handle_rust_alloc(),
             KnownNames::StdMemSizeOf => self.handle_size_of(),
             _ => symbolic_value::BOTTOM.into(),
         }
@@ -500,134 +709,6 @@ where
     //     symbolic_value::BOTTOM.into()
     // }
 
-    /// Returns a new heap memory block with the given byte length.
-    fn handle_rust_alloc(&mut self) -> Rc<SymbolicValue> {
-        assert!(self.actual_args.len() == 2);
-        let length = self.actual_args[0].1.clone();
-        let alignment = self.actual_args[1].1.clone();
-        let tcx = self.block_visitor.body_visitor.context.tcx;
-        let byte_slice = Ty::new_slice(tcx, tcx.types.u8);
-        let heap_path = Path::get_as_path(
-            self.block_visitor
-                .body_visitor
-                .get_new_heap_block(length, alignment, byte_slice),
-        );
-        SymbolicValue::make_reference(heap_path)
-    }
-
-    // /// Returns a new heap memory block with the given byte length and with the zeroed flag set.
-    // fn handle_rust_alloc_zeroed(&mut self) -> Rc<SymbolicValue> {
-    //     assert!(self.actual_args.len() == 2);
-    //     let length = self.actual_args[0].1.clone();
-    //     let alignment = self.actual_args[1].1.clone();
-    //     let tcx = self.block_visitor.body_visitor.context.tcx;
-    //     let byte_slice = tcx.mk_slice(tcx.types.u8);
-    //     let heap_path = Path::get_as_path(
-    //         self.block_visitor
-    //             .body_visitor
-    //             .get_new_heap_block(length, alignment, true, byte_slice),
-    //     );
-    //     SymbolicValue::make_reference(heap_path)
-    // }
-
-    // /// Sets the length of the heap block to a new value and removes index paths as necessary
-    // /// if the new length is known and less than the old lengths.
-    // fn handle_rust_realloc(&mut self) -> Rc<SymbolicValue> {
-    //     assert!(self.actual_args.len() == 4);
-    //     // Get path to the heap block to reallocate
-    //     let heap_block_path = Path::new_deref(self.actual_args[0].0.clone());
-    //     // Create a layout
-    //     let length = self.actual_args[1].1.clone();
-    //     let alignment = self.actual_args[2].1.clone();
-    //     let new_length = self.actual_args[3].1.clone();
-    //     // We need to this to check for consistency between the realloc layout arg and the
-    //     // initial alloc layout.
-    //     let layout_param = SymbolicValue::make_from(
-    //         Expression::HeapBlockLayout {
-    //             length,
-    //             alignment: alignment.clone(),
-    //             source: LayoutSource::ReAlloc,
-    //         },
-    //         1,
-    //     );
-    //     // We need this to keep track of the new length
-    //     let new_length_layout = SymbolicValue::make_from(
-    //         Expression::HeapBlockLayout {
-    //             length: new_length,
-    //             alignment,
-    //             source: LayoutSource::ReAlloc,
-    //         },
-    //         1,
-    //     );
-    //     // Get a layout path and update the environment
-    //     let layout_path =
-    //         Path::new_layout(heap_block_path).refine_paths(&self.block_visitor.state());
-    //     self.block_visitor
-    //         .body_visitor
-    //         .state
-    //         .update_value_at(layout_path.clone(), new_length_layout);
-    //     let layout_path2 = Path::new_layout(layout_path);
-    //     self.block_visitor
-    //         .body_visitor
-    //         .state
-    //         .update_value_at(layout_path2, layout_param);
-    //     // Return the original heap block reference as the result
-    //     self.actual_args[0].1.clone()
-    // }
-
-    // /// Set the call result to an offset derived from the arguments. Does no checking.
-    // fn handle_arith_offset(&mut self) -> Rc<SymbolicValue> {
-    //     assert!(self.actual_args.len() == 2);
-    //     let base_val = &self.actual_args[0].1;
-    //     let offset_val = &self.actual_args[1].1;
-    //     base_val.offset(offset_val.clone())
-    // }
-
-    // /// Set the call result to an offset derived from the arguments.
-    // /// Checks that the resulting offset is either in bounds or one
-    // /// byte past the end of an allocated object.
-    // fn handle_offset(&mut self) -> Rc<SymbolicValue> {
-    //     assert!(self.actual_args.len() == 2);
-    //     let base_val = &self.actual_args[0].1;
-    //     let offset_val = &self.actual_args[1].1;
-    //     let result = base_val.offset(offset_val.clone());
-    //     let solver = &self.block_visitor.body_visitor.z3_solver;
-    //     let base = Path::get_as_path(self.actual_args[0].1.clone());
-    //     let base_len = Path::new_field(base, 1);
-    //     let offset = self.actual_args[1].0.clone();
-    //     let constraint_system =
-    //         LinearConstraintSystem::from(&self.block_visitor.state().numerical_domain);
-    //     for cst in &constraint_system {
-    //         solver.assert(&solver.get_as_z3_expression(cst));
-    //     }
-    //     let mut exp = LinearExpression::default();
-    //     exp = exp + base_len - offset;
-    //     let cst = LinearConstraint::LessEq(exp);
-    //     solver.assert(&solver.get_as_z3_expression(&cst));
-    //     let solver_result = solver.solve();
-    //     solver.reset();
-    //     if solver_result == SmtResult::Sat {
-    //         let warning = self
-    //             .block_visitor
-    //             .body_visitor
-    //             .context
-    //             .session
-    //             .dcx().struct_span_warn(
-    //                 self.block_visitor.body_visitor.current_span,
-    //                 format!("Possible out-of-bound offset").as_str(),
-    //             );
-    //         self.block_visitor
-    //             .body_visitor
-    //             .emit_diagnostic(warning, true);
-    //     } else {
-    //         debug!("Proved that offset is safe!");
-    //     }
-    //     // if self.block_visitor.body_visitor.check_for_errors && self.function_being_analyzed_is_root() {
-    //     //     self.check_offset(&result)
-    //     // }
-    //     result
-    // }
-
     /// Gets the size in bytes of the type parameter T of the std::mem::size_of<T> function.
     /// Returns and unknown value of type u128 if T is not a concrete type.
     fn handle_size_of(&mut self) -> Rc<SymbolicValue> {
@@ -656,49 +737,6 @@ where
         }
     }
 
-    fn handle_into_vec(&mut self) {
-        assert!(self.actual_args.len() == 1);
-        let source = &self.actual_args[0].0;
-        #[allow(irrefutable_let_patterns)]
-        let destination_path = if let dest = self.destination {
-            Some(self.block_visitor.get_path_for_place(&dest))
-        } else {
-            None
-        };
-        assert!(destination_path.is_some());
-
-        let result = destination_path.as_ref().unwrap();
-
-        let body_visitor = &mut self.block_visitor.body_visitor;
-        let rtype = body_visitor
-            .type_visitor
-            .get_path_rustc_type(source, body_visitor.current_span);
-        self.block_visitor
-            .copy_or_move_elements(result.clone(), source.clone(), rtype, true);
-    }
-
-    fn handle_from_raw_parts(&mut self) {
-        assert!(self.actual_args.len() == 3);
-        // assert!(self.destination.is_some());
-        let block_visitor = &mut self.block_visitor;
-        // Vec::from_raw_parts captures the ownership and passes it to the `destination`
-        // So we keep track of it in `tainted_variables`
-
-        // The source
-        let source = self.args[0].clone();
-        if let Some(taint_sources) = block_visitor.extract_local_from_operand(&source.node) {
-            // for local in taint_sources {
-                // block_visitor.body_visitor.tainted_variables.insert(local);
-            // }
-        }
-
-        // The destination
-        // block_visitor
-        //     .body_visitor
-        //     .tainted_variables
-        //     .insert(self.destination.local);
-    }
-
     fn handle_panic(&mut self) {
         assert!(self.actual_args.len() == 1);
         // assert!(self.destination.is_none());
@@ -706,208 +744,13 @@ where
         if !body_visitor.state.is_bottom() {
             let warning = body_visitor.context.session.dcx().struct_span_warn(
                 body_visitor.current_span,
-                format!("[MirChecker] Possible error: run into panic code"),
+                format!("[Bypasser] Possible error: run into panic code"),
             );
             // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Panic);
             warning.cancel();
         }
     }
 
-    fn handle_from(&mut self) {
-        assert!(self.actual_args.len() == 1);
-        let source = &self.actual_args[0].0;
-        #[allow(irrefutable_let_patterns)]
-        let destination_path = if let dest = self.destination {
-            Some(self.block_visitor.get_path_for_place(&dest))
-        } else {
-            None
-        };
-        // assert!(destination_path.is_some());
-        let result = destination_path.as_ref().unwrap();
-
-        let body_visitor = &mut self.block_visitor.body_visitor;
-        let rtype = body_visitor
-            .type_visitor
-            .get_path_rustc_type(source, body_visitor.current_span);
-        self.block_visitor
-            .copy_or_move_elements(result.clone(), source.clone(), rtype, true);
-    }
-
-    fn get_ptr_base(&mut self, ptr: &Rc<SymbolicValue>) -> Option<Rc<Path>> {
-        match &ptr.expression {
-            Expression::Reference(path) => Some(path.clone()),
-            Expression::Variable { path, .. } => Some(path.clone()),
-            Expression::Offset { left, right: _ } => {
-                return self.get_ptr_base(left);
-            }
-            _ => None,
-        }
-    }
-
-    // 假设已知来源于同一个指针
-    fn get_ptr_diff(
-        &mut self,
-        ptr1: &Rc<SymbolicValue>,
-        ptr2: &Rc<SymbolicValue>,
-    ) -> Rc<SymbolicValue> {
-        match (&ptr1.expression, &ptr2.expression) {
-            (
-                Expression::Offset { left: _, right },
-                Expression::Offset {
-                    left: _,
-                    right: right2,
-                },
-            ) => {
-                return right2.sub(right.clone());
-            }
-            (_, Expression::Offset { left: _, right }) => {
-                return right.clone();
-            }
-            (Expression::Offset { left: _, right }, _) => {
-                let zero_val = SymbolicValue::make_from(
-                    Expression::CompileTimeConstant(ConstantValue::Int(Integer::from(0))),
-                    1,
-                );
-                return zero_val.sub(right.clone());
-            }
-            (_, _) => {
-                let zero_val = SymbolicValue::make_from(
-                    Expression::CompileTimeConstant(ConstantValue::Int(Integer::from(0))),
-                    1,
-                );
-                return zero_val;
-            }
-        }
-    }
-
-    fn get_type_size(&mut self, base: &Rc<Path>) -> Expression {
-        let target_type = get_element_type(
-            self.block_visitor
-                .body_visitor
-                .type_visitor
-                .get_path_rustc_type(base, self.block_visitor.body_visitor.current_span),
-        );
-        let byte_size = self
-            .block_visitor
-            .body_visitor
-            .type_visitor
-            .get_type_size(target_type);
-        Expression::CompileTimeConstant(ConstantValue::Int(Integer::from(byte_size))).into()
-    }
-
-    fn handle_offset_from(&mut self) -> bool {
-        assert!(self.actual_args.len() == 2);
-        // println!("je");
-        let is_byte = match self.callee_known_name {
-            KnownNames::StdPtrMutPtrOffsetFrom | KnownNames::StdPtrConstPtrOffsetFrom => false,
-            KnownNames::StdPtrMutPtrByteOffsetFrom | KnownNames::StdPtrConstPtrByteOffsetFrom => {
-                true
-            }
-            _ => {
-                return false;
-            }
-        };
-
-        let offset1 = self.actual_args[0].1.clone();
-        let offset2 = self.actual_args[1].1.clone();
-        // println!("offset1: {:?}", offset1);
-        // println!("offset2: {:?}", offset2);
-        // println!("ptr base of offset1: {:?}", self.get_ptr_base(&offset1));
-        // println!("ptr base of offset2: {:?}", self.get_ptr_base(&offset2));
-        // let flag = false;
-        match (self.get_ptr_base(&offset1), self.get_ptr_base(&offset2)) {
-            (None, None) => {
-                return false;
-            }
-            (None, Some(_)) | (Some(_), None) => {}
-            (Some(base1), Some(base2)) => {
-                if *base1 == *base2 {
-                    // 合法处理
-                    let mut result = self.get_ptr_diff(&offset1, &offset2);
-                    if is_byte {
-                        let base = &self.actual_args[0].0.clone();
-                        result = result.mul(SymbolicValue::make_from(self.get_type_size(base), 1));
-                    }
-                    #[allow(irrefutable_let_patterns)]
-                    let destination_path = if let dest = self.destination {
-                        Some(self.block_visitor.get_path_for_place(&dest))
-                    } else {
-                        None
-                    };
-                    assert!(destination_path.is_some());
-                    if let Some(target_path) = destination_path {
-                        self.block_visitor
-                            .body_visitor
-                            .state
-                            .update_value_at(target_path.clone(), result);
-                        return true;
-                    }
-                }
-            }
-        }
-        let warning = self
-            .block_visitor
-            .body_visitor
-            .context
-            .session
-            .dcx()
-            .struct_span_warn(
-                self.block_visitor.body_visitor.current_span,
-                format!("[MirChecker] Possible error: the ptr from different object"),
-            );
-        // warning.emit();
-        warning.cancel();
-        return true;
-    }
-
-    fn handle_byte_offset(&mut self) -> bool {
-        assert!(self.actual_args.len() == 2);
-
-        let offset_val = match self.callee_known_name {
-            KnownNames::StdPtrMutPtrByteOffset
-            | KnownNames::StdPtrConstPtrByteOffset
-            | KnownNames::StdPtrMutPtrByteAdd
-            | KnownNames::StdPtrConstPtrByteAdd
-            | KnownNames::StdPtrConstPtrWrappingByteOffset
-            | KnownNames::StdPtrMutPtrWrappingByteOffset
-            | KnownNames::StdPtrMutPtrWrappingByteAdd
-            | KnownNames::StdPtrConstPtrWrappingByteAdd => self.actual_args[1].1.clone(),
-            KnownNames::StdPtrMutPtrWrappingByteSub
-            | KnownNames::StdPtrConstPtrWrappingByteSub
-            | KnownNames::StdPtrMutPtrByteSub
-            | KnownNames::StdPtrConstPtrByteSub => {
-                let offset_val = self.actual_args[1].1.clone();
-
-                let zero_val = SymbolicValue::make_from(
-                    Expression::CompileTimeConstant(ConstantValue::Int(Integer::from(0))),
-                    1,
-                );
-                zero_val.sub(offset_val)
-            }
-            _ => {
-                return false;
-            }
-        };
-
-        let result = self.check_offset(&offset_val);
-
-        #[allow(irrefutable_let_patterns)]
-        let destination_path = if let dest = self.destination {
-            Some(self.block_visitor.get_path_for_place(&dest))
-        } else {
-            None
-        };
-        assert!(destination_path.is_some());
-
-        if let Some(target_path) = destination_path {
-            self.block_visitor
-                .body_visitor
-                .state
-                .update_value_at(target_path.clone(), result);
-            return true;
-        }
-        return false;
-    }
 
     fn handle_get_checked(&mut self) -> bool{
         assert!(self.actual_args.len() == 2);
@@ -966,45 +809,27 @@ where
         //     }
         // }
 
-        // 为 get 方法创建 Option<T> 类型的返回值
-        if let Some(target_path) = destination_path {
-            // 获取数组元素的类型
-            let element_type = get_element_type(self.actual_argument_types[0]);
-            
-            // 根据边界检查结果创建不同的返回值
-            let result_val = match check_result {
-                CheckerResult::Safe | CheckerResult::Warning => {
-                    // 安全情况：返回 Some(element)
-                    let array_path = &self.actual_args[0].0;
-                    let indexed_path = Path::new_index(array_path.clone(), index_val.clone())
-                        .refine_paths(&self.block_visitor.body_visitor.state);
-                    
-                    let element_val = self.block_visitor.body_visitor.lookup_path_and_refine_result(
-                        indexed_path.clone(), 
-                        element_type
-                    );
-                    
-                    // 对于安全的情况，直接返回元素值（作为 Some 的内容）
-                    element_val
-                },
-                CheckerResult::Unsafe => {
-                    // 不安全情况：返回表示 None 的值
-                    SymbolicValue::make_from(
-                        Expression::CompileTimeConstant(ConstantValue::Bottom),
-                        1,
-                    )
-                }
-            };
-            
-            // 更新目标路径的值
-            self.block_visitor
-                .body_visitor
-                .state
-                .update_value_at(target_path.clone(), result_val);
-                
-            return true;
+        match check_result {
+            CheckerResult::Safe => {}
+            CheckerResult::Unsafe => {
+                let error = body_visitor.context.session.dcx().struct_span_warn(
+                    body_visitor.current_span,
+                    "[Bypasser] Provably error: index out of bound in get()/get_mut()",
+                );
+                body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
+            }
+            CheckerResult::Warning => {
+                let warning = body_visitor.context.session.dcx().struct_span_warn(
+                    body_visitor.current_span,
+                    "[Bypasser] Possible error: index may be out of bound in get()/get_mut()",
+                );
+                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+            }
         }
-        return false;
+
+        // We only claim local bounds reasoning here; the returned Option value is left unknown.
+        self.forget_destination_value();
+        true
     }
 
     // fn handle_get_checked_mut(&mut self) -> bool{
@@ -1158,49 +983,27 @@ where
         //     }
         // }
 
-        // 为 split_at_checked 方法创建 Option<(&[T], &[T])> 类型的返回值
-        if let Some(target_path) = destination_path {
-            // 根据边界检查结果创建不同的返回值
-            let result_val = match check_result {
-                CheckerResult::Safe => {
-                    // 安全情况：返回 Some((left_slice, right_slice))
-                    // 创建表示切片元组的符号值
-                    SymbolicValue::make_from(
-                        Expression::Variable {
-                            path: target_path.clone(),
-                            var_type: ExpressionType::NonPrimitive,
-                        },
-                        1,
-                    )
-                },
-                CheckerResult::Unsafe => {
-                    // 不安全情况：返回 None
-                    SymbolicValue::make_from(
-                        Expression::CompileTimeConstant(ConstantValue::Bottom),
-                        1,
-                    )
-                },
-                CheckerResult::Warning => {
-                    // 警告情况：返回未知的 Option 值
-                    SymbolicValue::make_from(
-                        Expression::Variable {
-                            path: target_path.clone(),
-                            var_type: ExpressionType::NonPrimitive,
-                        },
-                        1,
-                    )
-                }
-            };
-            
-            // 更新目标路径的值
-            self.block_visitor
-                .body_visitor
-                .state
-                .update_value_at(target_path.clone(), result_val);
-                
-            return true;
+        match check_result {
+            CheckerResult::Safe => {}
+            CheckerResult::Unsafe => {
+                let error = body_visitor.context.session.dcx().struct_span_warn(
+                    body_visitor.current_span,
+                    "[Bypasser] Provably error: split index out of bound in split_at[_mut]()",
+                );
+                body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
+            }
+            CheckerResult::Warning => {
+                let warning = body_visitor.context.session.dcx().struct_span_warn(
+                    body_visitor.current_span,
+                    "[Bypasser] Possible error: split index may be out of bound in split_at[_mut]()",
+                );
+                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+            }
         }
-        return false;
+
+        // We only claim local split-index reasoning here; the returned slices are left unknown.
+        self.forget_destination_value();
+        true
     }
 
     // fn handle_split_at_mut_checked(&mut self) -> bool{
@@ -1328,50 +1131,33 @@ where
             elem_ty,
             &state,
         );
-        let info = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] There's a checked_add() call"),
-                );
-        info.emit();
-        // Diagnostics
         match check_result {
             CheckerResult::Safe => (),
             CheckerResult::Unsafe => {
                 let error = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
-                    format!("[Rust-API-Bypass] Provably error: integer overflow in checked_add()"),
+                    format!("[Bypasser] Provably error: integer overflow in checked_add()"),
                 );
-                error.emit();
+                body_visitor.emit_diagnostic(error, false, DiagnosticCause::Arithmetic);
             }
             CheckerResult::Warning => {
                 let warning = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
-                    format!("[Rust-API-Bypass] Possible error: integer overflow in checked_add()"),
+                    format!("[Bypasser] Possible error: integer overflow in checked_add()"),
                 );
-                // warning.emit();
-                warning.cancel();
+                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Arithmetic);
             }
         }
 
-        if let Some(target_path) = destination_path {
-            let result_val = match check_result {
-                CheckerResult::Safe | CheckerResult::Warning => sum_val,
-                CheckerResult::Unsafe => SymbolicValue::make_from(
-                    Expression::CompileTimeConstant(ConstantValue::Bottom),
-                    1,
-                )
-            };
-            self.block_visitor
-                .body_visitor
-                .state
-                .update_value_at(target_path.clone(), result_val);
-            return true;
-        }
-        false
+        let _ = destination_path;
+        let _ = sum_val;
+        // We only claim local overflow reasoning here; the returned Option is left unknown.
+        self.forget_destination_value();
+        true
     }
 
-    fn handle_swap(&mut self) -> bool{
-        assert!(self.actual_args.len() == 3); // self, index_a, index_b
+    fn handle_swap(&mut self) -> bool {
+        assert!(self.actual_args.len() == 3);
         let state = self.block_visitor.state().clone();
         let body_visitor = &mut self.block_visitor.body_visitor;
 
@@ -1379,7 +1165,7 @@ where
         let array_len = Path::new_length(array.clone()).refine_paths(&body_visitor.state);
         let array_len_val = SymbolicValue::make_from(
             Expression::Variable {
-                path: array_len.clone(),
+                path: array_len,
                 var_type: ExpressionType::Usize,
             },
             1,
@@ -1387,9 +1173,6 @@ where
         let index_a_val = &self.actual_args[1].1;
         let index_b_val = &self.actual_args[2].1;
 
-        let assert_checker = AssertionChecker::new(body_visitor);
-        
-        // 检查第一个索引是否在边界内
         let index_a_safe_cond = SymbolicValue::make_from(
             Expression::LessThan {
                 left: index_a_val.clone(),
@@ -1397,92 +1180,85 @@ where
             },
             1,
         );
-        let check_result_a = assert_checker.check_assert_condition(index_a_safe_cond.clone(), true, &state);
-        
-        // 检查第二个索引是否在边界内
+        let check_result_a = {
+            let assert_checker = AssertionChecker::new(body_visitor);
+            assert_checker.check_assert_condition(index_a_safe_cond, true, &state)
+        };
         let index_b_safe_cond = SymbolicValue::make_from(
             Expression::LessThan {
                 left: index_b_val.clone(),
-                right: array_len_val.clone(),
+                right: array_len_val,
             },
             1,
         );
-        let check_result_b = assert_checker.check_assert_condition(index_b_safe_cond.clone(), true, &state);
-        let info = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[Rust-API-Bypass] There's a swap() call"),
-                );
-        info.emit();
-        // 发出诊断信息
+        let check_result_b = {
+            let assert_checker = AssertionChecker::new(body_visitor);
+            assert_checker.check_assert_condition(index_b_safe_cond, true, &state)
+        };
+
         match check_result_a {
-            CheckerResult::Safe => (),
+            CheckerResult::Safe => {}
             CheckerResult::Unsafe => {
                 let error = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
-                    format!("[Rust-API-Bypass] Provably error: first index out of bound in swap() call"),
+                    "[Bypasser] Provably error: first index out of bound in swap()",
                 );
-                error.emit();
+                body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
             }
             CheckerResult::Warning => {
                 let warning = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
-                    format!("[Rust-API-Bypass] Possible error: first index out of bound in swap() call"),
+                    "[Bypasser] Possible error: first index may be out of bound in swap()",
                 );
-                // warning.emit();
-                warning.cancel();
-            }
-        }
-        
-        match check_result_b {
-            CheckerResult::Safe => (),
-            CheckerResult::Unsafe => {
-                let error = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[MirChecker] Provably error: second index out of bound in swap() call"),
-                );
-                error.emit();
-            }
-            CheckerResult::Warning => {
-                let warning = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[MirChecker] Possible error: second index out of bound in swap() call"),
-                );
-                // warning.emit();
-                warning.cancel();
+                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
         }
 
-        // 创建两个索引位置的路径
-        let index_a_path = Path::new_index(array.clone(), index_a_val.clone())
-            .refine_paths(&self.block_visitor.body_visitor.state);
-        let index_b_path = Path::new_index(array.clone(), index_b_val.clone())
-            .refine_paths(&self.block_visitor.body_visitor.state);
-        
-        // 获取两个位置的当前值
-        let element_type = get_element_type(self.actual_argument_types[0]);
-        let value_a = self.block_visitor.body_visitor.lookup_path_and_refine_result(
-            index_a_path.clone(), 
-            element_type
-        );
-        let value_b = self.block_visitor.body_visitor.lookup_path_and_refine_result(
-            index_b_path.clone(), 
-            element_type
-        );
-        
-        // 执行交换
-        self.block_visitor
-            .body_visitor
-            .state
-            .update_value_at(index_a_path, value_b);
-        self.block_visitor
-            .body_visitor
-            .state
-            .update_value_at(index_b_path, value_a);
-    
-        
-        return true;
+        match check_result_b {
+            CheckerResult::Safe => {}
+            CheckerResult::Unsafe => {
+                let error = body_visitor.context.session.dcx().struct_span_warn(
+                    body_visitor.current_span,
+                    "[Bypasser] Provably error: second index out of bound in swap()",
+                );
+                body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
+            }
+            CheckerResult::Warning => {
+                let warning = body_visitor.context.session.dcx().struct_span_warn(
+                    body_visitor.current_span,
+                    "[Bypasser] Possible error: second index may be out of bound in swap()",
+                );
+                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+            }
+        }
+
+        // We do not model the post-swap contents precisely; forget sequence-derived facts.
+        body_visitor.state.forget_paths_rooted_by(array);
+        true
     }
 
+    fn handle_bool_to_usize_from(&mut self) -> bool {
+        assert!(self.actual_args.len() == 1);
+        #[allow(irrefutable_let_patterns)]
+        let destination_path = if let dest = self.destination {
+            Some(self.block_visitor.get_path_for_place(&dest))
+        } else {
+            None
+        };
+        if let Some(target_path) = destination_path {
+            self.block_visitor
+                .body_visitor
+                .state
+                .numerical_domain
+                .assign_interval(
+                    target_path,
+                    Interval::new(Bound::from(0u128), Bound::from(1u128)),
+                );
+        } else {
+            self.forget_destination_value();
+        }
+        true
+    }
 
     fn handle_get_unchecked(&mut self) -> bool {
         assert!(self.actual_args.len() == 2);
@@ -1523,7 +1299,7 @@ where
             CheckerResult::Unsafe => {
                 let error = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
-                    format!("[MirChecker] Provably error: index out of bound",),
+                    format!("[Bypasser] Provably error: index out of bound",),
                 );
                 // error.emit();
                 body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
@@ -1532,41 +1308,15 @@ where
             CheckerResult::Warning => {
                 let warning = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
-                    format!("[MirChecker] Possible error: index out of bound"),
+                    "[Bypasser] Possible error: index may be out of bound",
                 );
-                warning.cancel();
-                // warning.emit();
-                // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
         }
 
-        // 为 get_unchecked 创建适当的返回值，避免无限递归
-        if let Some(target_path) = destination_path {
-            // 获取数组元素的类型和值
-            let array_path = &self.actual_args[0].0;
-            let index_val = &self.actual_args[1].1;
-            
-            // 创建索引访问的路径：array[index]
-            let indexed_path = Path::new_index(array_path.clone(), index_val.clone())
-                .refine_paths(&self.block_visitor.body_visitor.state);
-            
-            // 查找该路径的值
-            let result_val = self.block_visitor.body_visitor.lookup_path_and_refine_result(
-                indexed_path.clone(), 
-                crate::analysis::mir_visitor::type_visitor::get_element_type(
-                    self.actual_argument_types[0]
-                )
-            );
-            
-            // 更新目标路径的值
-            self.block_visitor
-                .body_visitor
-                .state
-                .update_value_at(target_path.clone(), result_val);
-                
-            return true;
-        }
-        return false;
+        // We only claim local bounds reasoning here; the returned reference/value is left unknown.
+        self.forget_destination_value();
+        true
     }
 
     fn handle_get_unchecked_mut(&mut self) -> bool {
@@ -1608,7 +1358,7 @@ where
             CheckerResult::Unsafe => {
                 let error = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
-                    format!("[MirChecker] Provably error: index out of bound",),
+                    format!("[Bypasser] Provably error: index out of bound",),
                 );
                 // error.emit();
                 body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
@@ -1617,193 +1367,15 @@ where
             CheckerResult::Warning => {
                 let warning = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
-                    format!("[MirChecker] Possible error: index out of bound"),
+                    "[Bypasser] Possible error: index may be out of bound",
                 );
-                // warning.emit();
-                // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
-                warning.cancel();
+                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
         }
 
-        // TODO:这里采用保守方式。
-        let result = self.try_to_inline_special_function();
-        if !result.is_bottom() {
-            if let Some(target_path) = destination_path {
-                // let target_path = self.block_visitor.visit_place(place);
-                self.block_visitor
-                    .body_visitor
-                    .state
-                    .update_value_at(target_path.clone(), result);
-                // let exit_condition = self.block_visitor.state.entry_condition.clone();
-                // self.block_visitor
-                //     .state
-                //     .exit_conditions
-                //     .insert(*target, exit_condition);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // _3(指针) = offset(_1, _2)
-    fn handle_offset(&mut self) -> bool {
-        assert!(self.actual_args.len() == 2);
-        let base = &self.actual_args[0].0;
-        let target_type = get_element_type(
-            self.block_visitor
-                .body_visitor
-                .type_visitor
-                .get_path_rustc_type(base, self.block_visitor.body_visitor.current_span),
-        );
-        let byte_size = self
-            .block_visitor
-            .body_visitor
-            .type_visitor
-            .get_type_size(target_type);
-
-        let offset_val = match self.callee_known_name {
-            KnownNames::StdPtrMutPtrOffset
-            | KnownNames::StdPtrConstPtrOffset
-            | KnownNames::StdPtrMutPtrAdd
-            | KnownNames::StdPtrConstPtrAdd
-            | KnownNames::StdPtrConstPtrWrappingOffset
-            | KnownNames::StdPtrMutPtrWrappingOffset
-            | KnownNames::StdPtrMutPtrWrappingAdd
-            | KnownNames::StdPtrConstPtrWrappingAdd => {
-                self.actual_args[1].1.clone().mul(SymbolicValue::make_from(
-                    Expression::CompileTimeConstant(ConstantValue::Int(Integer::from(byte_size))),
-                    1,
-                ))
-            }
-            KnownNames::StdPtrMutPtrSub
-            | KnownNames::StdPtrConstPtrSub
-            | KnownNames::StdPtrMutPtrWrappingSub
-            | KnownNames::StdPtrConstPtrWrappingSub => {
-                let offset_val = self.actual_args[1].1.clone().mul(SymbolicValue::make_from(
-                    Expression::CompileTimeConstant(ConstantValue::Int(Integer::from(byte_size))),
-                    1,
-                ));
-                let zero_val = SymbolicValue::make_from(
-                    Expression::CompileTimeConstant(ConstantValue::Int(Integer::from(0))),
-                    1,
-                );
-                zero_val.sub(offset_val)
-            }
-            _ => {
-                return false;
-            }
-        };
-
-        let result = self.check_offset(&offset_val);
-
-        #[allow(irrefutable_let_patterns)]
-        let destination_path = if let dest = self.destination {
-            Some(self.block_visitor.get_path_for_place(&dest))
-        } else {
-            None
-        };
-        assert!(destination_path.is_some());
-
-        if let Some(target_path) = destination_path {
-            self.block_visitor
-                .body_visitor
-                .state
-                .update_value_at(target_path.clone(), result);
-            return true;
-        }
-        return false;
-    }
-
-    // prepare offset_val for different situation
-    fn check_offset(&mut self, old_offset_val: &Rc<SymbolicValue>) -> Rc<SymbolicValue> {
-        let base = &self.actual_args[0].0;
-        // get the base ptr
-        let base_val = &self.actual_args[0].1;
-        // calculate the result
-        let result = base_val.offset(old_offset_val.clone());
-        let mut offset_val = old_offset_val.clone();
-        if let Expression::Offset { right, .. } = &result.expression {
-            offset_val = right.clone();
-        }
-
-        debug!("result: {:?}", result);
-
-        let state = self.block_visitor.state().clone();
-
-        let body_visitor = &mut self.block_visitor.body_visitor;
-
-        // handle array
-        let target_type = get_element_type(
-            body_visitor
-                .type_visitor
-                .get_path_rustc_type(base, body_visitor.current_span),
-        );
-        let byte_size = body_visitor.type_visitor.get_type_size(target_type);
-        let base_len = Path::new_length(base.clone()).refine_paths(&body_visitor.state);
-        let base_len_val = SymbolicValue::make_from(
-            Expression::Variable {
-                path: base_len.clone(),
-                var_type: ExpressionType::Usize,
-            },
-            1,
-        )
-        .mul(SymbolicValue::make_from(
-            Expression::CompileTimeConstant(ConstantValue::Int(Integer::from(byte_size))),
-            1,
-        ));
-
-        // let result = destination_path.as_ref().unwrap();
-
-        // check out of bound access
-        let assert_checker = AssertionChecker::new(body_visitor);
-        // offset < base.len && offset >= 0
-        let overflow_safe_cond = SymbolicValue::make_from(
-            Expression::And {
-                left: SymbolicValue::make_from(
-                    Expression::LessThan {
-                        left: offset_val.clone(),
-                        right: base_len_val.clone(),
-                    },
-                    1,
-                ),
-                right: SymbolicValue::make_from(
-                    Expression::GreaterThan {
-                        left: offset_val.clone(),
-                        right: SymbolicValue::make_from(
-                            Expression::CompileTimeConstant(ConstantValue::Int(Integer::from(-1))),
-                            1,
-                        ),
-                    },
-                    1,
-                ),
-            },
-            2,
-        );
-
-        let check_result = assert_checker.check_assert_condition(overflow_safe_cond, true, &state);
-        //  FIXME: 相同Span只能发出一次诊断，未发出的诊断会由编译器进行报错。
-        match check_result {
-            CheckerResult::Safe => (),
-            CheckerResult::Unsafe => {
-                let error = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[MirChecker] Provably error: index out of bound",),
-                );
-                // error.emit();
-                body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
-                //return;
-            }
-            CheckerResult::Warning => {
-                let warning = body_visitor.context.session.dcx().struct_span_warn(
-                    body_visitor.current_span,
-                    format!("[MirChecker] Possible error: index out of bound"),
-                );
-                warning.cancel();
-                // warning.emit();
-                // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
-            }
-        }
-        result.clone()
+        // We only claim local bounds reasoning here; the returned mutable reference is left unknown.
+        self.forget_destination_value();
+        true
     }
 
     // _17(place) = index(move _18 move _19])
@@ -1846,7 +1418,7 @@ where
             CheckerResult::Unsafe => {
                 let error = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
-                    format!("[MirChecker] Provably error: index out of bound",),
+                    format!("[Bypasser] Provably error: index out of bound",),
                 );
 
                 body_visitor.emit_diagnostic(error, false, DiagnosticCause::Index);
@@ -1855,33 +1427,25 @@ where
             CheckerResult::Warning => {
                 let warning = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
-                    format!("[MirChecker] Possible error: index out of bound"),
+                    format!("[Bypasser] Possible error: index out of bound"),
                 );
-                warning.cancel();
-                // body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
+                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
         }
 
-        let source =
-            Path::new_index(array.clone(), index_val.clone()).refine_paths(&body_visitor.state);
-        let ref_source = SymbolicValue::make_from(Expression::Reference(source).into(), 1);
-        self.block_visitor
-            .body_visitor
-            .state
-            .update_value_at(result.clone(), ref_source);
+        let _ = result;
+        // We only claim local bounds reasoning here; the returned reference is left unknown.
+        self.forget_destination_value();
     }
 
-    /// Returns a list of (path, value) pairs where each path is rooted by an argument (or the result)
-    /// or where the path root is a heap block reachable from an argument (or the result).
-    /// Since paths are created by writes, these are side-effects.
-    // OK
+    /// Returns a list of (path, value) pairs where each path is rooted by an argument (or the result).
+    /// In numerical-only mode we do not propagate heap-reachable side effects.
     fn extract_side_effects(
         &self,
         env: &AbstractDomain<DomainType>,
         argument_count: usize,
         offset: usize,
     ) -> Vec<(Rc<Path>, Rc<SymbolicValue>)> {
-        let mut heap_roots: HashSet<Rc<SymbolicValue>> = HashSet::new();
         let mut result = Vec::new();
         for ordinal in 0..=argument_count {
             let root = if ordinal == 0 {
@@ -1897,11 +1461,6 @@ where
                 .filter(|p| (ordinal == 0 && (**p) == root) || p.is_rooted_by(&root))
             {
                 if let Some(value) = env.value_at(path) {
-                    // Find and record heap roots in paths and values
-                    // For Path, heap blocks are in `PathEnum::HeapBlock`
-                    // For SymbolicValue, heap blocks are in `Expression::HeapBlock`
-                    path.record_heap_blocks(&mut heap_roots);
-                    value.record_heap_blocks(&mut heap_roots);
                     if let Expression::Variable { path: vpath, .. } = &value.expression {
                         if ordinal > 0 && vpath.eq(path) {
                             // The value is not an update, but just what was there at function entry.
@@ -1914,42 +1473,7 @@ where
                 }
             }
         }
-        // Find path whose root is a heap block reachable from an argument (or the result)
-        self.extract_reachable_heap_allocations(env, &mut heap_roots, &mut result);
         result
-    }
-
-    /// Adds roots for all new heap allocated objects that are reachable by the caller.
-    /// This will modify `heap_roots` and `result`
-    fn extract_reachable_heap_allocations(
-        &self,
-        env: &AbstractDomain<DomainType>,
-        heap_roots: &mut HashSet<Rc<SymbolicValue>>,
-        result: &mut Vec<(Rc<Path>, Rc<SymbolicValue>)>,
-    ) {
-        let mut visited_heap_roots: HashSet<Rc<SymbolicValue>> = HashSet::new();
-        while heap_roots.len() > visited_heap_roots.len() {
-            let mut new_roots: HashSet<Rc<SymbolicValue>> = HashSet::new();
-            for heap_root in heap_roots.iter() {
-                if visited_heap_roots.insert(heap_root.clone()) {
-                    let root = Path::get_as_path(heap_root.clone());
-
-                    for path in env
-                        .get_paths_iter()
-                        .iter()
-                        // If path is a heap root or is rooted by a heap root
-                        .filter(|p| (**p) == root || p.is_rooted_by(&root))
-                    {
-                        if let Some(value) = env.value_at(path) {
-                            path.record_heap_blocks(&mut new_roots);
-                            value.record_heap_blocks(&mut new_roots);
-                            result.push((path.clone(), value.clone()));
-                        }
-                    }
-                }
-            }
-            heap_roots.extend(new_roots.into_iter());
-        }
     }
 
     /// Updates the current state to reflect the effects of a normal return from the function call.
@@ -2071,8 +1595,7 @@ where
             .state
             .drop_call_frame_vars_from(old_offset);
         debug!(
-            "after call-frame cleanup: symbolic={} numerical={}",
-            self.block_visitor.body_visitor.state.symbolic_domain.value_map.len(),
+            "after call-frame cleanup: numerical={}",
             self.block_visitor.body_visitor.state.numerical_domain.get_paths_iter().len(),
         );
     }
