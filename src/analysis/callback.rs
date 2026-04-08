@@ -7,12 +7,12 @@ use rustc_driver::Compilation;
 use rustc_interface::interface;
 use rustc_middle::ty::TyCtxt;
 
-pub struct MirCheckerCallbacks {
+pub struct BypasserCallbacks {
     pub analysis_options: AnalysisOption,
     pub source_name: String,
 }
 
-impl MirCheckerCallbacks {
+impl BypasserCallbacks {
     pub fn new(options: AnalysisOption) -> Self {
         Self {
             analysis_options: options,
@@ -21,7 +21,7 @@ impl MirCheckerCallbacks {
     }
 }
 
-impl rustc_driver::Callbacks for MirCheckerCallbacks {
+impl rustc_driver::Callbacks for BypasserCallbacks {
     /// Called before creating the compiler instance
     fn config(&mut self, config: &mut interface::Config) {
         self.source_name =config
@@ -45,7 +45,7 @@ impl rustc_driver::Callbacks for MirCheckerCallbacks {
     }
 }
 
-impl MirCheckerCallbacks {
+impl BypasserCallbacks {
     fn run_analysis<'tcx, 'compiler>(
         &mut self,
         compiler: &'compiler interface::Compiler,
@@ -73,8 +73,13 @@ impl MirCheckerCallbacks {
             // Run analyzer
             if let Ok(analysis_result) = numerical_analysis.run() {
                 info!(
-                    "Numerical Analysis Completed: {} ms",
-                    analysis_result.analysis_time.as_millis()
+                    "Numerical Analysis Completed: {} ms, diagnostics={}, supported_diagnostics={}, unsupported_diagnostics={}, supported_special_calls={}, unsupported_special_calls={}",
+                    analysis_result.analysis_time.as_millis(),
+                    analysis_result.total_diagnostics,
+                    analysis_result.supported_diagnostics,
+                    analysis_result.unsupported_diagnostics,
+                    analysis_result.supported_special_calls,
+                    analysis_result.unsupported_special_calls,
                 );
             } else {
                 error!("Numerical Analysis Failed");
