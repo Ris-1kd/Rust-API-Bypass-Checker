@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="1220" viewBox="0 0 2200 1220">
+<rect x="0" y="0" width="2200" height="1220" fill="white" />
+<text x="1100.0" y="52.0" text-anchor="middle" font-size="30" font-family="Helvetica, Arial, sans-serif" font-weight="bold" fill="#111111">Safe/Unsafe Runtime Ratios for 20 Representative API Pairs</text>
+<text x="1100.0" y="84.0" text-anchor="middle" font-size="18" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#444444">Normalized result = runtime(safe) / runtime(unsafe); values above 1 indicate unsafe is faster</text>
+<line x1="120.0" y1="826.5" x2="2160.0" y2="826.5" stroke="#dddddd" stroke-width="1.0" />
+<text x="108.0" y="832.5" text-anchor="end" font-size="16" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#555555">0.9</text>
+<line x1="120.0" y1="799.4" x2="2160.0" y2="799.4" stroke="#dddddd" stroke-width="1.0" />
+<text x="108.0" y="805.4" text-anchor="end" font-size="16" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#555555">1.0</text>
+<line x1="120.0" y1="663.9" x2="2160.0" y2="663.9" stroke="#dddddd" stroke-width="1.0" />
+<text x="108.0" y="669.9" text-anchor="end" font-size="16" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#555555">1.5</text>
+<line x1="120.0" y1="528.4" x2="2160.0" y2="528.4" stroke="#dddddd" stroke-width="1.0" />
+<text x="108.0" y="534.4" text-anchor="end" font-size="16" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#555555">2.0</text>
+<line x1="120.0" y1="420.0" x2="2160.0" y2="420.0" stroke="#dddddd" stroke-width="1.0" />
+<text x="108.0" y="426.0" text-anchor="end" font-size="16" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#555555">2.4</text>
+<line x1="120.0" y1="340.0" x2="2160.0" y2="340.0" stroke="#dddddd" stroke-width="1.0" />
+<text x="108.0" y="346.0" text-anchor="end" font-size="16" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#555555">8.5</text>
+<line x1="120.0" y1="285.0" x2="2160.0" y2="285.0" stroke="#dddddd" stroke-width="1.0" />
+<text x="108.0" y="291.0" text-anchor="end" font-size="16" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#555555">9.0</text>
+<line x1="120.0" y1="230.0" x2="2160.0" y2="230.0" stroke="#dddddd" stroke-width="1.0" />
+<text x="108.0" y="236.0" text-anchor="end" font-size="16" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#555555">9.5</text>
+<line x1="120.0" y1="175.0" x2="2160.0" y2="175.0" stroke="#dddddd" stroke-width="1.0" />
+<text x="108.0" y="181.0" text-anchor="end" font-size="16" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#555555">10.0</text>
+<line x1="120.0" y1="120.0" x2="2160.0" y2="120.0" stroke="#dddddd" stroke-width="1.0" />
+<text x="108.0" y="126.0" text-anchor="end" font-size="16" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#555555">10.5</text>
+<line x1="120.0" y1="120.0" x2="120.0" y2="340.0" stroke="#333333" stroke-width="1.5" />
+<line x1="120.0" y1="420.0" x2="120.0" y2="840.0" stroke="#333333" stroke-width="1.5" />
+<line x1="120.0" y1="340.0" x2="2160.0" y2="340.0" stroke="#333333" stroke-width="1.5" />
+<line x1="120.0" y1="840.0" x2="2160.0" y2="840.0" stroke="#333333" stroke-width="1.5" />
+<line x1="120.0" y1="799.4" x2="2160.0" y2="799.4" stroke="#888888" stroke-width="1.5" stroke-dasharray="8 6" />
+<text x="2150.0" y="789.4" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#666666">ratio = 1.0</text>
+<line x1="110.0" y1="332.0" x2="130.0" y2="348.0" stroke="#333333" stroke-width="2.0" />
+<line x1="110.0" y1="412.0" x2="130.0" y2="428.0" stroke="#333333" stroke-width="2.0" />
+<line x1="2150.0" y1="332.0" x2="2170.0" y2="348.0" stroke="#333333" stroke-width="2.0" />
+<line x1="2150.0" y1="412.0" x2="2170.0" y2="428.0" stroke="#333333" stroke-width="2.0" />
+<rect x="145.0" y="420.0" width="52.0" height="379.4" fill="#d55e00" fill-opacity="1.000" rx="2" ry="2" />
+<rect x="145.0" y="162.2" width="52.0" height="177.8" fill="#d55e00" fill-opacity="1.000" rx="2" ry="2" />
+<text x="171.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 171.0 932.0)">str::from_utf8</text>
+<text x="171.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">10.12</text>
+<rect x="247.0" y="420.0" width="52.0" height="379.4" fill="#d55e00" fill-opacity="1.000" rx="2" ry="2" />
+<rect x="247.0" y="183.9" width="52.0" height="156.1" fill="#d55e00" fill-opacity="1.000" rx="2" ry="2" />
+<text x="273.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 273.0 932.0)">CStr::from_bytes_with_nul</text>
+<text x="273.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">9.92</text>
+<rect x="349.0" y="493.5" width="52.0" height="305.9" fill="#0072b2" fill-opacity="1.000" rx="2" ry="2" />
+<text x="375.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 375.0 932.0)">u32::shl_exact</text>
+<text x="375.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">2.13</text>
+<rect x="451.0" y="522.3" width="52.0" height="277.1" fill="#0072b2" fill-opacity="1.000" rx="2" ry="2" />
+<text x="477.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 477.0 932.0)">i32::shl_exact</text>
+<text x="477.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">2.02</text>
+<rect x="553.0" y="671.6" width="52.0" height="127.7" fill="#0072b2" fill-opacity="1.000" rx="2" ry="2" />
+<text x="579.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 579.0 932.0)">u32::shr_exact</text>
+<text x="579.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">1.47</text>
+<rect x="655.0" y="720.4" width="52.0" height="79.0" fill="#0072b2" fill-opacity="1.000" rx="2" ry="2" />
+<text x="681.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 681.0 932.0)">i32::checked_neg</text>
+<text x="681.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">1.29</text>
+<rect x="757.0" y="461.4" width="52.0" height="338.0" fill="#009e73" fill-opacity="1.000" rx="2" ry="2" />
+<text x="783.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 783.0 932.0)">slice::as_ascii</text>
+<text x="783.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">2.25</text>
+<rect x="859.0" y="694.1" width="52.0" height="105.2" fill="#009e73" fill-opacity="1.000" rx="2" ry="2" />
+<text x="885.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 885.0 932.0)">char::from_u32</text>
+<text x="885.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">1.39</text>
+<rect x="961.0" y="612.5" width="52.0" height="186.8" fill="#009e73" fill-opacity="1.000" rx="2" ry="2" />
+<text x="987.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 987.0 932.0)">Alignment::new</text>
+<text x="987.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">1.69</text>
+<rect x="1063.0" y="512.0" width="52.0" height="287.3" fill="#cc79a7" fill-opacity="1.000" rx="2" ry="2" />
+<text x="1089.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 1089.0 932.0)">Arc::get_mut</text>
+<text x="1089.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">2.06</text>
+<rect x="1165.0" y="771.0" width="52.0" height="28.3" fill="#cc79a7" fill-opacity="1.000" rx="2" ry="2" />
+<text x="1191.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 1191.0 932.0)">Rc::get_mut</text>
+<text x="1191.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">1.10</text>
+<rect x="1267.0" y="799.4" width="52.0" height="1.4" fill="#cc79a7" fill-opacity="1.000" rx="2" ry="2" />
+<text x="1293.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 1293.0 932.0)">Pin::get_unchecked_mut</text>
+<text x="1293.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">0.99</text>
+<rect x="1369.0" y="764.8" width="52.0" height="34.5" fill="#56b4e9" fill-opacity="1.000" rx="2" ry="2" />
+<text x="1395.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 1395.0 932.0)">slice::split_at</text>
+<text x="1395.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">1.13</text>
+<rect x="1471.0" y="799.0" width="52.0" height="0.3" fill="#56b4e9" fill-opacity="1.000" rx="2" ry="2" />
+<text x="1497.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 1497.0 932.0)">slice::swap</text>
+<text x="1497.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">1.00</text>
+<rect x="1573.0" y="769.3" width="52.0" height="30.1" fill="#f0e442" fill-opacity="1.000" rx="2" ry="2" />
+<text x="1599.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 1599.0 932.0)">Option::unwrap</text>
+<text x="1599.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">1.11</text>
+<rect x="1675.0" y="786.0" width="52.0" height="13.3" fill="#f0e442" fill-opacity="1.000" rx="2" ry="2" />
+<text x="1701.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 1701.0 932.0)">Result::unwrap_err</text>
+<text x="1701.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">1.05</text>
+<rect x="1777.0" y="799.4" width="52.0" height="22.3" fill="#7f7f7f" fill-opacity="1.000" rx="2" ry="2" />
+<text x="1803.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 1803.0 932.0)">BTreeMap::insert_after</text>
+<text x="1803.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">0.92</text>
+<rect x="1879.0" y="799.4" width="52.0" height="7.8" fill="#7f7f7f" fill-opacity="1.000" rx="2" ry="2" />
+<text x="1905.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 1905.0 932.0)">BTreeSet::insert_before</text>
+<text x="1905.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">0.97</text>
+<rect x="1981.0" y="760.2" width="52.0" height="39.2" fill="#e69f00" fill-opacity="1.000" rx="2" ry="2" />
+<text x="2007.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 2007.0 932.0)">Layout::from_size_align</text>
+<text x="2007.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">1.14</text>
+<rect x="2083.0" y="773.5" width="52.0" height="25.9" fill="#e69f00" fill-opacity="1.000" rx="2" ry="2" />
+<text x="2109.0" y="932.0" text-anchor="end" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-55.0 2109.0 932.0)">Layout::from_size_alignment</text>
+<text x="2109.0" y="858.0" text-anchor="middle" font-size="14" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#333333">1.10</text>
+<text x="222.0" y="402.0" text-anchor="middle" font-size="18" font-family="Helvetica, Arial, sans-serif" font-weight="bold" fill="#d55e00">Encoding</text>
+<text x="528.0" y="402.0" text-anchor="middle" font-size="18" font-family="Helvetica, Arial, sans-serif" font-weight="bold" fill="#0072b2">Arithmetic</text>
+<line x1="324.0" y1="120.0" x2="324.0" y2="840.0" stroke="#c7c7c7" stroke-width="1.0" />
+<text x="885.0" y="402.0" text-anchor="middle" font-size="18" font-family="Helvetica, Arial, sans-serif" font-weight="bold" fill="#009e73">Validity</text>
+<line x1="732.0" y1="120.0" x2="732.0" y2="840.0" stroke="#c7c7c7" stroke-width="1.0" />
+<text x="1191.0" y="402.0" text-anchor="middle" font-size="18" font-family="Helvetica, Arial, sans-serif" font-weight="bold" fill="#cc79a7">Aliasing</text>
+<line x1="1038.0" y1="120.0" x2="1038.0" y2="840.0" stroke="#c7c7c7" stroke-width="1.0" />
+<text x="1446.0" y="402.0" text-anchor="middle" font-size="18" font-family="Helvetica, Arial, sans-serif" font-weight="bold" fill="#56b4e9">Bounds</text>
+<line x1="1344.0" y1="120.0" x2="1344.0" y2="840.0" stroke="#c7c7c7" stroke-width="1.0" />
+<text x="1650.0" y="402.0" text-anchor="middle" font-size="18" font-family="Helvetica, Arial, sans-serif" font-weight="bold" fill="#f0e442">Variant</text>
+<line x1="1548.0" y1="120.0" x2="1548.0" y2="840.0" stroke="#c7c7c7" stroke-width="1.0" />
+<text x="1854.0" y="402.0" text-anchor="middle" font-size="18" font-family="Helvetica, Arial, sans-serif" font-weight="bold" fill="#7f7f7f">Ordering</text>
+<line x1="1752.0" y1="120.0" x2="1752.0" y2="840.0" stroke="#c7c7c7" stroke-width="1.0" />
+<text x="2058.0" y="402.0" text-anchor="middle" font-size="18" font-family="Helvetica, Arial, sans-serif" font-weight="bold" fill="#e69f00">Layout</text>
+<line x1="1956.0" y1="120.0" x2="1956.0" y2="840.0" stroke="#c7c7c7" stroke-width="1.0" />
+<text x="1400.0" y="36.0" text-anchor="start" font-size="18" font-family="Helvetica, Arial, sans-serif" font-weight="bold" fill="#111111">Families</text>
+<rect x="1490.0" y="22.0" width="18.0" height="18.0" fill="#d55e00" fill-opacity="1.000" rx="2" ry="2" />
+<text x="1516.0" y="37.0" text-anchor="start" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111">Encoding</text>
+<rect x="1615.0" y="22.0" width="18.0" height="18.0" fill="#0072b2" fill-opacity="1.000" rx="2" ry="2" />
+<text x="1641.0" y="37.0" text-anchor="start" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111">Arithmetic</text>
+<rect x="1740.0" y="22.0" width="18.0" height="18.0" fill="#009e73" fill-opacity="1.000" rx="2" ry="2" />
+<text x="1766.0" y="37.0" text-anchor="start" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111">Validity</text>
+<rect x="1865.0" y="22.0" width="18.0" height="18.0" fill="#cc79a7" fill-opacity="1.000" rx="2" ry="2" />
+<text x="1891.0" y="37.0" text-anchor="start" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111">Aliasing</text>
+<rect x="1990.0" y="22.0" width="18.0" height="18.0" fill="#56b4e9" fill-opacity="1.000" rx="2" ry="2" />
+<text x="2016.0" y="37.0" text-anchor="start" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111">Bounds</text>
+<rect x="2115.0" y="22.0" width="18.0" height="18.0" fill="#f0e442" fill-opacity="1.000" rx="2" ry="2" />
+<text x="2141.0" y="37.0" text-anchor="start" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111">Variant</text>
+<rect x="2240.0" y="22.0" width="18.0" height="18.0" fill="#7f7f7f" fill-opacity="1.000" rx="2" ry="2" />
+<text x="2266.0" y="37.0" text-anchor="start" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111">Ordering</text>
+<rect x="2365.0" y="22.0" width="18.0" height="18.0" fill="#e69f00" fill-opacity="1.000" rx="2" ry="2" />
+<text x="2391.0" y="37.0" text-anchor="start" font-size="15" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111">Layout</text>
+<text x="26.0" y="480.0" text-anchor="middle" font-size="20" font-family="Helvetica, Arial, sans-serif" font-weight="normal" fill="#111111" transform="rotate(-90.0 26.0 480.0)">safe / unsafe runtime</text>
+</svg>
