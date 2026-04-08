@@ -4,12 +4,11 @@ use crate::analysis::diagnostics::{Diagnostic, DiagnosticCause};
 use crate::analysis::global_context::GlobalContext;
 use crate::analysis::memory::constant_value::ConstantValue;
 use crate::analysis::memory::expression::{Expression, ExpressionType};
-use crate::analysis::memory::k_limits;
-use crate::analysis::memory::path::{Path, PathEnum, PathRefinement, PathSelector};
-use crate::analysis::memory::symbolic_value::{self, SymbolicValue, SymbolicValueTrait};
+use crate::analysis::memory::path::{Path, PathEnum};
+use crate::analysis::memory::symbolic_value::{self, SymbolicValue};
 use crate::analysis::mir_visitor::block_visitor::BlockVisitor;
 use crate::analysis::mir_visitor::call_visitor::CallVisitor;
-use crate::analysis::mir_visitor::type_visitor::{self, TypeVisitor};
+use crate::analysis::mir_visitor::type_visitor::TypeVisitor;
 use crate::analysis::numerical::apron_domain::{
     ApronAbstractDomain, ApronDomainType, GetManagerTrait,
 };
@@ -25,7 +24,7 @@ use rug::Integer;
 use rustc_errors::Diag;
 use rustc_hir::def_id::DefId;
 use rustc_middle::mir;
-use rustc_middle::ty::{Const, Ty, TyKind};
+use rustc_middle::ty::{Const, Ty};
 use rustc_span::Span;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
@@ -69,10 +68,6 @@ where
 
     // Helper struct to store information about the current crate
     pub crate_context: CrateContext<'compilation, 'tcx>,
-
-    // For each heap allocation site, we maintain an address
-    // Caveat: we assume each location only allocates once
-    pub heap_addresses: HashMap<mir::Location, Rc<SymbolicValue>>,
 
     // Stores the tainted local variables when detecting ownership corruption
     // Variables in this set potentially acquire ownership from other allocated memory
@@ -138,7 +133,6 @@ where
             result_blocks: HashSet::new(),
             type_visitor,
             crate_context: CrateContext::default(),
-            heap_addresses: HashMap::new(),
             // tainted_variables: HashSet::new(),
             place_to_abstract_value: HashMap::new(),
             fresh_variable_offset,
@@ -212,132 +206,7 @@ where
         DomainType: ApronDomainType,
         ApronAbstractDomain<DomainType>: GetManagerTrait,
     {
-        debug!("Start initializing promoted constants");
-        let mut environment = AbstractDomain::default();
-
-        // For each promoted constant's MIR
-        // Note that promoted MIR does not have its DefId
-        for (ordinal, constant_mir) in self
-            .context
-            .tcx
-            .promoted_mir(self.def_id) // Get promoted constants from the current function
-            .iter()
-            .enumerate()
-        {
-            debug!("Get promoted MIR {}: {:?}", ordinal, constant_mir);
-            // The type of the promoted constant
-            let result_rustc_type = constant_mir.local_decls[mir::Local::from(0usize)].ty;
-
-            let mut wto_visitor = WtoFixPointIterator::new(
-                self.context,
-                self.def_id,
-                AbstractDomain::default(),
-                0,
-                vec![],
-            );
-            let promoted_constant_wto = Wto::new(constant_mir);
-            debug!("promoted constant wto: {:?}", promoted_constant_wto);
-            // Substitute def_id's wto with promoted constant's wto
-            wto_visitor.wto = promoted_constant_wto;
-            wto_visitor.type_visitor.mir = constant_mir.clone();
-            wto_visitor.run();
-
-            // self.visit_promoted_constants_block();
-
-            // Get the states of the `return` statements
-            if let Some(exit_environment) = wto_visitor.get_exit_state() {
-                debug!("Get exit state for promoted MIR: {:?}", exit_environment);
-                //     self.current_environment = exit_environment.clone();
-
-                // The path of the promoted constant in the promoted MIR
-                let mut result_root: Rc<Path> = Path::new_result();
-                // The path of the promoted constant in the current function's MIR
-                let mut promoted_root: Rc<Path> =
-                    Rc::new(PathEnum::PromotedConstant { ordinal }.into());
-
-                // If the promoted constant is a pointer/reference to a collection type
-                // We need to also create its length
-                if wto_visitor
-                    .type_visitor
-                    .starts_with_slice_pointer(result_rustc_type.kind())
-                {
-                    // Get the length value from the promoted MIR
-                    let source_length_path = Path::new_length(result_root.clone());
-                    let length_val = exit_environment
-                        .value_at(&source_length_path)
-                        .expect("collection to have a length");
-                    // Store the length value
-                    let target_length_path = Path::new_length(promoted_root.clone());
-                    environment.update_value_at(target_length_path, length_val.clone());
-                    // For collection types, the paths to the value need an additional field `0`
-                    promoted_root = Path::new_field(promoted_root, 0);
-                    result_root = Path::new_field(result_root, 0);
-                }
-                // Get promoted constant value from the promoted MIR
-                let value = wto_visitor
-                    .lookup_path_and_refine_result(result_root.clone(), result_rustc_type);
-                match &value.expression {
-                    // If the promoted constant is a heap allocation
-                    Expression::HeapBlock { .. } => {
-                        let heap_root: Rc<Path> = Rc::new(
-                            PathEnum::HeapBlock {
-                                value: value.clone(),
-                            }
-                            .into(),
-                        );
-                        for (path, value) in exit_environment
-                            .symbolic_domain
-                            .value_map
-                            .iter()
-                            .filter(|(p, _)| p.is_rooted_by(&heap_root))
-                        {
-                            // Put all the values in promoted MIR that are rooted by the heap allocation in the environment
-                            environment.update_value_at(path.clone(), value.clone());
-                        }
-                        // Put the promoted constant value itself in the environment
-                        environment.update_value_at(promoted_root.clone(), value.clone());
-                    }
-                    Expression::Reference(local_path) => {
-                        wto_visitor.promote_reference(
-                            &mut environment,
-                            result_rustc_type,
-                            &promoted_root,
-                            local_path,
-                            ordinal,
-                        );
-                    }
-                    _ => {
-                        for (path, value) in exit_environment
-                            .symbolic_domain
-                            .value_map
-                            .iter()
-                            .filter(|(p, _)| p.is_rooted_by(&result_root))
-                        {
-                            // For all the paths that are rooted by the promoted value in promoted MIR
-                            // Replace the root with the promoted path used in the current function's MIR
-                            let promoted_path =
-                                path.replace_root(&result_root, promoted_root.clone());
-                            environment.update_value_at(promoted_path, value.clone());
-                        }
-                        if let Expression::Variable { .. } = &value.expression {
-                            // The constant is a stack allocated struct. No need for a separate entry.
-                        } else {
-                            environment.update_value_at(promoted_root.clone(), value.clone());
-                        }
-                    }
-                }
-            }
-        }
-        debug!(
-            "Before join, init: {:?}, environment: {:?}",
-            self.init_state, environment
-        );
-        self.init_state = self.init_state.meet(&environment);
-        debug!("After meet, environment: {:?}", self.init_state);
-        debug!(
-            "Finish initializing promoted constants, init_state: {:?}",
-            self.init_state
-        );
+        debug!("Promoted-constant initialization is disabled in numerical-only mode");
     }
 
     /// Evaluates the length value of an Array type and returns its value as usize
@@ -347,99 +216,24 @@ where
             .expect("Array length constant to have a known value") as usize
     }
 
+    #[allow(dead_code)]
     fn promote_reference(
         &mut self,
         environment: &mut AbstractDomain<DomainType>,
         result_rustc_type: Ty<'tcx>,
         promoted_root: &Rc<Path>,
         local_path: &Rc<Path>,
-        mut ordinal: usize,
+        ordinal: usize,
     ) where
         DomainType: ApronDomainType,
         ApronAbstractDomain<DomainType>: GetManagerTrait,
     {
-        debug!("In promote_reference, state: {:?}", self.state);
-        let target_type = type_visitor::get_target_type(result_rustc_type);
-        // If the promoted constant is a reference/pointer to a primitive value (Not NonPrimitive or Reference)
-        if ExpressionType::from(target_type.kind()).is_primitive() {
-            // Kind of weird, but seems to be generated for debugging support.
-            // Move the value into a path, so that we can drop the reference to the soon to be dead local.
-            let target_value = self
-                .state
-                .value_at(local_path)
-                .expect("expect reference target to have a value");
-            let value_path = Path::get_as_path(target_value.clone());
-            let promoted_value = SymbolicValue::make_from(Expression::Reference(value_path), 1);
-            environment.update_value_at(promoted_root.clone(), promoted_value);
-        } else if let TyKind::Ref(_, ty, _) = target_type.kind() {
-            // Promoting a reference to a reference.
-            ordinal += 99;
-            let value_path: Rc<Path> = Rc::new(PathEnum::PromotedConstant { ordinal }.into());
-            self.promote_reference(environment, *ty, &value_path, local_path, ordinal);
-            let promoted_value = SymbolicValue::make_from(Expression::Reference(value_path), 1);
-            environment.update_value_at(promoted_root.clone(), promoted_value);
-        } else {
-            // A composite value needs to get to get promoted to the heap
-            // in order to propagate it via function summaries.
-            let byte_size = self.type_visitor.get_type_size(target_type);
-            let byte_size_value = self.get_u128_const_val(byte_size as u128);
-            let elem_size = self
-                .type_visitor
-                .get_type_size(type_visitor::get_element_type(target_type));
-            let alignment: Rc<SymbolicValue> = Rc::new(
-                (match elem_size {
-                    0 => 1,
-                    1 | 2 | 4 | 8 => elem_size,
-                    _ => 8,
-                } as u128)
-                    .into(),
-            );
-            let heap_value = self.get_new_heap_block(byte_size_value, alignment, target_type);
-            let heap_root = Path::get_as_path(heap_value);
-            // let layout_path = Path::new_layout(heap_root.clone());
-            // let layout_value = self
-            //     .state
-            //     .value_at(&layout_path)
-            //     .expect("new heap block should have a layout");
-            // environment.update_value_at(layout_path, layout_value.clone());
-            // for (path, value) in self
-            //     .state
-            //     .symbolic_domain
-            //     .value_map
-            //     .iter()
-            //     .filter(|(p, _)| (*p) == local_path || p.is_rooted_by(local_path))
-            // {
-            //     debug!("Find: path: {:?}, value: {:?}", path, value);
-            //     let renamed_path = path.replace_root(local_path, heap_root.clone());
-            //     environment.update_value_at(renamed_path, value.clone());
-            // }
-
-            for path in self.state.get_paths_iter() {
-                if let Some(value) = self.state.value_at(&path) {
-                    if (&path) == local_path || path.is_rooted_by(local_path) {
-                        debug!("Find: path: {:?}, value: {:?}", path, value);
-                        let renamed_path = path.replace_root(local_path, heap_root.clone());
-                        environment.update_value_at(renamed_path, value.clone());
-                    }
-                }
-            }
-
-            let thin_pointer_to_heap = SymbolicValue::make_reference(heap_root);
-            if type_visitor::is_slice_pointer(target_type.kind()) {
-                let promoted_thin_pointer_path = Path::new_field(promoted_root.clone(), 0);
-                environment.update_value_at(promoted_thin_pointer_path, thin_pointer_to_heap);
-                let length_value = self
-                    .state
-                    .value_at(&Path::new_length(local_path.clone()))
-                    .unwrap_or_else(|| unreachable!("promoted constant slice source is expected to have a length value, see source at {:?}", self.current_span))
-                    .clone();
-                let length_path = Path::new_length(promoted_root.clone());
-                environment.update_value_at(length_path, length_value);
-            } else {
-                environment.update_value_at(promoted_root.clone(), thin_pointer_to_heap);
-            }
-        }
-        debug!("Finish promote reference, environment: {:?}", environment);
+        let _ = environment;
+        let _ = result_rustc_type;
+        let _ = promoted_root;
+        let _ = local_path;
+        let _ = ordinal;
+        debug!("Reference promotion is disabled in numerical-only mode");
     }
 
     pub fn get_new_heap_block(
@@ -449,27 +243,8 @@ where
         // is_zeroed: bool,
         ty: Ty<'tcx>,
     ) -> Rc<SymbolicValue> {
-        let addresses = &mut self.heap_addresses;
-        let constants = &mut self.crate_context.constant_value_cache;
-        let block = addresses
-            .entry(self.current_location)
-            .or_insert_with(|| SymbolicValue::make_from(constants.get_new_heap_block(), 1))
-            .clone();
-        let block_path = Path::get_as_path(block.clone());
-        self.type_visitor
-            .path_ty_cache
-            .insert(block_path.clone(), ty);
-        // let layout_path = Path::new_layout(block_path);
-        // let layout = SymbolicValue::make_from(
-        //     Expression::HeapBlockLayout {
-        //         length,
-        //         alignment,
-        //         source: LayoutSource::Alloc,
-        //     },
-        //     1,
-        // );
-        // self.state.update_value_at(layout_path, layout);
-        block
+        let _ = ty;
+        symbolic_value::TOP.into()
     }
 
     // TODO: check this
@@ -487,121 +262,23 @@ where
             path, result_rustc_type
         );
         let result_type: ExpressionType = (result_rustc_type.kind()).into();
-        match &path.value {
-            PathEnum::Alias { value } => {
-                return value.clone();
-            }
-            // PathEnum::HeapBlock { value } => {
-            //     return value.clone();
-            // }
-            PathEnum::QualifiedPath {
-                qualifier,
-                selector,
-                ..
-            } if matches!(selector.as_ref(), PathSelector::Deref) => {
-                let path = Path::new_qualified(
-                    qualifier.clone(),
-                    Rc::new(PathSelector::Index(Rc::new(0u128.into()))),
-                );
-                if self.state.value_at(&path).is_some() {
-                    let refined_val = self.lookup_path_and_refine_result(path, result_rustc_type);
-                    if !refined_val.is_bottom() {
-                        return refined_val;
-                    }
-                }
-            }
-            _ => {}
+        if let Some(value) = self.state.value_at(&path) {
+            return value;
         }
-        let refined_val = {
-            let top = symbolic_value::TOP.into();
-            self.state.value_at(&path).unwrap_or(top)
-        };
-        debug!("refined_val: {:?}", refined_val);
-        let result = if refined_val.is_top() {
-            // Not found locally, so try statics.
-            if path.path_length() < k_limits::MAX_PATH_LENGTH {
-                let mut result = None;
-                if let PathEnum::QualifiedPath {
-                    qualifier,
-                    selector,
-                    ..
-                } = &path.value
-                {
-                    match selector.as_ref() {
-                        PathSelector::Deref | PathSelector::Index(..) => {
-                            if let PathSelector::Index(index_val) = selector.as_ref() {
-                                result = self.lookup_weak_value(qualifier, index_val);
-                            }
-                            // If failed to lookup fat pointer && weak value, but the type is integer
-                            if result.is_none() && result_type.is_integer() {
-                                let _qualifier_val = self.lookup_path_and_refine_result(
-                                    qualifier.clone(),
-                                    ExpressionType::NonPrimitive.as_rustc_type(self.context.tcx),
-                                );
-                            }
-                        }
-                        PathSelector::Discriminant => {
-                            let ty = type_visitor::get_target_type(
-                                self.type_visitor
-                                    .get_path_rustc_type(qualifier, self.current_span),
-                            );
-                            match ty.kind() {
-                                TyKind::Adt(..) if ty.is_enum() => {}
-                                // TyKind::Generator(..) => {}
-                                _ => {
-                                    result = Some(self.get_u128_const_val(0));
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-                debug!("result: {:?}", result);
-                result.unwrap_or_else(|| {
-                    let result = match &path.value {
-                        PathEnum::HeapBlock { value: _ } => {
-                            SymbolicValue::make_typed_unknown(result_type.clone())
-                        }
-                        _ => SymbolicValue::make_from(
-                            Expression::Variable {
-                                path: path.clone(),
-                                var_type: result_type.clone(),
-                            },
-                            1,
-                        ),
-                    };
-                    if result_type != ExpressionType::NonPrimitive {
-                        self.state.update_value_at(path, result.clone());
-                    }
-                    result
-                })
-            } else {
-                // SymbolicValue::make_typed_unknown(result_type.clone())
-                let result = match path.value {
-                    PathEnum::LocalVariable { .. } => refined_val,
-                    _ => SymbolicValue::make_typed_unknown(result_type.clone()),
-                };
-                if result_type != ExpressionType::NonPrimitive {
-                    self.state.update_value_at(path, result.clone());
-                }
-                result
-            }
-        }
-        // Found in local, just return
-        else {
-            debug!("refined_val: {:?}", refined_val);
-            refined_val
-        };
 
-        debug!("Result: {:?}", result);
-
-        if result_type != ExpressionType::Reference
-            && result.expression.infer_type() == ExpressionType::Reference
-        {
-            result.dereference(result_type)
-        } else {
-            result
+        if result_type.is_integer() {
+            let result = SymbolicValue::make_from(
+                Expression::Variable {
+                    path: path.clone(),
+                    var_type: result_type.clone(),
+                },
+                1,
+            );
+            self.state.update_value_at(path, result.clone());
+            return result;
         }
+
+        SymbolicValue::make_typed_unknown(result_type)
     }
 
     pub fn import_static(&mut self, path: Rc<Path>) -> Rc<Path> {
@@ -696,33 +373,13 @@ where
         };
     }
 
+    #[allow(dead_code)]
     fn lookup_weak_value(
         &mut self,
         key_qualifier: &Rc<Path>,
         _key_index: &Rc<SymbolicValue>,
     ) -> Option<Rc<SymbolicValue>> {
-        // TODO: Do we need to directly access the symbolic domain?
-        for (path, value) in self.state.symbolic_domain.value_map.iter() {
-            if let PathEnum::QualifiedPath {
-                qualifier,
-                selector,
-                ..
-            } = &path.value
-            {
-                if let PathSelector::Slice(..) = selector.as_ref() {
-                    if value.expression.infer_type().is_primitive() && key_qualifier.eq(qualifier) {
-                        // This is the supported case for arrays constructed via a repeat expression.
-                        // We assume that index is in range since that has already been checked.
-                        // todo: deal with the case where there is another path that aliases the slice.
-                        // i.e. a situation that arises if a repeat initialized array has been updated
-                        // with an index that is not an exact match for key_index.
-                        return Some(value.clone());
-                    }
-                }
-                // todo: deal with PathSelector::Index when there is a possibility that
-                // key_index might match it at runtime.
-            }
-        }
+        let _ = key_qualifier;
         None
     }
 
