@@ -29,3 +29,6 @@ reachable_test/
 sequence/
 pre_result/
 case-study/
+target-nightly-2025-11
+*.log
+rust/
