@@ -106,7 +106,7 @@ where
                             let error = self.body_visitor.context.session.dcx().struct_span_warn(
                                 span,
                                 format!(
-                                    "[MirChecker] Provably error: {:?}",
+                                    "[Bypasser] Provably error: {:?}",
                                     self.body_visitor.recover_var_name(msg.deref())
                                 ),
                             );
@@ -120,7 +120,7 @@ where
                             // let warning = self.body_visitor.context.session.dcx().struct_span_warn(
                             //     span,
                             //     format!(
-                            //         "[MirChecker] Possible error: {:?}",
+                            //         "[Bypasser] Possible error: {:?}",
                             //         self.body_visitor.recover_var_name(msg.deref())
                             //     ),
                             // );
@@ -261,7 +261,7 @@ where
                         selector,
                     } => {
                         if Rc::new(PathSelector::Field(1)) != *selector {
-                            unreachable!("selector is not field 1");
+                            CheckerResult::Warning
                         } else {
                             let new_path = Path::new_field(qualifier.clone(), 0);
                             if let Some(&rustc_type) =
@@ -269,9 +269,7 @@ where
                             {
                                 self.check_within_range(new_path, rustc_type, abstract_value)
                             } else {
-                                unreachable!(
-                                    "Value that we want to test does not have type infomation"
-                                );
+                                CheckerResult::Warning
                             }
                         }
                     }
@@ -282,7 +280,7 @@ where
                 }
             }
             _ => {
-                unreachable!("Overflow operand is not a path");
+                self.check_assert_condition(value, expected, abstract_value)
             }
         }
     }
