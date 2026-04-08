@@ -1,0 +1,1192 @@
+Location,Unsafe Name,Safe Name,Safety Family,Benchmark Status,Benchmark Note,Safe Source,Unsafe Source,Safety Condition
+rust/library/core/src/alloc/layout.rs:132,from_size_align_unchecked,from_size_align,Layout_Initialization_and_Shape,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn from_size_align(size: usize, align: usize) -> Result<Self, LayoutError> {
+        if Layout::is_size_align_valid(size, align) {
+            // SAFETY: Layout::is_size_align_valid checks the preconditions for this call.
+            unsafe { Ok(Layout { size, align: mem::transmute(align) }) }
+        } else {
+            Err(LayoutError)
+        }
+    }","    pub const unsafe fn from_size_align_unchecked(size: usize, align: usize) -> Self {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""Layout::from_size_align_unchecked requires that align is a power of 2 \
+            and the rounded-up allocation size does not exceed isize::MAX"",
+            (
+                size: usize = size,
+                align: usize = align,
+            ) => Layout::is_size_align_valid(size, align)
+        );
+        // SAFETY: the caller is required to uphold the preconditions.
+        unsafe { Layout { size, align: mem::transmute(align) } }
+    }",This function is unsafe as it does not verify the preconditions from [`Layout::from_size_align`].
+rust/library/core/src/alloc/layout.rs:156,from_size_alignment_unchecked,from_size_alignment,Layout_Initialization_and_Shape,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn from_size_alignment(
+        size: usize,
+        alignment: Alignment,
+    ) -> Result<Self, LayoutError> {
+        if Layout::is_size_alignment_valid(size, alignment) {
+            // SAFETY: Layout::size invariants checked above.
+            Ok(Layout { size, align: alignment })
+        } else {
+            Err(LayoutError)
+        }
+    }","    pub const unsafe fn from_size_alignment_unchecked(size: usize, alignment: Alignment) -> Self {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""Layout::from_size_alignment_unchecked requires \
+            that the rounded-up allocation size does not exceed isize::MAX"",
+            (
+                size: usize = size,
+                alignment: Alignment = alignment,
+            ) => Layout::is_size_alignment_valid(size, alignment)
+        );
+        // SAFETY: the caller is required to uphold the preconditions.
+        Layout { size, align: alignment }
+    }",This function is unsafe as it does not verify the preconditions from [`Layout::from_size_alignment`].
+rust/library/core/src/array/iter.rs:141,new_unchecked,new,Layout_Initialization_and_Shape,excluded,"Safe `new` consumes a fully initialized array, while `new_unchecked` rebuilds an iterator from a partially initialized buffer plus range state; not a clean safe/unsafe pair.",    pub fn new(array: [T;,"    pub const unsafe fn new_unchecked(
+        buffer: [MaybeUninit<T>;","- The `buffer[initialized]` elements must all be initialized. - The range must be canonical, with `initialized.start <= initialized.end`. - The range must be in-bounds for the buffer, with `initialized.end <= N`. (Like how indexing `[0][100..100]` fails despite the range being empty.) It's sound to have more elements initialized than mentioned, though that will most likely result in them being leaked."
+rust/library/core/src/array/ascii.rs:39,as_ascii_unchecked,as_ascii,Value_Validity_and_Representability,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,    pub const fn as_ascii(&self) -> Option<&[ascii::Char;,    pub const unsafe fn as_ascii_unchecked(&self) -> &[ascii::Char;,"Every byte in the array must be in `0..=127`, or else this is UB."
+rust/library/core/src/ascii/ascii_char.rs:478,from_u8_unchecked,from_u8,Value_Validity_and_Representability,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn from_u8(b: u8) -> Option<Self> {
+        if b <= 127 {
+            // SAFETY: Just checked that `b` is in-range
+            Some(unsafe { Self::from_u8_unchecked(b) })
+        } else {
+            None
+        }
+    }","    pub const unsafe fn from_u8_unchecked(b: u8) -> Self {
+        // SAFETY: Our safety precondition is that `b` is in-range.
+        unsafe { transmute(b) }
+    }","`b` must be in `0..=127`, or else this is UB."
+rust/library/core/src/ascii/ascii_char.rs:516,digit_unchecked,digit,Value_Validity_and_Representability,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn digit(d: u8) -> Option<Self> {
+        if d < 10 {
+            // SAFETY: Just checked it's in-range.
+            Some(unsafe { Self::digit_unchecked(d) })
+        } else {
+            None
+        }
+    }","    pub const unsafe fn digit_unchecked(d: u8) -> Self {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""`ascii::Char::digit_unchecked` input cannot exceed 9."",
+            (d: u8 = d) => d < 10
+        );
+
+        // SAFETY: `'0'` through `'9'` are U+00030 through U+0039,
+        // so because `d` must be 64 or less the addition can return at most
+        // 112 (0x70), which doesn't overflow and is within the ASCII range.
+        unsafe {
+            let byte = b'0'.unchecked_add(d);
+            Self::from_u8_unchecked(byte)
+        }
+    }","This is immediate UB if called with `d > 64`. If `d >= 10` and `d <= 64`, this is allowed to return any value or panic. Notably, it should not be expected to return hex digits, or any other reasonable extension of the decimal digits. (This loose safety condition is intended to simplify soundness proofs when writing code using this method, since the implementation doesn't need something really specific, not to make those other arguments do something useful. It might be tightened before stabilization.)"
+rust/library/core/src/char/methods.rs:1456,as_ascii_unchecked,as_ascii,Value_Validity_and_Representability,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn as_ascii(&self) -> Option<ascii::Char> {
+        if self.is_ascii() {
+            // SAFETY: Just checked that this is ASCII.
+            Some(unsafe { ascii::Char::from_u8_unchecked(*self as u8) })
+        } else {
+            None
+        }
+    }","    pub const unsafe fn as_ascii_unchecked(&self) -> ascii::Char {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""as_ascii_unchecked requires that the char is valid ASCII"",
+            (it: &char = self) => it.is_ascii()
+        );
+
+        // SAFETY: the caller promised that this char is ASCII.
+        unsafe { ascii::Char::from_u8_unchecked(*self as u8) }
+    }","This char must be within the ASCII range, or else this is UB."
+rust/library/core/src/char/methods.rs:237,from_u32_unchecked,from_u32,Value_Validity_and_Representability,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn from_u32(i: u32) -> Option<char> {
+        super::convert::from_u32(i)
+    }","    pub const unsafe fn from_u32_unchecked(i: u32) -> char {
+        // SAFETY: the safety contract must be upheld by the caller.
+        unsafe { super::convert::from_u32_unchecked(i) }
+    }","This function is unsafe, as it may construct invalid `char` values. For a safe version of this function, see the [`from_u32`] function. [`from_u32`]: #method.from_u32"
+rust/library/core/src/char/mod.rs:141,from_u32_unchecked,from_u32,Value_Validity_and_Representability,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"pub const fn from_u32(i: u32) -> Option<char> {
+    self::convert::from_u32(i)
+}","pub const unsafe fn from_u32_unchecked(i: u32) -> char {
+    // SAFETY: the safety contract must be upheld by the caller.
+    unsafe { self::convert::from_u32_unchecked(i) }
+}","Converts a `u32` to a `char`, ignoring validity"
+rust/library/core/src/mem/alignment.rs:155,new_unchecked,new,Value_Validity_and_Representability,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn new(align: usize) -> Option<Self> {
+        if align.is_power_of_two() {
+            // SAFETY: Just checked it only has one bit set
+            Some(unsafe { Self::new_unchecked(align) })
+        } else {
+            None
+        }
+    }","    pub const unsafe fn new_unchecked(align: usize) -> Self {
+        assert_unsafe_precondition!(
+            check_language_ub,
+            ""Alignment::new_unchecked requires a power of two"",
+            (align: usize = align) => align.is_power_of_two()
+        );
+
+        // SAFETY: By precondition, this must be a power of two, and
+        // our variants encompass all possible powers of two.
+        unsafe { mem::transmute::<usize, Alignment>(align) }
+    }","`align` must be a power of two. Equivalently, it must be `1 << exp` for some `exp` in `0..usize::BITS`. It must *not* be zero."
+rust/library/core/src/num/mod.rs:607,as_ascii_unchecked,as_ascii,Value_Validity_and_Representability,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn as_ascii(&self) -> Option<ascii::Char> {
+        ascii::Char::from_u8(*self)
+    }","    pub const unsafe fn as_ascii_unchecked(&self) -> ascii::Char {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""as_ascii_unchecked requires that the byte is valid ASCII"",
+            (it: &u8 = self) => it.is_ascii()
+        );
+
+        // SAFETY: the caller promised that this byte is ASCII.
+        unsafe { ascii::Char::from_u8_unchecked(*self) }
+    }","This byte must be valid ASCII, or else this is UB."
+rust/library/core/src/num/nonzero.rs:419,new_unchecked,new,Value_Validity_and_Representability,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn new(n: T) -> Option<Self> {
+        // SAFETY: Memory layout optimization guarantees that `Option<NonZero<T>>` has
+        //         the same layout and size as `T`, with `0` representing `None`.
+        unsafe { intrinsics::transmute_unchecked(n) }
+    }","    pub const unsafe fn new_unchecked(n: T) -> Self {
+        match Self::new(n) {
+            Some(n) => n,
+            None => {
+                // SAFETY: The caller guarantees that `n` is non-zero, so this is unreachable.
+                unsafe {
+                    ub_checks::assert_unsafe_precondition!(
+                        check_language_ub,
+                        ""NonZero::new_unchecked requires the argument to be non-zero"",
+                        () => false,
+                    );
+                    intrinsics::unreachable()
+                }
+            }
+        }
+    }",The value must not be zero.
+rust/library/core/src/num/nonzero.rs:460,from_mut_unchecked,from_mut,Value_Validity_and_Representability,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn from_mut(n: &mut T) -> Option<&mut Self> {
+        // SAFETY: Memory layout optimization guarantees that `Option<NonZero<T>>` has
+        //         the same layout and size as `T`, with `0` representing `None`.
+        let opt_n = unsafe { &mut *(ptr::from_mut(n).cast::<Option<Self>>()) };
+
+        opt_n.as_mut()
+    }","    pub unsafe fn from_mut_unchecked(n: &mut T) -> &mut Self {
+        match Self::from_mut(n) {
+            Some(n) => n,
+            None => {
+                // SAFETY: The caller guarantees that `n` references a value that is non-zero, so this is unreachable.
+                unsafe {
+                    ub_checks::assert_unsafe_precondition!(
+                        check_library_ub,
+                        ""NonZero::from_mut_unchecked requires the argument to dereference as non-zero"",
+                        () => false,
+                    );
+                    intrinsics::unreachable()
+                }
+            }
+        }
+    }",The referenced value must not be zero.
+rust/library/core/src/ptr/non_null.rs:233,new_unchecked,new,Value_Validity_and_Representability,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn new(ptr: *mut T) -> Option<Self> {
+        if !ptr.is_null() {
+            // SAFETY: The pointer is already checked and is not null
+            Some(unsafe { Self::new_unchecked(ptr) })
+        } else {
+            None
+        }
+    }","    pub const unsafe fn new_unchecked(ptr: *mut T) -> Self {
+        // SAFETY: the caller must guarantee that `ptr` is non-null.
+        unsafe {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                ""NonNull::new_unchecked requires that the pointer is non-null"",
+                (ptr: *mut () = ptr as *mut ()) => !ptr.is_null()
+            );
+            transmute(ptr)
+        }
+    }",`ptr` must be non-null.
+rust/library/core/src/slice/ascii.rs:45,as_ascii_unchecked,as_ascii,Value_Validity_and_Representability,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn as_ascii(&self) -> Option<&[ascii::Char]> {
+        if self.is_ascii() {
+            // SAFETY: Just checked that it's ASCII
+            Some(unsafe { self.as_ascii_unchecked() })
+        } else {
+            None
+        }
+    }","    pub const unsafe fn as_ascii_unchecked(&self) -> &[ascii::Char] {
+        let byte_ptr: *const [u8] = self;
+        let ascii_ptr = byte_ptr as *const [ascii::Char];
+        // SAFETY: The caller promised all the bytes are ASCII
+        unsafe { &*ascii_ptr }
+    }","Every byte in the slice must be in `0..=127`, or else this is UB."
+rust/library/core/src/str/mod.rs:2808,as_ascii_unchecked,as_ascii,Value_Validity_and_Representability,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn as_ascii(&self) -> Option<&[ascii::Char]> {
+        // Like in `is_ascii`, we can work on the bytes directly.
+        self.as_bytes().as_ascii()
+    }","    pub const unsafe fn as_ascii_unchecked(&self) -> &[ascii::Char] {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""as_ascii_unchecked requires that the string is valid ASCII"",
+            (it: &str = self) => it.is_ascii()
+        );
+
+        // SAFETY: the caller promised that every byte of this string slice
+        // is ASCII.
+        unsafe { self.as_bytes().as_ascii_unchecked() }
+    }","Every character in this string must be ASCII, or else this is UB."
+rust/library/core/src/ptr/unique.rs:86,new_unchecked,new,Value_Validity_and_Representability,excluded,Unstable `ptr_internals` helper type; not a good user-level benchmark target.,"    pub const fn new(ptr: *mut T) -> Option<Self> {
+        if let Some(pointer) = NonNull::new(ptr) {
+            Some(Unique { pointer, _marker: PhantomData })
+        } else {
+            None
+        }
+    }","    pub const unsafe fn new_unchecked(ptr: *mut T) -> Self {
+        // SAFETY: the caller must guarantee that `ptr` is non-null.
+        unsafe { Unique { pointer: NonNull::new_unchecked(ptr), _marker: PhantomData } }
+    }",`ptr` must be non-null.
+rust/library/core/src/num/int_macros.rs:1106,unchecked_div_exact,div_exact,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn div_exact(self, rhs: Self) -> Option<Self> {
+            if self % rhs != 0 {
+                None
+            } else {
+                Some(self / rhs)
+            }
+        }","        pub const unsafe fn unchecked_div_exact(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_div_exact cannot overflow, divide by zero, or leave a remainder""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => rhs > 0 && lhs % rhs == 0 && (lhs != <$SelfT>::MIN || rhs != -1),
+            );
+            // SAFETY: Same precondition
+            unsafe { intrinsics::exact_div(self, rhs) }
+        }","::unchecked_div_exact cannot overflow, divide by zero, or leave a remainder"
+rust/library/core/src/num/int_macros.rs:1284,unchecked_neg,checked_neg,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_neg(self) -> Option<Self> {
+            let (a, b) = self.overflowing_neg();
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }","        pub const unsafe fn unchecked_neg(self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_neg cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                ) => !lhs.overflowing_neg().1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_sub(0, self)
+            }
+        }",::unchecked_neg cannot overflow
+rust/library/core/src/num/int_macros.rs:1401,unchecked_shl,checked_shl,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_shl(self, rhs: u32) -> Option<Self> {
+            // Not using overflowing_shl as that's a wrapping shift
+            if rhs < Self::BITS {
+                // SAFETY: just checked the RHS is in-range
+                Some(unsafe { self.unchecked_shl(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shl(self, rhs: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shl cannot overflow""),
+                (
+                    rhs: u32 = rhs,
+                ) => rhs < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_shl(self, rhs)
+            }
+        }",::unchecked_shl cannot overflow
+rust/library/core/src/num/int_macros.rs:1494,unchecked_shl_exact,shl_exact,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn shl_exact(self, rhs: u32) -> Option<$SelfT> {
+            if rhs < self.leading_zeros() || rhs < self.leading_ones() {
+                // SAFETY: rhs is checked above
+                Some(unsafe { self.unchecked_shl(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shl_exact(self, rhs: u32) -> $SelfT {
+            assert_unsafe_precondition!(
+                check_library_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shl_exact cannot shift out bits that would change the value of the first bit""),
+                (
+                    zeros: u32 = self.leading_zeros(),
+                    ones: u32 = self.leading_ones(),
+                    rhs: u32 = rhs,
+                ) => rhs < zeros || rhs < ones,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller
+            unsafe { self.unchecked_shl(rhs) }
+        }",::unchecked_shl_exact cannot shift out bits that would change the value of the first bit
+rust/library/core/src/num/int_macros.rs:1580,unchecked_shr,checked_shr,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_shr(self, rhs: u32) -> Option<Self> {
+            // Not using overflowing_shr as that's a wrapping shift
+            if rhs < Self::BITS {
+                // SAFETY: just checked the RHS is in-range
+                Some(unsafe { self.unchecked_shr(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shr(self, rhs: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shr cannot overflow""),
+                (
+                    rhs: u32 = rhs,
+                ) => rhs < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_shr(self, rhs)
+            }
+        }",::unchecked_shr cannot overflow
+rust/library/core/src/num/int_macros.rs:1676,unchecked_shr_exact,shr_exact,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn shr_exact(self, rhs: u32) -> Option<$SelfT> {
+            if rhs <= self.trailing_zeros() && rhs < <$SelfT>::BITS {
+                // SAFETY: rhs is checked above
+                Some(unsafe { self.unchecked_shr(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shr_exact(self, rhs: u32) -> $SelfT {
+            assert_unsafe_precondition!(
+                check_library_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shr_exact cannot shift out non-zero bits""),
+                (
+                    zeros: u32 = self.trailing_zeros(),
+                    bits: u32 =  <$SelfT>::BITS,
+                    rhs: u32 = rhs,
+                ) => rhs <= zeros && rhs < bits,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller
+            unsafe { self.unchecked_shr(rhs) }
+        }",::unchecked_shr_exact cannot shift out non-zero bits
+rust/library/core/src/num/int_macros.rs:583,unchecked_add,checked_add,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_add(self, rhs: Self) -> Option<Self> {
+            let (a, b) = self.overflowing_add(rhs);
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }","        pub const unsafe fn unchecked_add(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_add cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_add(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_add(self, rhs)
+            }
+        }",::unchecked_add cannot overflow
+rust/library/core/src/num/int_macros.rs:723,unchecked_sub,checked_sub,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_sub(self, rhs: Self) -> Option<Self> {
+            let (a, b) = self.overflowing_sub(rhs);
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }","        pub const unsafe fn unchecked_sub(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_sub cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_sub(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_sub(self, rhs)
+            }
+        }",::unchecked_sub cannot overflow
+rust/library/core/src/num/int_macros.rs:863,unchecked_mul,checked_mul,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_mul(self, rhs: Self) -> Option<Self> {
+            let (a, b) = self.overflowing_mul(rhs);
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }","        pub const unsafe fn unchecked_mul(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_mul cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_mul(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_mul(self, rhs)
+            }
+        }",::unchecked_mul cannot overflow
+rust/library/core/src/num/nonzero.rs:1155,unchecked_mul,checked_mul,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"            pub const fn checked_mul(self, other: Self) -> Option<Self> {
+                if let Some(result) = self.get().checked_mul(other.get()) {
+                    // SAFETY:
+                    // - `checked_mul` returns `None` on overflow
+                    // - `self` and `other` are non-zero
+                    // - the only way to get zero from a multiplication without overflow is for one
+                    //   of the sides to be zero
+                    //
+                    // So the result cannot be zero.
+                    Some(unsafe { Self::new_unchecked(result) })
+                } else {
+                    None
+                }
+            }","            pub const unsafe fn unchecked_mul(self, other: Self) -> Self {
+                // SAFETY: The caller ensures there is no overflow.
+                unsafe { Self::new_unchecked(self.get().unchecked_mul(other.get())) }
+            }",Not extracted automatically.
+rust/library/core/src/num/nonzero.rs:1723,unchecked_add,checked_add,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_add(self, other: $Int) -> Option<Self> {
+            if let Some(result) = self.get().checked_add(other) {
+                // SAFETY:
+                // - `checked_add` returns `None` on overflow
+                // - `self` is non-zero
+                // - the only way to get zero from an addition without overflow is for both
+                //   sides to be zero
+                //
+                // So the result cannot be zero.
+                Some(unsafe { Self::new_unchecked(result) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_add(self, other: $Int) -> Self {
+            // SAFETY: The caller ensures there is no overflow.
+            unsafe { Self::new_unchecked(self.get().unchecked_add(other)) }
+        }",Not extracted automatically.
+rust/library/core/src/num/uint_macros.rs:1065,unchecked_sub,checked_sub,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_sub(self, rhs: Self) -> Option<Self> {
+            // Per PR#103299, there's no advantage to the `overflowing` intrinsic
+            // for *unsigned* subtraction and we just emit the manual check anyway.
+            // Thus, rather than using `overflowing_sub` that produces a wrapping
+            // subtraction, check it ourself so we can use an unchecked one.
+
+            if self < rhs {
+                None
+            } else {
+                // SAFETY: just checked this can't overflow
+                Some(unsafe { intrinsics::unchecked_sub(self, rhs) })
+            }
+        }","        pub const unsafe fn unchecked_sub(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_sub cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_sub(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_sub(self, rhs)
+            }
+        }",::unchecked_sub cannot overflow
+rust/library/core/src/num/uint_macros.rs:1274,unchecked_mul,checked_mul,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_mul(self, rhs: Self) -> Option<Self> {
+            let (a, b) = self.overflowing_mul(rhs);
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }","        pub const unsafe fn unchecked_mul(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_mul cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_mul(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_mul(self, rhs)
+            }
+        }",::unchecked_mul cannot overflow
+rust/library/core/src/num/uint_macros.rs:1476,unchecked_div_exact,div_exact,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn div_exact(self, rhs: Self) -> Option<Self> {
+            if self % rhs != 0 {
+                None
+            } else {
+                Some(self / rhs)
+            }
+        }","        pub const unsafe fn unchecked_div_exact(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_div_exact divide by zero or leave a remainder""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => rhs > 0 && lhs % rhs == 0,
+            );
+            // SAFETY: Same precondition
+            unsafe { intrinsics::exact_div(self, rhs) }
+        }",::unchecked_div_exact divide by zero or leave a remainder
+rust/library/core/src/num/uint_macros.rs:1959,unchecked_shl,checked_shl,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_shl(self, rhs: u32) -> Option<Self> {
+            // Not using overflowing_shl as that's a wrapping shift
+            if rhs < Self::BITS {
+                // SAFETY: just checked the RHS is in-range
+                Some(unsafe { self.unchecked_shl(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shl(self, rhs: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shl cannot overflow""),
+                (
+                    rhs: u32 = rhs,
+                ) => rhs < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_shl(self, rhs)
+            }
+        }",::unchecked_shl cannot overflow
+rust/library/core/src/num/uint_macros.rs:2058,unchecked_shl_exact,shl_exact,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn shl_exact(self, rhs: u32) -> Option<$SelfT> {
+            if rhs <= self.leading_zeros() && rhs < <$SelfT>::BITS {
+                // SAFETY: rhs is checked above
+                Some(unsafe { self.unchecked_shl(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shl_exact(self, rhs: u32) -> $SelfT {
+            assert_unsafe_precondition!(
+                check_library_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shl_exact cannot shift out non-zero bits""),
+                (
+                    zeros: u32 = self.leading_zeros(),
+                    bits: u32 =  <$SelfT>::BITS,
+                    rhs: u32 = rhs,
+                ) => rhs <= zeros && rhs < bits,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller
+            unsafe { self.unchecked_shl(rhs) }
+        }",::unchecked_shl_exact cannot shift out non-zero bits
+rust/library/core/src/num/uint_macros.rs:2144,unchecked_shr,checked_shr,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_shr(self, rhs: u32) -> Option<Self> {
+            // Not using overflowing_shr as that's a wrapping shift
+            if rhs < Self::BITS {
+                // SAFETY: just checked the RHS is in-range
+                Some(unsafe { self.unchecked_shr(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shr(self, rhs: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shr cannot overflow""),
+                (
+                    rhs: u32 = rhs,
+                ) => rhs < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_shr(self, rhs)
+            }
+        }",::unchecked_shr cannot overflow
+rust/library/core/src/num/uint_macros.rs:2243,unchecked_shr_exact,shr_exact,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn shr_exact(self, rhs: u32) -> Option<$SelfT> {
+            if rhs <= self.trailing_zeros() && rhs < <$SelfT>::BITS {
+                // SAFETY: rhs is checked above
+                Some(unsafe { self.unchecked_shr(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shr_exact(self, rhs: u32) -> $SelfT {
+            assert_unsafe_precondition!(
+                check_library_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shr_exact cannot shift out non-zero bits""),
+                (
+                    zeros: u32 = self.trailing_zeros(),
+                    bits: u32 =  <$SelfT>::BITS,
+                    rhs: u32 = rhs,
+                ) => rhs <= zeros && rhs < bits,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller
+            unsafe { self.unchecked_shr(rhs) }
+        }",::unchecked_shr_exact cannot shift out non-zero bits
+rust/library/core/src/num/uint_macros.rs:502,unchecked_funnel_shl,funnel_shl,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn funnel_shl(self, rhs: Self, n: u32) -> Self {
+            assert!(n < Self::BITS, ""attempt to funnel shift left with overflow"");
+            // SAFETY: just checked that `shift` is in-range
+            unsafe { self.unchecked_funnel_shl(rhs, n) }
+        }","        pub const unsafe fn unchecked_funnel_shl(self, low: Self, n: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_funnel_shl cannot overflow""),
+                (n: u32 = n) => n < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_funnel_shl(self, low, n)
+            }
+        }",::unchecked_funnel_shl cannot overflow
+rust/library/core/src/num/uint_macros.rs:529,unchecked_funnel_shr,funnel_shr,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn funnel_shr(self, rhs: Self, n: u32) -> Self {
+            assert!(n < Self::BITS, ""attempt to funnel shift right with overflow"");
+            // SAFETY: just checked that `shift` is in-range
+            unsafe { self.unchecked_funnel_shr(rhs, n) }
+        }","        pub const unsafe fn unchecked_funnel_shr(self, low: Self, n: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_funnel_shr cannot overflow""),
+                (n: u32 = n) => n < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_funnel_shr(self, low, n)
+            }
+        }",::unchecked_funnel_shr cannot overflow
+rust/library/core/src/num/uint_macros.rs:886,unchecked_add,checked_add,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_add(self, rhs: Self) -> Option<Self> {
+            // This used to use `overflowing_add`, but that means it ends up being
+            // a `wrapping_add`, losing some optimization opportunities. Notably,
+            // phrasing it this way helps `.checked_add(1)` optimize to a check
+            // against `MAX` and a `add nuw`.
+            // Per <https://github.com/rust-lang/rust/pull/124114#issuecomment-2066173305>,
+            // LLVM is happy to re-form the intrinsic later if useful.
+
+            if intrinsics::unlikely(intrinsics::add_with_overflow(self, rhs).1) {
+                None
+            } else {
+                // SAFETY: Just checked it doesn't overflow
+                Some(unsafe { intrinsics::unchecked_add(self, rhs) })
+            }
+        }","        pub const unsafe fn unchecked_add(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_add cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_add(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_add(self, rhs)
+            }
+        }",::unchecked_add cannot overflow
+rust/library/core/src/num/uint_macros.rs:1631,unchecked_disjoint_bitor,,Arithmetic_and_Bit_Preconditions,excluded,No direct checked/safe companion was found in the same numeric API family.,,"        pub const unsafe fn unchecked_disjoint_bitor(self, other: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_disjoint_bitor cannot have overlapping bits""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = other,
+                ) => (lhs & rhs) == 0,
+            );
+
+            // SAFETY: Same precondition
+            unsafe { intrinsics::disjoint_bitor(self, other) }
+        }","Requires that `(self & other) == 0`, otherwise it's immediate UB. Equivalently, requires that `(self | other) == (self + other)`."
+rust/library/core/src/ptr/mut_ptr.rs:1859,split_at_mut_unchecked,split_at_mut,Bounds_Length_and_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub unsafe fn split_at_mut(self, mid: usize) -> (*mut [T], *mut [T]) {
+        assert!(mid <= self.len());
+        // SAFETY: The assert above is only a safety-net as long as `self.len()` is correct
+        // The actual safety requirements of this function are the same as for `split_at_mut_unchecked`
+        unsafe { self.split_at_mut_unchecked(mid) }
+    }","    pub unsafe fn split_at_mut_unchecked(self, mid: usize) -> (*mut [T], *mut [T]) {
+        let len = self.len();
+        let ptr = self.as_mut_ptr();
+
+        // SAFETY: Caller must pass a valid pointer and an index that is in-bounds.
+        let tail = unsafe { ptr.add(mid) };
+        (
+            crate::ptr::slice_from_raw_parts_mut(ptr, mid),
+            crate::ptr::slice_from_raw_parts_mut(tail, len - mid),
+        )
+    }",`mid` must be [in-bounds] of the underlying [allocation]. Which means `self` must be dereferenceable and span a single allocation that is at least `mid * size_of::<T>()` bytes long. Not upholding these requirements is *[undefined behavior]* even if the resulting pointers are not used. [in-bounds]: #method.add [out-of-bounds index]: #method.add [allocation]: crate::ptr#allocation [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+rust/library/core/src/slice/mod.rs:2038,split_at_unchecked,split_at,Bounds_Length_and_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn split_at(&self, mid: usize) -> (&[T], &[T]) {
+        match self.split_at_checked(mid) {
+            Some(pair) => pair,
+            None => panic!(""mid > len""),
+        }
+    }","    pub const unsafe fn split_at_unchecked(&self, mid: usize) -> (&[T], &[T]) {
+        // FIXME(const-hack): the const function `from_raw_parts` is used to make this
+        // function const; previously the implementation used
+        // `(self.get_unchecked(..mid), self.get_unchecked(mid..))`
+
+        let len = self.len();
+        let ptr = self.as_ptr();
+
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""slice::split_at_unchecked requires the index to be within the slice"",
+            (mid: usize = mid, len: usize = len) => mid <= len,
+        );
+
+        // SAFETY: Caller has to check that `0 <= mid <= self.len()`
+        unsafe { (from_raw_parts(ptr, mid), from_raw_parts(ptr.add(mid), unchecked_sub(len, mid))) }
+    }",Calling this method with an out-of-bounds index is *[undefined behavior]* even if the resulting reference is not used. The caller has to ensure that `0 <= mid <= self.len()`. [`split_at`]: slice::split_at [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+rust/library/core/src/slice/mod.rs:2092,split_at_mut_unchecked,split_at_mut,Bounds_Length_and_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn split_at_mut(&mut self, mid: usize) -> (&mut [T], &mut [T]) {
+        match self.split_at_mut_checked(mid) {
+            Some(pair) => pair,
+            None => panic!(""mid > len""),
+        }
+    }","    pub const unsafe fn split_at_mut_unchecked(&mut self, mid: usize) -> (&mut [T], &mut [T]) {
+        let len = self.len();
+        let ptr = self.as_mut_ptr();
+
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""slice::split_at_mut_unchecked requires the index to be within the slice"",
+            (mid: usize = mid, len: usize = len) => mid <= len,
+        );
+
+        // SAFETY: Caller has to check that `0 <= mid <= self.len()`.
+        //
+        // `[ptr; mid]` and `[mid; len]` are not overlapping, so returning a mutable reference
+        // is fine.
+        unsafe {
+            (
+                from_raw_parts_mut(ptr, mid),
+                from_raw_parts_mut(ptr.add(mid), unchecked_sub(len, mid)),
+            )
+        }
+    }",Calling this method with an out-of-bounds index is *[undefined behavior]* even if the resulting reference is not used. The caller has to ensure that `0 <= mid <= self.len()`. [`split_at_mut`]: slice::split_at_mut [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+rust/library/core/src/slice/mod.rs:948,swap_unchecked,swap,Bounds_Length_and_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn swap(&mut self, a: usize, b: usize) {
+        // FIXME: use swap_unchecked here (https://github.com/rust-lang/rust/pull/88540#issuecomment-944344343)
+        // Can't take two mutable loans from one vector, so instead use raw pointers.
+        let pa = &raw mut self[a];
+        let pb = &raw mut self[b];
+        // SAFETY: `pa` and `pb` have been created from safe mutable references and refer
+        // to elements in the slice and therefore are guaranteed to be valid and aligned.
+        // Note that accessing the elements behind `a` and `b` is checked and will
+        // panic when out of bounds.
+        unsafe {
+            ptr::swap(pa, pb);
+        }
+    }","    pub const unsafe fn swap_unchecked(&mut self, a: usize, b: usize) {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""slice::swap_unchecked requires that the indices are within the slice"",
+            (
+                len: usize = self.len(),
+                a: usize = a,
+                b: usize = b,
+            ) => a < len && b < len,
+        );
+
+        let ptr = self.as_mut_ptr();
+        // SAFETY: caller has to guarantee that `a < self.len()` and `b < self.len()`
+        unsafe {
+            ptr::swap(ptr.add(a), ptr.add(b));
+        }
+    }",Calling this method with an out-of-bounds index is *[undefined behavior]*. The caller has to ensure that `a < self.len()` and `b < self.len()`.
+rust/library/core/src/char/methods.rs:2106,encode_utf8_raw_unchecked,encode_utf8_raw,Bounds_Length_and_Position,excluded,"Safe `encode_utf8_raw` uses a slice and returns the written subslice, while the unchecked entry takes a raw pointer and only assumes capacity; interface mismatch for direct benchmarking.","pub const fn encode_utf8_raw(code: u32, dst: &mut [u8]) -> &mut [u8] {
+    let len = len_utf8(code);
+    if dst.len() < len {
+        const_panic!(
+            ""encode_utf8: buffer does not have enough bytes to encode code point"",
+            ""encode_utf8: need {len} bytes to encode U+{code:04X} but buffer has just {dst_len}"",
+            code: u32 = code,
+            len: usize = len,
+            dst_len: usize = dst.len(),
+        );
+    }
+
+    // SAFETY: `dst` is checked to be at least the length needed to encode the codepoint.
+    unsafe { encode_utf8_raw_unchecked(code, dst.as_mut_ptr()) };
+
+    // SAFETY: `<&mut [u8]>::as_mut_ptr` is guaranteed to return a valid pointer and `len` has been tested to be within bounds.
+    unsafe { slice::from_raw_parts_mut(dst.as_mut_ptr(), len) }
+}","pub const unsafe fn encode_utf8_raw_unchecked(code: u32, dst: *mut u8) {
+    let len = len_utf8(code);
+    // SAFETY: The caller must guarantee that the buffer pointed to by `dst`
+    // is at least `len` bytes long.
+    unsafe {
+        if len == 1 {
+            *dst = code as u8;
+            return;
+        }
+
+        let last1 = (code >> 0 & 0x3F) as u8 | TAG_CONT;
+        let last2 = (code >> 6 & 0x3F) as u8 | TAG_CONT;
+        let last3 = (code >> 12 & 0x3F) as u8 | TAG_CONT;
+        let last4 = (code >> 18 & 0x3F) as u8 | TAG_FOUR_B;
+
+        if len == 2 {
+            *dst = last2 | TAG_TWO_B;
+            *dst.add(1) = last1;
+            return;
+        }
+
+        if len == 3 {
+            *dst = last3 | TAG_THREE_B;
+            *dst.add(1) = last2;
+            *dst.add(2) = last1;
+            return;
+        }
+
+        *dst = last4;
+        *dst.add(1) = last3;
+        *dst.add(2) = last2;
+        *dst.add(3) = last1;
+    }
+}","The behavior is undefined if the buffer pointed to by `dst` is not large enough to hold the encoded codepoint. A buffer of length four is large enough to encode any `char`. For a safe version of this function, see the [`encode_utf8_raw`] function."
+rust/library/core/src/str/mod.rs:769,slice_unchecked,,Bounds_Length_and_Position,excluded,"No direct safe function counterpart; the safe alternative is slicing syntax / trait indexing, not an isomorphic API.",,"    pub unsafe fn slice_unchecked(&self, begin: usize, end: usize) -> &str {
+        // SAFETY: the caller must uphold the safety contract for `get_unchecked`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &*(begin..end).get_unchecked(self) }
+    }",Callers of this function are responsible that three preconditions are satisfied: * `begin` must not exceed `end`. * `begin` and `end` must be byte positions within the string slice. * `begin` and `end` must lie on UTF-8 sequence boundaries.
+rust/library/core/src/str/mod.rs:803,slice_mut_unchecked,,Bounds_Length_and_Position,excluded,"No direct safe function counterpart; the safe alternative is slicing syntax / trait indexing, not an isomorphic API.",,"    pub unsafe fn slice_mut_unchecked(&mut self, begin: usize, end: usize) -> &mut str {
+        // SAFETY: the caller must uphold the safety contract for `get_unchecked_mut`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &mut *(begin..end).get_unchecked_mut(self) }
+    }",Callers of this function are responsible that three preconditions are satisfied: * `begin` must not exceed `end`. * `begin` and `end` must be byte positions within the string slice. * `begin` and `end` must lie on UTF-8 sequence boundaries.
+rust/library/alloc/src/ffi/c_str.rs:635,from_vec_with_nul_unchecked,from_vec_with_nul,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn from_vec_with_nul(v: Vec<u8>) -> Result<Self, FromVecWithNulError> {
+        let nul_pos = memchr::memchr(0, &v);
+        match nul_pos {
+            Some(nul_pos) if nul_pos + 1 == v.len() => {
+                // SAFETY: We know there is only one nul byte, at the end
+                // of the vec.
+                Ok(unsafe { Self::_from_vec_with_nul_unchecked(v) })
+            }
+            Some(nul_pos) => Err(FromVecWithNulError {
+                error_kind: FromBytesWithNulErrorKind::InteriorNul(nul_pos),
+                bytes: v,
+            }),
+            None => Err(FromVecWithNulError {
+                error_kind: FromBytesWithNulErrorKind::NotNulTerminated,
+                bytes: v,
+            }),
+        }
+    }","    pub unsafe fn from_vec_with_nul_unchecked(v: Vec<u8>) -> Self {
+        debug_assert!(memchr::memchr(0, &v).unwrap() + 1 == v.len());
+        unsafe { Self::_from_vec_with_nul_unchecked(v) }
+    }",The given [`Vec`] **must** have one nul byte as its last element. This means it cannot be empty nor have any other nul byte anywhere else.
+rust/library/alloc/src/string.rs:1013,from_utf8_unchecked,from_utf8,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn from_utf8(vec: Vec<u8>) -> Result<String, FromUtf8Error> {
+        match str::from_utf8(&vec) {
+            Ok(..) => Ok(String { vec }),
+            Err(e) => Err(FromUtf8Error { bytes: vec, error: e }),
+        }
+    }","    pub unsafe fn from_utf8_unchecked(bytes: Vec<u8>) -> String {
+        String { vec: bytes }
+    }","This function is unsafe because it does not check that the bytes passed to it are valid UTF-8. If this constraint is violated, it may cause memory unsafety issues with future users of the `String`, as the rest of the standard library assumes that `String`s are valid UTF-8."
+rust/library/core/src/ffi/c_str.rs:388,from_bytes_with_nul_unchecked,from_bytes_with_nul,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn from_bytes_with_nul(bytes: &[u8]) -> Result<&Self, FromBytesWithNulError> {
+        let nul_pos = memchr::memchr(0, bytes);
+        match nul_pos {
+            Some(nul_pos) if nul_pos + 1 == bytes.len() => {
+                // SAFETY: We know there is only one nul byte, at the end
+                // of the byte slice.
+                Ok(unsafe { Self::from_bytes_with_nul_unchecked(bytes) })
+            }
+            Some(position) => Err(FromBytesWithNulError::InteriorNul { position }),
+            None => Err(FromBytesWithNulError::NotNulTerminated),
+        }
+    }","    pub const unsafe fn from_bytes_with_nul_unchecked(bytes: &[u8]) -> &CStr {
+        const_eval_select!(
+            @capture { bytes: &[u8] } -> &CStr:
+            if const {
+                // Saturating so that an empty slice panics in the assert with a good
+                // message, not here due to underflow.
+                let mut i = bytes.len().saturating_sub(1);
+                assert!(!bytes.is_empty() && bytes[i] == 0, ""input was not nul-terminated"");
+
+                // Ending nul byte exists, skip to the rest.
+                while i != 0 {
+                    i -= 1;
+                    let byte = bytes[i];
+                    assert!(byte != 0, ""input contained interior nul"");
+                }
+
+                // SAFETY: See runtime cast comment below.
+                unsafe { &*(bytes as *const [u8] as *const CStr) }
+            } else {
+                // Chance at catching some UB at runtime with debug builds.
+                debug_assert!(!bytes.is_empty() && bytes[bytes.len() - 1] == 0);
+
+                // SAFETY: Casting to CStr is safe because its internal representation
+                // is a [u8] too (safe only inside std).
+                // Dereferencing the obtained pointer is safe because it comes from a
+                // reference. Making a reference is then safe because its lifetime
+                // is bound by the lifetime of the given `bytes`.
+                unsafe { &*(bytes as *const [u8] as *const CStr) }
+            }
+        )
+    }",The provided slice **must** be nul-terminated and not contain any interior nul bytes.
+rust/library/core/src/str/converts.rs:178,from_utf8_unchecked,from_utf8,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"pub const fn from_utf8(v: &[u8]) -> Result<&str, Utf8Error> {
+    // FIXME(const-hack): This should use `?` again, once it's `const`
+    match run_utf8_validation(v) {
+        Ok(_) => {
+            // SAFETY: validation succeeded.
+            Ok(unsafe { from_utf8_unchecked(v) })
+        }
+        Err(err) => Err(err),
+    }
+}","pub const unsafe fn from_utf8_unchecked(v: &[u8]) -> &str {
+    // SAFETY: the caller must guarantee that the bytes `v` are valid UTF-8.
+    // Also relies on `&str` and `&[u8]` having the same layout.
+    unsafe { mem::transmute(v) }
+}",The bytes passed in must be valid UTF-8.
+rust/library/core/src/str/converts.rs:208,from_utf8_unchecked_mut,from_utf8_mut,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"pub const fn from_utf8_mut(v: &mut [u8]) -> Result<&mut str, Utf8Error> {
+    // FIXME(const-hack): This should use `?` again, once it's `const`
+    match run_utf8_validation(v) {
+        Ok(_) => {
+            // SAFETY: validation succeeded.
+            Ok(unsafe { from_utf8_unchecked_mut(v) })
+        }
+        Err(err) => Err(err),
+    }
+}","pub const unsafe fn from_utf8_unchecked_mut(v: &mut [u8]) -> &mut str {
+    // SAFETY: the caller must guarantee that the bytes `v`
+    // are valid UTF-8, thus the cast to `*mut str` is safe.
+    // Also, the pointer dereference is safe because that pointer
+    // comes from a reference which is guaranteed to be valid for writes.
+    unsafe { &mut *(v as *mut [u8] as *mut str) }
+}","Converts a slice of bytes to a string slice without checking
+that the string contains valid UTF-8; mutable version"
+rust/library/core/src/str/mod.rs:316,from_utf8_unchecked,from_utf8,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn from_utf8(v: &[u8]) -> Result<&str, Utf8Error> {
+        converts::from_utf8(v)
+    }","    pub const unsafe fn from_utf8_unchecked(v: &[u8]) -> &str {
+        // SAFETY: converts::from_utf8_unchecked has the same safety requirements as this function.
+        unsafe { converts::from_utf8_unchecked(v) }
+    }",The bytes passed in must be valid UTF-8.
+rust/library/core/src/str/mod.rs:341,from_utf8_unchecked_mut,from_utf8_mut,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn from_utf8_mut(v: &mut [u8]) -> Result<&mut str, Utf8Error> {
+        converts::from_utf8_mut(v)
+    }","    pub const unsafe fn from_utf8_unchecked_mut(v: &mut [u8]) -> &mut str {
+        // SAFETY: converts::from_utf8_unchecked_mut has the same safety requirements as this function.
+        unsafe { converts::from_utf8_unchecked_mut(v) }
+    }","Converts a slice of bytes to a string slice without checking
+that the string contains valid UTF-8; mutable version"
+rust/library/alloc/src/ffi/c_str.rs:340,from_vec_unchecked,,Encoding_and_Text_Validity,excluded,No direct clean safe counterpart; nearby safe constructors validate a different contract.,,"    pub unsafe fn from_vec_unchecked(v: Vec<u8>) -> Self {
+        debug_assert!(memchr::memchr(0, &v).is_none());
+        unsafe { Self::_from_vec_unchecked(v) }
+    }",The caller must ensure `v` contains no nul bytes in its contents.
+rust/library/alloc/src/str.rs:616,from_boxed_utf8_unchecked,,Encoding_and_Text_Validity,excluded,No direct safe boxed-UTF8 constructor exists in the same shape.,,"pub unsafe fn from_boxed_utf8_unchecked(v: Box<[u8]>) -> Box<str> {
+    unsafe { Box::from_raw(Box::into_raw(v) as *mut str) }
+}",* The provided bytes must contain a valid UTF-8 sequence.
+rust/library/std/src/ffi/os_str.rs:184,from_encoded_bytes_unchecked,,Encoding_and_Text_Validity,excluded,No clean safe counterpart; platform-specific encoded-byte reconstruction is intentionally unsafe-only.,,"    pub unsafe fn from_encoded_bytes_unchecked(bytes: Vec<u8>) -> Self {
+        OsString { inner: unsafe { Buf::from_encoded_bytes_unchecked(bytes) } }
+    }","As the encoding is unspecified, callers must pass in bytes that originated as a mixture of validated UTF-8 and bytes from [`OsStr::as_encoded_bytes`] from within the same Rust version built for the same target platform.  For example, reconstructing an `OsString` from bytes sent over the network or stored in a file will likely violate these safety rules. Due to the encoding being self-synchronizing, the bytes from [`OsStr::as_encoded_bytes`] can be split either immediately before or immediately after any valid non-empty UTF-8 substring."
+rust/library/std/src/ffi/os_str.rs:881,from_encoded_bytes_unchecked,,Encoding_and_Text_Validity,excluded,No clean safe counterpart; platform-specific encoded-byte reconstruction is intentionally unsafe-only.,,"    pub unsafe fn from_encoded_bytes_unchecked(bytes: &[u8]) -> &Self {
+        Self::from_inner(unsafe { Slice::from_encoded_bytes_unchecked(bytes) })
+    }","As the encoding is unspecified, callers must pass in bytes that originated as a mixture of validated UTF-8 and bytes from [`OsStr::as_encoded_bytes`] from within the same Rust version built for the same target platform.  For example, reconstructing an `OsStr` from bytes sent over the network or stored in a file will likely violate these safety rules. Due to the encoding being self-synchronizing, the bytes from [`OsStr::as_encoded_bytes`] can be split either immediately before or immediately after any valid non-empty UTF-8 substring."
+rust/library/alloc/src/rc.rs:1983,get_mut_unchecked,get_mut,Aliasing_Pinning_and_Exclusive_Access,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn get_mut(this: &mut Self) -> Option<&mut T> {
+        if Rc::is_unique(this) { unsafe { Some(Rc::get_mut_unchecked(this)) } } else { None }
+    }","    pub unsafe fn get_mut_unchecked(this: &mut Self) -> &mut T {
+        // We are careful to *not* create a reference covering the ""count"" fields, as
+        // this would conflict with accesses to the reference counts (e.g. by `Weak`).
+        unsafe { &mut (*this.ptr.as_ptr()).value }
+    }","If any other `Rc` or [`Weak`] pointers to the same allocation exist, then they must not be dereferenced or have active borrows for the duration of the returned borrow, and their inner type must be exactly the same as the inner type of this Rc (including lifetimes). This is trivially the case if no such pointers exist, for example immediately after `Rc::new`."
+rust/library/alloc/src/sync.rs:2688,get_mut_unchecked,get_mut,Aliasing_Pinning_and_Exclusive_Access,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn get_mut(this: &mut Self) -> Option<&mut T> {
+        if Self::is_unique(this) {
+            // This unsafety is ok because we're guaranteed that the pointer
+            // returned is the *only* pointer that will ever be returned to T. Our
+            // reference count is guaranteed to be 1 at this point, and we required
+            // the Arc itself to be `mut`, so we're returning the only possible
+            // reference to the inner data.
+            unsafe { Some(Arc::get_mut_unchecked(this)) }
+        } else {
+            None
+        }
+    }","    pub unsafe fn get_mut_unchecked(this: &mut Self) -> &mut T {
+        // We are careful to *not* create a reference covering the ""count"" fields, as
+        // this would alias with concurrent access to the reference counts (e.g. by `Weak`).
+        unsafe { &mut (*this.ptr.as_ptr()).data }
+    }","If any other `Arc` or [`Weak`] pointers to the same allocation exist, then they must not be dereferenced or have active borrows for the duration of the returned borrow, and their inner type must be exactly the same as the inner type of this Arc (including lifetimes). This is trivially the case if no such pointers exist, for example immediately after `Arc::new`."
+rust/library/core/src/pin.rs:1347,new_unchecked,new,Aliasing_Pinning_and_Exclusive_Access,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn new(pointer: Ptr) -> Pin<Ptr> {
+        // SAFETY: the value pointed to is `Unpin`, and so has no requirements
+        // around pinning.
+        unsafe { Pin::new_unchecked(pointer) }
+    }","    pub const unsafe fn new_unchecked(pointer: Ptr) -> Pin<Ptr> {
+        Pin { pointer }
+    }","This constructor is unsafe because we cannot guarantee that the data pointed to by `pointer` is pinned. At its core, pinning a value means making the guarantee that the value's data will not be moved nor have its storage invalidated until it gets dropped. For a more thorough explanation of pinning, see the [`pin` module docs]. If the caller that is constructing this `Pin<Ptr>` does not ensure that the data `Ptr` points to is pinned, that is a violation of the API contract and may lead to undefined behavior in later (even safe) operations. By using this method, you are also making a promise about the [`Deref`], [`DerefMut`], and [`Drop`] implementations of `Ptr`, if they exist. Most importantly, they must not move out of their `self` arguments: `Pin::as_mut` and `Pin::as_ref` will call `DerefMut::deref_mut` and `Deref::deref` *on the pointer type `Ptr`* and expect these methods to uphold the pinning invariants. Moreover, by calling this method you promise that the reference `Ptr` dereferences to will not be moved out of again; in particular, it must not be possible to obtain a `&mut Ptr::Target` and then move out of that reference (using, for example [`mem::swap`]). For example, calling `Pin::new_unchecked` on an `&'a mut T` is unsafe because while you are able to pin it for the given lifetime `'a`, you have no control over whether it is kept pinned once `'a` ends, and therefore cannot uphold the guarantee that a value, once pinned, remains pinned until it is dropped:"
+rust/library/core/src/pin.rs:1512,into_inner_unchecked,into_inner,Aliasing_Pinning_and_Exclusive_Access,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn into_inner(pin: Pin<Ptr>) -> Ptr {
+        pin.pointer
+    }","    pub const unsafe fn into_inner_unchecked(pin: Pin<Ptr>) -> Ptr {
+        pin.pointer
+    }","This function is unsafe. You must guarantee that you will continue to treat the pointer `Ptr` as pinned after you call this function, so that the invariants on the `Pin` type can be upheld. If the code using the resulting `Ptr` does not continue to maintain the pinning invariants that is a violation of the API contract and may lead to undefined behavior in later (safe) operations. Note that you must be able to guarantee that the data pointed to by `Ptr` will be treated as pinned all the way until its `drop` handler is complete! *For more information, see the [`pin` module docs][self]* If the underlying data is [`Unpin`], [`Pin::into_inner`] should be used instead."
+rust/library/core/src/pin.rs:1617,get_unchecked_mut,get_mut,Aliasing_Pinning_and_Exclusive_Access,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn get_mut(self) -> &'a mut T
+    where
+        T: Unpin,
+    {
+        self.pointer
+    }","    pub const unsafe fn get_unchecked_mut(self) -> &'a mut T {
+        self.pointer
+    }","This function is unsafe. You must guarantee that you will never move the data out of the mutable reference you receive when you call this function, so that the invariants on the `Pin` type can be upheld. If the underlying data is `Unpin`, `Pin::get_mut` should be used instead."
+rust/library/core/src/cell.rs:2533,as_ref_unchecked,,Aliasing_Pinning_and_Exclusive_Access,excluded,No direct safe counterpart; this is an aliasing escape hatch on `UnsafeCell`.,,"    pub const unsafe fn as_ref_unchecked(&self) -> &T {
+        // SAFETY: pointer comes from `&self` so naturally satisfies ptr-to-ref invariants.
+        unsafe { self.get().as_ref_unchecked() }
+    }",- It is Undefined Behavior to call this while any mutable reference to the wrapped value is alive. - Mutating the wrapped value while the returned reference is alive is Undefined Behavior.
+rust/library/core/src/cell.rs:2562,as_mut_unchecked,,Aliasing_Pinning_and_Exclusive_Access,excluded,No direct safe counterpart; this is an aliasing escape hatch on `UnsafeCell`.,,"    pub const unsafe fn as_mut_unchecked(&self) -> &mut T {
+        // SAFETY: pointer comes from `&self` so naturally satisfies ptr-to-ref invariants.
+        unsafe { self.get().as_mut_unchecked() }
+    }",- It is Undefined Behavior to call this while any other reference(s) to the wrapped value are alive. - Mutating the wrapped value through other means while the returned reference is alive is Undefined Behavior.
+rust/library/core/src/pin/unsafe_pinned.rs:85,get_mut_unchecked,,Aliasing_Pinning_and_Exclusive_Access,excluded,Unstable helper on `UnsafePinned`; no direct safe counterpart and not a good user-level benchmark target.,,"    pub const fn get_mut_unchecked(&mut self) -> *mut T {
+        ptr::from_mut(self) as *mut T
+    }",Get read-write access to the contents of an `UnsafePinned`
+rust/library/core/src/option.rs:1128,unwrap_unchecked,unwrap,Variant_and_Control_Flow_Assumptions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn unwrap(self) -> T {
+        match self {
+            Some(val) => val,
+            None => unwrap_failed(),
+        }
+    }","    pub const unsafe fn unwrap_unchecked(self) -> T {
+        match self {
+            Some(val) => val,
+            // SAFETY: the safety contract must be upheld by the caller.
+            None => unsafe { hint::unreachable_unchecked() },
+        }
+    }",Calling this method on [`None`] is *[undefined behavior]*. [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+rust/library/core/src/result.rs:1650,unwrap_unchecked,unwrap,Variant_and_Control_Flow_Assumptions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn unwrap(self) -> T
+    where
+        E: fmt::Debug,
+    {
+        match self {
+            Ok(t) => t,
+            Err(e) => unwrap_failed(""called `Result::unwrap()` on an `Err` value"", &e),
+        }
+    }","    pub const unsafe fn unwrap_unchecked(self) -> T {
+        match self {
+            Ok(t) => t,
+            Err(e) => {
+                // FIXME(const-hack): to avoid E: const Destruct bound
+                super::mem::forget(e);
+                // SAFETY: the safety contract must be upheld by the caller.
+                unsafe { hint::unreachable_unchecked() }
+            }
+        }
+    }",Calling this method on an [`Err`] is *[undefined behavior]*. [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+rust/library/core/src/result.rs:1685,unwrap_err_unchecked,unwrap_err,Variant_and_Control_Flow_Assumptions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn unwrap_err(self) -> E
+    where
+        T: fmt::Debug,
+    {
+        match self {
+            Ok(t) => unwrap_failed(""called `Result::unwrap_err()` on an `Ok` value"", &t),
+            Err(e) => e,
+        }
+    }","    pub unsafe fn unwrap_err_unchecked(self) -> E {
+        match self {
+            // SAFETY: the safety contract must be upheld by the caller.
+            Ok(_) => unsafe { hint::unreachable_unchecked() },
+            Err(e) => e,
+        }
+    }",Calling this method on an [`Ok`] is *[undefined behavior]*. [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+rust/library/core/src/hint.rs:103,unreachable_unchecked,,Variant_and_Control_Flow_Assumptions,excluded,No direct safe counterpart; compiler-assumption intrinsic-style API.,,"pub const unsafe fn unreachable_unchecked() -> ! {
+    ub_checks::assert_unsafe_precondition!(
+        check_language_ub,
+        ""hint::unreachable_unchecked must never be reached"",
+        () => false
+    );
+    // SAFETY: the safety contract for `intrinsics::unreachable` must
+    // be upheld by the caller.
+    unsafe { intrinsics::unreachable() }
+}","Reaching this function is *Undefined Behavior*. As the compiler assumes that all forms of Undefined Behavior can never happen, it will eliminate all branches in the surrounding code that it can determine will invariably lead to a call to `unreachable_unchecked()`. If the assumptions embedded in using this function turn out to be wrong - that is, if the site which is calling `unreachable_unchecked()` is actually reachable at runtime - the compiler may have generated nonsensical machine instructions for this situation, including in seemingly unrelated code, causing difficult-to-debug problems. Use this function sparingly. Consider using the [`unreachable!`] macro, which may prevent some optimizations but will safely panic in case it is actually reached at runtime. Benchmark your code to find out if using `unreachable_unchecked()` comes with a performance benefit."
+rust/library/core/src/hint.rs:202,assert_unchecked,,Variant_and_Control_Flow_Assumptions,excluded,No direct safe counterpart; compiler-assumption intrinsic-style API.,,"pub const unsafe fn assert_unchecked(cond: bool) {
+    // SAFETY: The caller promised `cond` is true.
+    unsafe {
+        ub_checks::assert_unsafe_precondition!(
+            check_language_ub,
+            ""hint::assert_unchecked must never be called when the condition is false"",
+            (cond: bool = cond) => cond,
+        );
+        crate::intrinsics::assume(cond);
+    }
+}",`cond` must be `true`. It is immediate UB to call this with `false`.
+rust/library/alloc/src/collections/btree/map.rs:3418,insert_after_unchecked,insert_after,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_after(&mut self, key: K, value: V) -> Result<(), UnorderedKeyError> {
+        if let Some((prev, _)) = self.peek_prev() {
+            if &key <= prev {
+                return Err(UnorderedKeyError {});
+            }
+        }
+        if let Some((next, _)) = self.peek_next() {
+            if &key >= next {
+                return Err(UnorderedKeyError {});
+            }
+        }
+        unsafe {
+            self.insert_after_unchecked(key, value);
+        }
+        Ok(())
+    }","    pub unsafe fn insert_after_unchecked(&mut self, key: K, value: V) {
+        let edge = match self.current.take() {
+            None => {
+                // Tree is empty, allocate a new root.
+                // SAFETY: We have no other reference to the tree.
+                let root = unsafe { self.root.reborrow() };
+                debug_assert!(root.is_none());
+                let mut node = NodeRef::new_leaf(self.alloc.clone());
+                // SAFETY: We don't touch the root while the handle is alive.
+                let handle = unsafe { node.borrow_mut().push_with_handle(key, value) };
+                *root = Some(node.forget_type());
+                *self.length += 1;
+                self.current = Some(handle.left_edge());
+                return;
+            }
+            Some(current) => current,
+        };
+
+        let handle = edge.insert_recursing(key, value, self.alloc.clone(), |ins| {
+            drop(ins.left);
+            // SAFETY: The handle to the newly inserted value is always on a
+            // leaf node, so adding a new root node doesn't invalidate it.
+            let root = unsafe { self.root.reborrow().as_mut().unwrap() };
+            root.push_internal_level(self.alloc.clone()).push(ins.kv.0, ins.kv.1, ins.right)
+        });
+        self.current = Some(handle.left_edge());
+        *self.length += 1;
+    }",You must ensure that the `BTreeMap` invariants are maintained. Specifically: * The key of the newly inserted element must be unique in the tree. * All keys in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/map.rs:3461,insert_before_unchecked,insert_before,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_before(&mut self, key: K, value: V) -> Result<(), UnorderedKeyError> {
+        if let Some((prev, _)) = self.peek_prev() {
+            if &key <= prev {
+                return Err(UnorderedKeyError {});
+            }
+        }
+        if let Some((next, _)) = self.peek_next() {
+            if &key >= next {
+                return Err(UnorderedKeyError {});
+            }
+        }
+        unsafe {
+            self.insert_before_unchecked(key, value);
+        }
+        Ok(())
+    }","    pub unsafe fn insert_before_unchecked(&mut self, key: K, value: V) {
+        let edge = match self.current.take() {
+            None => {
+                // SAFETY: We have no other reference to the tree.
+                match unsafe { self.root.reborrow() } {
+                    root @ None => {
+                        // Tree is empty, allocate a new root.
+                        let mut node = NodeRef::new_leaf(self.alloc.clone());
+                        // SAFETY: We don't touch the root while the handle is alive.
+                        let handle = unsafe { node.borrow_mut().push_with_handle(key, value) };
+                        *root = Some(node.forget_type());
+                        *self.length += 1;
+                        self.current = Some(handle.right_edge());
+                        return;
+                    }
+                    Some(root) => root.borrow_mut().last_leaf_edge(),
+                }
+            }
+            Some(current) => current,
+        };
+
+        let handle = edge.insert_recursing(key, value, self.alloc.clone(), |ins| {
+            drop(ins.left);
+            // SAFETY: The handle to the newly inserted value is always on a
+            // leaf node, so adding a new root node doesn't invalidate it.
+            let root = unsafe { self.root.reborrow().as_mut().unwrap() };
+            root.push_internal_level(self.alloc.clone()).push(ins.kv.0, ins.kv.1, ins.right)
+        });
+        self.current = Some(handle.right_edge());
+        *self.length += 1;
+    }",You must ensure that the `BTreeMap` invariants are maintained. Specifically: * The key of the newly inserted element must be unique in the tree. * All keys in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/map.rs:3623,insert_after_unchecked,insert_after,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_after(&mut self, key: K, value: V) -> Result<(), UnorderedKeyError> {
+        self.inner.insert_after(key, value)
+    }","    pub unsafe fn insert_after_unchecked(&mut self, key: K, value: V) {
+        unsafe { self.inner.insert_after_unchecked(key, value) }
+    }",You must ensure that the `BTreeMap` invariants are maintained. Specifically: * The key of the newly inserted element must be unique in the tree. * All keys in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/map.rs:3641,insert_before_unchecked,insert_before,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_before(&mut self, key: K, value: V) -> Result<(), UnorderedKeyError> {
+        self.inner.insert_before(key, value)
+    }","    pub unsafe fn insert_before_unchecked(&mut self, key: K, value: V) {
+        unsafe { self.inner.insert_before_unchecked(key, value) }
+    }",You must ensure that the `BTreeMap` invariants are maintained. Specifically: * The key of the newly inserted element must be unique in the tree. * All keys in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/set.rs:2371,insert_after_unchecked,insert_after,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_after(&mut self, value: T) -> Result<(), UnorderedKeyError> {
+        self.inner.insert_after(value, SetValZST)
+    }","    pub unsafe fn insert_after_unchecked(&mut self, value: T) {
+        unsafe { self.inner.insert_after_unchecked(value, SetValZST) }
+    }",You must ensure that the `BTreeSet` invariants are maintained. Specifically: * The newly inserted element must be unique in the tree. * All elements in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/set.rs:2389,insert_before_unchecked,insert_before,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_before(&mut self, value: T) -> Result<(), UnorderedKeyError> {
+        self.inner.insert_before(value, SetValZST)
+    }","    pub unsafe fn insert_before_unchecked(&mut self, value: T) {
+        unsafe { self.inner.insert_before_unchecked(value, SetValZST) }
+    }",You must ensure that the `BTreeSet` invariants are maintained. Specifically: * The newly inserted element must be unique in the tree. * All elements in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/set.rs:2457,insert_after_unchecked,insert_after,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_after(&mut self, value: T) -> Result<(), UnorderedKeyError> {
+        self.inner.insert_after(value, SetValZST)
+    }","    pub unsafe fn insert_after_unchecked(&mut self, value: T) {
+        unsafe { self.inner.insert_after_unchecked(value, SetValZST) }
+    }",You must ensure that the `BTreeSet` invariants are maintained. Specifically: * The key of the newly inserted element must be unique in the tree. * All elements in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/set.rs:2475,insert_before_unchecked,insert_before,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_before(&mut self, value: T) -> Result<(), UnorderedKeyError> {
+        self.inner.insert_before(value, SetValZST)
+    }","    pub unsafe fn insert_before_unchecked(&mut self, value: T) {
+        unsafe { self.inner.insert_before_unchecked(value, SetValZST) }
+    }",You must ensure that the `BTreeSet` invariants are maintained. Specifically: * The newly inserted element must be unique in the tree. * All elements in the tree must remain in sorted order.

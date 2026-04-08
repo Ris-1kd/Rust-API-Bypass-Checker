@@ -1,0 +1,9 @@
+safety_family,count,avg_safe_over_unsafe_ratio,min_ratio,max_ratio
+Aliasing_Pinning_and_Exclusive_Access,5,1.233765,0.994754,2.060385
+Arithmetic_and_Bit_Preconditions,21,1.17005,0.853208,2.128918
+Bounds_Length_and_Position,4,1.052974,1.00117,1.127473
+Encoding_and_Text_Validity,7,8.609126,1.228868,10.116458
+Layout_Initialization_and_Shape,2,1.120124,1.095565,1.144682
+Ordering_and_Cursor_Position,8,0.96927,0.917603,1.002638
+Value_Validity_and_Representability,13,1.315386,0.976389,2.247322
+Variant_and_Control_Flow_Assumptions,3,1.067799,1.043064,1.111083

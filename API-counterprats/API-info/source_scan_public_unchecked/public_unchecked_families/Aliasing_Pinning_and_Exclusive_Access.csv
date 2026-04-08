@@ -1,0 +1,55 @@
+Location,Unsafe Name,Safe Name,Safety Family,Benchmark Status,Benchmark Note,Safe Source,Unsafe Source,Safety Condition
+rust/library/alloc/src/rc.rs:1983,get_mut_unchecked,get_mut,Aliasing_Pinning_and_Exclusive_Access,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn get_mut(this: &mut Self) -> Option<&mut T> {
+        if Rc::is_unique(this) { unsafe { Some(Rc::get_mut_unchecked(this)) } } else { None }
+    }","    pub unsafe fn get_mut_unchecked(this: &mut Self) -> &mut T {
+        // We are careful to *not* create a reference covering the ""count"" fields, as
+        // this would conflict with accesses to the reference counts (e.g. by `Weak`).
+        unsafe { &mut (*this.ptr.as_ptr()).value }
+    }","If any other `Rc` or [`Weak`] pointers to the same allocation exist, then they must not be dereferenced or have active borrows for the duration of the returned borrow, and their inner type must be exactly the same as the inner type of this Rc (including lifetimes). This is trivially the case if no such pointers exist, for example immediately after `Rc::new`."
+rust/library/alloc/src/sync.rs:2688,get_mut_unchecked,get_mut,Aliasing_Pinning_and_Exclusive_Access,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn get_mut(this: &mut Self) -> Option<&mut T> {
+        if Self::is_unique(this) {
+            // This unsafety is ok because we're guaranteed that the pointer
+            // returned is the *only* pointer that will ever be returned to T. Our
+            // reference count is guaranteed to be 1 at this point, and we required
+            // the Arc itself to be `mut`, so we're returning the only possible
+            // reference to the inner data.
+            unsafe { Some(Arc::get_mut_unchecked(this)) }
+        } else {
+            None
+        }
+    }","    pub unsafe fn get_mut_unchecked(this: &mut Self) -> &mut T {
+        // We are careful to *not* create a reference covering the ""count"" fields, as
+        // this would alias with concurrent access to the reference counts (e.g. by `Weak`).
+        unsafe { &mut (*this.ptr.as_ptr()).data }
+    }","If any other `Arc` or [`Weak`] pointers to the same allocation exist, then they must not be dereferenced or have active borrows for the duration of the returned borrow, and their inner type must be exactly the same as the inner type of this Arc (including lifetimes). This is trivially the case if no such pointers exist, for example immediately after `Arc::new`."
+rust/library/core/src/pin.rs:1347,new_unchecked,new,Aliasing_Pinning_and_Exclusive_Access,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn new(pointer: Ptr) -> Pin<Ptr> {
+        // SAFETY: the value pointed to is `Unpin`, and so has no requirements
+        // around pinning.
+        unsafe { Pin::new_unchecked(pointer) }
+    }","    pub const unsafe fn new_unchecked(pointer: Ptr) -> Pin<Ptr> {
+        Pin { pointer }
+    }","This constructor is unsafe because we cannot guarantee that the data pointed to by `pointer` is pinned. At its core, pinning a value means making the guarantee that the value's data will not be moved nor have its storage invalidated until it gets dropped. For a more thorough explanation of pinning, see the [`pin` module docs]. If the caller that is constructing this `Pin<Ptr>` does not ensure that the data `Ptr` points to is pinned, that is a violation of the API contract and may lead to undefined behavior in later (even safe) operations. By using this method, you are also making a promise about the [`Deref`], [`DerefMut`], and [`Drop`] implementations of `Ptr`, if they exist. Most importantly, they must not move out of their `self` arguments: `Pin::as_mut` and `Pin::as_ref` will call `DerefMut::deref_mut` and `Deref::deref` *on the pointer type `Ptr`* and expect these methods to uphold the pinning invariants. Moreover, by calling this method you promise that the reference `Ptr` dereferences to will not be moved out of again; in particular, it must not be possible to obtain a `&mut Ptr::Target` and then move out of that reference (using, for example [`mem::swap`]). For example, calling `Pin::new_unchecked` on an `&'a mut T` is unsafe because while you are able to pin it for the given lifetime `'a`, you have no control over whether it is kept pinned once `'a` ends, and therefore cannot uphold the guarantee that a value, once pinned, remains pinned until it is dropped:"
+rust/library/core/src/pin.rs:1512,into_inner_unchecked,into_inner,Aliasing_Pinning_and_Exclusive_Access,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn into_inner(pin: Pin<Ptr>) -> Ptr {
+        pin.pointer
+    }","    pub const unsafe fn into_inner_unchecked(pin: Pin<Ptr>) -> Ptr {
+        pin.pointer
+    }","This function is unsafe. You must guarantee that you will continue to treat the pointer `Ptr` as pinned after you call this function, so that the invariants on the `Pin` type can be upheld. If the code using the resulting `Ptr` does not continue to maintain the pinning invariants that is a violation of the API contract and may lead to undefined behavior in later (safe) operations. Note that you must be able to guarantee that the data pointed to by `Ptr` will be treated as pinned all the way until its `drop` handler is complete! *For more information, see the [`pin` module docs][self]* If the underlying data is [`Unpin`], [`Pin::into_inner`] should be used instead."
+rust/library/core/src/pin.rs:1617,get_unchecked_mut,get_mut,Aliasing_Pinning_and_Exclusive_Access,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn get_mut(self) -> &'a mut T
+    where
+        T: Unpin,
+    {
+        self.pointer
+    }","    pub const unsafe fn get_unchecked_mut(self) -> &'a mut T {
+        self.pointer
+    }","This function is unsafe. You must guarantee that you will never move the data out of the mutable reference you receive when you call this function, so that the invariants on the `Pin` type can be upheld. If the underlying data is `Unpin`, `Pin::get_mut` should be used instead."
+rust/library/core/src/cell.rs:2533,as_ref_unchecked,,Aliasing_Pinning_and_Exclusive_Access,excluded,No direct safe counterpart; this is an aliasing escape hatch on `UnsafeCell`.,,"    pub const unsafe fn as_ref_unchecked(&self) -> &T {
+        // SAFETY: pointer comes from `&self` so naturally satisfies ptr-to-ref invariants.
+        unsafe { self.get().as_ref_unchecked() }
+    }",- It is Undefined Behavior to call this while any mutable reference to the wrapped value is alive. - Mutating the wrapped value while the returned reference is alive is Undefined Behavior.
+rust/library/core/src/cell.rs:2562,as_mut_unchecked,,Aliasing_Pinning_and_Exclusive_Access,excluded,No direct safe counterpart; this is an aliasing escape hatch on `UnsafeCell`.,,"    pub const unsafe fn as_mut_unchecked(&self) -> &mut T {
+        // SAFETY: pointer comes from `&self` so naturally satisfies ptr-to-ref invariants.
+        unsafe { self.get().as_mut_unchecked() }
+    }",- It is Undefined Behavior to call this while any other reference(s) to the wrapped value are alive. - Mutating the wrapped value through other means while the returned reference is alive is Undefined Behavior.
+rust/library/core/src/pin/unsafe_pinned.rs:85,get_mut_unchecked,,Aliasing_Pinning_and_Exclusive_Access,excluded,Unstable helper on `UnsafePinned`; no direct safe counterpart and not a good user-level benchmark target.,,"    pub const fn get_mut_unchecked(&mut self) -> *mut T {
+        ptr::from_mut(self) as *mut T
+    }",Get read-write access to the contents of an `UnsafePinned`

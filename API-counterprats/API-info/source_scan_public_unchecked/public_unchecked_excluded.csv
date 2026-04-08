@@ -1,0 +1,134 @@
+Location,Unsafe Name,Safe Name,Safety Family,Benchmark Status,Benchmark Note,Safe Source,Unsafe Source,Safety Condition
+rust/library/core/src/array/iter.rs:141,new_unchecked,new,Layout_Initialization_and_Shape,excluded,"Safe `new` consumes a fully initialized array, while `new_unchecked` rebuilds an iterator from a partially initialized buffer plus range state; not a clean safe/unsafe pair.",    pub fn new(array: [T;,"    pub const unsafe fn new_unchecked(
+        buffer: [MaybeUninit<T>;","- The `buffer[initialized]` elements must all be initialized. - The range must be canonical, with `initialized.start <= initialized.end`. - The range must be in-bounds for the buffer, with `initialized.end <= N`. (Like how indexing `[0][100..100]` fails despite the range being empty.) It's sound to have more elements initialized than mentioned, though that will most likely result in them being leaked."
+rust/library/core/src/ptr/unique.rs:86,new_unchecked,new,Value_Validity_and_Representability,excluded,Unstable `ptr_internals` helper type; not a good user-level benchmark target.,"    pub const fn new(ptr: *mut T) -> Option<Self> {
+        if let Some(pointer) = NonNull::new(ptr) {
+            Some(Unique { pointer, _marker: PhantomData })
+        } else {
+            None
+        }
+    }","    pub const unsafe fn new_unchecked(ptr: *mut T) -> Self {
+        // SAFETY: the caller must guarantee that `ptr` is non-null.
+        unsafe { Unique { pointer: NonNull::new_unchecked(ptr), _marker: PhantomData } }
+    }",`ptr` must be non-null.
+rust/library/core/src/num/uint_macros.rs:1631,unchecked_disjoint_bitor,,Arithmetic_and_Bit_Preconditions,excluded,No direct checked/safe companion was found in the same numeric API family.,,"        pub const unsafe fn unchecked_disjoint_bitor(self, other: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_disjoint_bitor cannot have overlapping bits""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = other,
+                ) => (lhs & rhs) == 0,
+            );
+
+            // SAFETY: Same precondition
+            unsafe { intrinsics::disjoint_bitor(self, other) }
+        }","Requires that `(self & other) == 0`, otherwise it's immediate UB. Equivalently, requires that `(self | other) == (self + other)`."
+rust/library/core/src/char/methods.rs:2106,encode_utf8_raw_unchecked,encode_utf8_raw,Bounds_Length_and_Position,excluded,"Safe `encode_utf8_raw` uses a slice and returns the written subslice, while the unchecked entry takes a raw pointer and only assumes capacity; interface mismatch for direct benchmarking.","pub const fn encode_utf8_raw(code: u32, dst: &mut [u8]) -> &mut [u8] {
+    let len = len_utf8(code);
+    if dst.len() < len {
+        const_panic!(
+            ""encode_utf8: buffer does not have enough bytes to encode code point"",
+            ""encode_utf8: need {len} bytes to encode U+{code:04X} but buffer has just {dst_len}"",
+            code: u32 = code,
+            len: usize = len,
+            dst_len: usize = dst.len(),
+        );
+    }
+
+    // SAFETY: `dst` is checked to be at least the length needed to encode the codepoint.
+    unsafe { encode_utf8_raw_unchecked(code, dst.as_mut_ptr()) };
+
+    // SAFETY: `<&mut [u8]>::as_mut_ptr` is guaranteed to return a valid pointer and `len` has been tested to be within bounds.
+    unsafe { slice::from_raw_parts_mut(dst.as_mut_ptr(), len) }
+}","pub const unsafe fn encode_utf8_raw_unchecked(code: u32, dst: *mut u8) {
+    let len = len_utf8(code);
+    // SAFETY: The caller must guarantee that the buffer pointed to by `dst`
+    // is at least `len` bytes long.
+    unsafe {
+        if len == 1 {
+            *dst = code as u8;
+            return;
+        }
+
+        let last1 = (code >> 0 & 0x3F) as u8 | TAG_CONT;
+        let last2 = (code >> 6 & 0x3F) as u8 | TAG_CONT;
+        let last3 = (code >> 12 & 0x3F) as u8 | TAG_CONT;
+        let last4 = (code >> 18 & 0x3F) as u8 | TAG_FOUR_B;
+
+        if len == 2 {
+            *dst = last2 | TAG_TWO_B;
+            *dst.add(1) = last1;
+            return;
+        }
+
+        if len == 3 {
+            *dst = last3 | TAG_THREE_B;
+            *dst.add(1) = last2;
+            *dst.add(2) = last1;
+            return;
+        }
+
+        *dst = last4;
+        *dst.add(1) = last3;
+        *dst.add(2) = last2;
+        *dst.add(3) = last1;
+    }
+}","The behavior is undefined if the buffer pointed to by `dst` is not large enough to hold the encoded codepoint. A buffer of length four is large enough to encode any `char`. For a safe version of this function, see the [`encode_utf8_raw`] function."
+rust/library/core/src/str/mod.rs:769,slice_unchecked,,Bounds_Length_and_Position,excluded,"No direct safe function counterpart; the safe alternative is slicing syntax / trait indexing, not an isomorphic API.",,"    pub unsafe fn slice_unchecked(&self, begin: usize, end: usize) -> &str {
+        // SAFETY: the caller must uphold the safety contract for `get_unchecked`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &*(begin..end).get_unchecked(self) }
+    }",Callers of this function are responsible that three preconditions are satisfied: * `begin` must not exceed `end`. * `begin` and `end` must be byte positions within the string slice. * `begin` and `end` must lie on UTF-8 sequence boundaries.
+rust/library/core/src/str/mod.rs:803,slice_mut_unchecked,,Bounds_Length_and_Position,excluded,"No direct safe function counterpart; the safe alternative is slicing syntax / trait indexing, not an isomorphic API.",,"    pub unsafe fn slice_mut_unchecked(&mut self, begin: usize, end: usize) -> &mut str {
+        // SAFETY: the caller must uphold the safety contract for `get_unchecked_mut`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &mut *(begin..end).get_unchecked_mut(self) }
+    }",Callers of this function are responsible that three preconditions are satisfied: * `begin` must not exceed `end`. * `begin` and `end` must be byte positions within the string slice. * `begin` and `end` must lie on UTF-8 sequence boundaries.
+rust/library/alloc/src/ffi/c_str.rs:340,from_vec_unchecked,,Encoding_and_Text_Validity,excluded,No direct clean safe counterpart; nearby safe constructors validate a different contract.,,"    pub unsafe fn from_vec_unchecked(v: Vec<u8>) -> Self {
+        debug_assert!(memchr::memchr(0, &v).is_none());
+        unsafe { Self::_from_vec_unchecked(v) }
+    }",The caller must ensure `v` contains no nul bytes in its contents.
+rust/library/alloc/src/str.rs:616,from_boxed_utf8_unchecked,,Encoding_and_Text_Validity,excluded,No direct safe boxed-UTF8 constructor exists in the same shape.,,"pub unsafe fn from_boxed_utf8_unchecked(v: Box<[u8]>) -> Box<str> {
+    unsafe { Box::from_raw(Box::into_raw(v) as *mut str) }
+}",* The provided bytes must contain a valid UTF-8 sequence.
+rust/library/std/src/ffi/os_str.rs:184,from_encoded_bytes_unchecked,,Encoding_and_Text_Validity,excluded,No clean safe counterpart; platform-specific encoded-byte reconstruction is intentionally unsafe-only.,,"    pub unsafe fn from_encoded_bytes_unchecked(bytes: Vec<u8>) -> Self {
+        OsString { inner: unsafe { Buf::from_encoded_bytes_unchecked(bytes) } }
+    }","As the encoding is unspecified, callers must pass in bytes that originated as a mixture of validated UTF-8 and bytes from [`OsStr::as_encoded_bytes`] from within the same Rust version built for the same target platform.  For example, reconstructing an `OsString` from bytes sent over the network or stored in a file will likely violate these safety rules. Due to the encoding being self-synchronizing, the bytes from [`OsStr::as_encoded_bytes`] can be split either immediately before or immediately after any valid non-empty UTF-8 substring."
+rust/library/std/src/ffi/os_str.rs:881,from_encoded_bytes_unchecked,,Encoding_and_Text_Validity,excluded,No clean safe counterpart; platform-specific encoded-byte reconstruction is intentionally unsafe-only.,,"    pub unsafe fn from_encoded_bytes_unchecked(bytes: &[u8]) -> &Self {
+        Self::from_inner(unsafe { Slice::from_encoded_bytes_unchecked(bytes) })
+    }","As the encoding is unspecified, callers must pass in bytes that originated as a mixture of validated UTF-8 and bytes from [`OsStr::as_encoded_bytes`] from within the same Rust version built for the same target platform.  For example, reconstructing an `OsStr` from bytes sent over the network or stored in a file will likely violate these safety rules. Due to the encoding being self-synchronizing, the bytes from [`OsStr::as_encoded_bytes`] can be split either immediately before or immediately after any valid non-empty UTF-8 substring."
+rust/library/core/src/cell.rs:2533,as_ref_unchecked,,Aliasing_Pinning_and_Exclusive_Access,excluded,No direct safe counterpart; this is an aliasing escape hatch on `UnsafeCell`.,,"    pub const unsafe fn as_ref_unchecked(&self) -> &T {
+        // SAFETY: pointer comes from `&self` so naturally satisfies ptr-to-ref invariants.
+        unsafe { self.get().as_ref_unchecked() }
+    }",- It is Undefined Behavior to call this while any mutable reference to the wrapped value is alive. - Mutating the wrapped value while the returned reference is alive is Undefined Behavior.
+rust/library/core/src/cell.rs:2562,as_mut_unchecked,,Aliasing_Pinning_and_Exclusive_Access,excluded,No direct safe counterpart; this is an aliasing escape hatch on `UnsafeCell`.,,"    pub const unsafe fn as_mut_unchecked(&self) -> &mut T {
+        // SAFETY: pointer comes from `&self` so naturally satisfies ptr-to-ref invariants.
+        unsafe { self.get().as_mut_unchecked() }
+    }",- It is Undefined Behavior to call this while any other reference(s) to the wrapped value are alive. - Mutating the wrapped value through other means while the returned reference is alive is Undefined Behavior.
+rust/library/core/src/pin/unsafe_pinned.rs:85,get_mut_unchecked,,Aliasing_Pinning_and_Exclusive_Access,excluded,Unstable helper on `UnsafePinned`; no direct safe counterpart and not a good user-level benchmark target.,,"    pub const fn get_mut_unchecked(&mut self) -> *mut T {
+        ptr::from_mut(self) as *mut T
+    }",Get read-write access to the contents of an `UnsafePinned`
+rust/library/core/src/hint.rs:103,unreachable_unchecked,,Variant_and_Control_Flow_Assumptions,excluded,No direct safe counterpart; compiler-assumption intrinsic-style API.,,"pub const unsafe fn unreachable_unchecked() -> ! {
+    ub_checks::assert_unsafe_precondition!(
+        check_language_ub,
+        ""hint::unreachable_unchecked must never be reached"",
+        () => false
+    );
+    // SAFETY: the safety contract for `intrinsics::unreachable` must
+    // be upheld by the caller.
+    unsafe { intrinsics::unreachable() }
+}","Reaching this function is *Undefined Behavior*. As the compiler assumes that all forms of Undefined Behavior can never happen, it will eliminate all branches in the surrounding code that it can determine will invariably lead to a call to `unreachable_unchecked()`. If the assumptions embedded in using this function turn out to be wrong - that is, if the site which is calling `unreachable_unchecked()` is actually reachable at runtime - the compiler may have generated nonsensical machine instructions for this situation, including in seemingly unrelated code, causing difficult-to-debug problems. Use this function sparingly. Consider using the [`unreachable!`] macro, which may prevent some optimizations but will safely panic in case it is actually reached at runtime. Benchmark your code to find out if using `unreachable_unchecked()` comes with a performance benefit."
+rust/library/core/src/hint.rs:202,assert_unchecked,,Variant_and_Control_Flow_Assumptions,excluded,No direct safe counterpart; compiler-assumption intrinsic-style API.,,"pub const unsafe fn assert_unchecked(cond: bool) {
+    // SAFETY: The caller promised `cond` is true.
+    unsafe {
+        ub_checks::assert_unsafe_precondition!(
+            check_language_ub,
+            ""hint::assert_unchecked must never be called when the condition is false"",
+            (cond: bool = cond) => cond,
+        );
+        crate::intrinsics::assume(cond);
+    }
+}",`cond` must be `true`. It is immediate UB to call this with `false`.

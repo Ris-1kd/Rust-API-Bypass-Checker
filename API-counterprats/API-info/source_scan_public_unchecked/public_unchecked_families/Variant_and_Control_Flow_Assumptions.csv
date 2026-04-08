@@ -1,0 +1,68 @@
+Location,Unsafe Name,Safe Name,Safety Family,Benchmark Status,Benchmark Note,Safe Source,Unsafe Source,Safety Condition
+rust/library/core/src/option.rs:1128,unwrap_unchecked,unwrap,Variant_and_Control_Flow_Assumptions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn unwrap(self) -> T {
+        match self {
+            Some(val) => val,
+            None => unwrap_failed(),
+        }
+    }","    pub const unsafe fn unwrap_unchecked(self) -> T {
+        match self {
+            Some(val) => val,
+            // SAFETY: the safety contract must be upheld by the caller.
+            None => unsafe { hint::unreachable_unchecked() },
+        }
+    }",Calling this method on [`None`] is *[undefined behavior]*. [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+rust/library/core/src/result.rs:1650,unwrap_unchecked,unwrap,Variant_and_Control_Flow_Assumptions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn unwrap(self) -> T
+    where
+        E: fmt::Debug,
+    {
+        match self {
+            Ok(t) => t,
+            Err(e) => unwrap_failed(""called `Result::unwrap()` on an `Err` value"", &e),
+        }
+    }","    pub const unsafe fn unwrap_unchecked(self) -> T {
+        match self {
+            Ok(t) => t,
+            Err(e) => {
+                // FIXME(const-hack): to avoid E: const Destruct bound
+                super::mem::forget(e);
+                // SAFETY: the safety contract must be upheld by the caller.
+                unsafe { hint::unreachable_unchecked() }
+            }
+        }
+    }",Calling this method on an [`Err`] is *[undefined behavior]*. [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+rust/library/core/src/result.rs:1685,unwrap_err_unchecked,unwrap_err,Variant_and_Control_Flow_Assumptions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn unwrap_err(self) -> E
+    where
+        T: fmt::Debug,
+    {
+        match self {
+            Ok(t) => unwrap_failed(""called `Result::unwrap_err()` on an `Ok` value"", &t),
+            Err(e) => e,
+        }
+    }","    pub unsafe fn unwrap_err_unchecked(self) -> E {
+        match self {
+            // SAFETY: the safety contract must be upheld by the caller.
+            Ok(_) => unsafe { hint::unreachable_unchecked() },
+            Err(e) => e,
+        }
+    }",Calling this method on an [`Ok`] is *[undefined behavior]*. [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+rust/library/core/src/hint.rs:103,unreachable_unchecked,,Variant_and_Control_Flow_Assumptions,excluded,No direct safe counterpart; compiler-assumption intrinsic-style API.,,"pub const unsafe fn unreachable_unchecked() -> ! {
+    ub_checks::assert_unsafe_precondition!(
+        check_language_ub,
+        ""hint::unreachable_unchecked must never be reached"",
+        () => false
+    );
+    // SAFETY: the safety contract for `intrinsics::unreachable` must
+    // be upheld by the caller.
+    unsafe { intrinsics::unreachable() }
+}","Reaching this function is *Undefined Behavior*. As the compiler assumes that all forms of Undefined Behavior can never happen, it will eliminate all branches in the surrounding code that it can determine will invariably lead to a call to `unreachable_unchecked()`. If the assumptions embedded in using this function turn out to be wrong - that is, if the site which is calling `unreachable_unchecked()` is actually reachable at runtime - the compiler may have generated nonsensical machine instructions for this situation, including in seemingly unrelated code, causing difficult-to-debug problems. Use this function sparingly. Consider using the [`unreachable!`] macro, which may prevent some optimizations but will safely panic in case it is actually reached at runtime. Benchmark your code to find out if using `unreachable_unchecked()` comes with a performance benefit."
+rust/library/core/src/hint.rs:202,assert_unchecked,,Variant_and_Control_Flow_Assumptions,excluded,No direct safe counterpart; compiler-assumption intrinsic-style API.,,"pub const unsafe fn assert_unchecked(cond: bool) {
+    // SAFETY: The caller promised `cond` is true.
+    unsafe {
+        ub_checks::assert_unsafe_precondition!(
+            check_language_ub,
+            ""hint::assert_unchecked must never be called when the condition is false"",
+            (cond: bool = cond) => cond,
+        );
+        crate::intrinsics::assume(cond);
+    }
+}",`cond` must be `true`. It is immediate UB to call this with `false`.

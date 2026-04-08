@@ -1,0 +1,157 @@
+Location,Unsafe Name,Safe Name,Safety Family,Benchmark Status,Benchmark Note,Safe Source,Unsafe Source,Safety Condition
+rust/library/core/src/ptr/mut_ptr.rs:1859,split_at_mut_unchecked,split_at_mut,Bounds_Length_and_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub unsafe fn split_at_mut(self, mid: usize) -> (*mut [T], *mut [T]) {
+        assert!(mid <= self.len());
+        // SAFETY: The assert above is only a safety-net as long as `self.len()` is correct
+        // The actual safety requirements of this function are the same as for `split_at_mut_unchecked`
+        unsafe { self.split_at_mut_unchecked(mid) }
+    }","    pub unsafe fn split_at_mut_unchecked(self, mid: usize) -> (*mut [T], *mut [T]) {
+        let len = self.len();
+        let ptr = self.as_mut_ptr();
+
+        // SAFETY: Caller must pass a valid pointer and an index that is in-bounds.
+        let tail = unsafe { ptr.add(mid) };
+        (
+            crate::ptr::slice_from_raw_parts_mut(ptr, mid),
+            crate::ptr::slice_from_raw_parts_mut(tail, len - mid),
+        )
+    }",`mid` must be [in-bounds] of the underlying [allocation]. Which means `self` must be dereferenceable and span a single allocation that is at least `mid * size_of::<T>()` bytes long. Not upholding these requirements is *[undefined behavior]* even if the resulting pointers are not used. [in-bounds]: #method.add [out-of-bounds index]: #method.add [allocation]: crate::ptr#allocation [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+rust/library/core/src/slice/mod.rs:2038,split_at_unchecked,split_at,Bounds_Length_and_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn split_at(&self, mid: usize) -> (&[T], &[T]) {
+        match self.split_at_checked(mid) {
+            Some(pair) => pair,
+            None => panic!(""mid > len""),
+        }
+    }","    pub const unsafe fn split_at_unchecked(&self, mid: usize) -> (&[T], &[T]) {
+        // FIXME(const-hack): the const function `from_raw_parts` is used to make this
+        // function const; previously the implementation used
+        // `(self.get_unchecked(..mid), self.get_unchecked(mid..))`
+
+        let len = self.len();
+        let ptr = self.as_ptr();
+
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""slice::split_at_unchecked requires the index to be within the slice"",
+            (mid: usize = mid, len: usize = len) => mid <= len,
+        );
+
+        // SAFETY: Caller has to check that `0 <= mid <= self.len()`
+        unsafe { (from_raw_parts(ptr, mid), from_raw_parts(ptr.add(mid), unchecked_sub(len, mid))) }
+    }",Calling this method with an out-of-bounds index is *[undefined behavior]* even if the resulting reference is not used. The caller has to ensure that `0 <= mid <= self.len()`. [`split_at`]: slice::split_at [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+rust/library/core/src/slice/mod.rs:2092,split_at_mut_unchecked,split_at_mut,Bounds_Length_and_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn split_at_mut(&mut self, mid: usize) -> (&mut [T], &mut [T]) {
+        match self.split_at_mut_checked(mid) {
+            Some(pair) => pair,
+            None => panic!(""mid > len""),
+        }
+    }","    pub const unsafe fn split_at_mut_unchecked(&mut self, mid: usize) -> (&mut [T], &mut [T]) {
+        let len = self.len();
+        let ptr = self.as_mut_ptr();
+
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""slice::split_at_mut_unchecked requires the index to be within the slice"",
+            (mid: usize = mid, len: usize = len) => mid <= len,
+        );
+
+        // SAFETY: Caller has to check that `0 <= mid <= self.len()`.
+        //
+        // `[ptr; mid]` and `[mid; len]` are not overlapping, so returning a mutable reference
+        // is fine.
+        unsafe {
+            (
+                from_raw_parts_mut(ptr, mid),
+                from_raw_parts_mut(ptr.add(mid), unchecked_sub(len, mid)),
+            )
+        }
+    }",Calling this method with an out-of-bounds index is *[undefined behavior]* even if the resulting reference is not used. The caller has to ensure that `0 <= mid <= self.len()`. [`split_at_mut`]: slice::split_at_mut [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+rust/library/core/src/slice/mod.rs:948,swap_unchecked,swap,Bounds_Length_and_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn swap(&mut self, a: usize, b: usize) {
+        // FIXME: use swap_unchecked here (https://github.com/rust-lang/rust/pull/88540#issuecomment-944344343)
+        // Can't take two mutable loans from one vector, so instead use raw pointers.
+        let pa = &raw mut self[a];
+        let pb = &raw mut self[b];
+        // SAFETY: `pa` and `pb` have been created from safe mutable references and refer
+        // to elements in the slice and therefore are guaranteed to be valid and aligned.
+        // Note that accessing the elements behind `a` and `b` is checked and will
+        // panic when out of bounds.
+        unsafe {
+            ptr::swap(pa, pb);
+        }
+    }","    pub const unsafe fn swap_unchecked(&mut self, a: usize, b: usize) {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""slice::swap_unchecked requires that the indices are within the slice"",
+            (
+                len: usize = self.len(),
+                a: usize = a,
+                b: usize = b,
+            ) => a < len && b < len,
+        );
+
+        let ptr = self.as_mut_ptr();
+        // SAFETY: caller has to guarantee that `a < self.len()` and `b < self.len()`
+        unsafe {
+            ptr::swap(ptr.add(a), ptr.add(b));
+        }
+    }",Calling this method with an out-of-bounds index is *[undefined behavior]*. The caller has to ensure that `a < self.len()` and `b < self.len()`.
+rust/library/core/src/char/methods.rs:2106,encode_utf8_raw_unchecked,encode_utf8_raw,Bounds_Length_and_Position,excluded,"Safe `encode_utf8_raw` uses a slice and returns the written subslice, while the unchecked entry takes a raw pointer and only assumes capacity; interface mismatch for direct benchmarking.","pub const fn encode_utf8_raw(code: u32, dst: &mut [u8]) -> &mut [u8] {
+    let len = len_utf8(code);
+    if dst.len() < len {
+        const_panic!(
+            ""encode_utf8: buffer does not have enough bytes to encode code point"",
+            ""encode_utf8: need {len} bytes to encode U+{code:04X} but buffer has just {dst_len}"",
+            code: u32 = code,
+            len: usize = len,
+            dst_len: usize = dst.len(),
+        );
+    }
+
+    // SAFETY: `dst` is checked to be at least the length needed to encode the codepoint.
+    unsafe { encode_utf8_raw_unchecked(code, dst.as_mut_ptr()) };
+
+    // SAFETY: `<&mut [u8]>::as_mut_ptr` is guaranteed to return a valid pointer and `len` has been tested to be within bounds.
+    unsafe { slice::from_raw_parts_mut(dst.as_mut_ptr(), len) }
+}","pub const unsafe fn encode_utf8_raw_unchecked(code: u32, dst: *mut u8) {
+    let len = len_utf8(code);
+    // SAFETY: The caller must guarantee that the buffer pointed to by `dst`
+    // is at least `len` bytes long.
+    unsafe {
+        if len == 1 {
+            *dst = code as u8;
+            return;
+        }
+
+        let last1 = (code >> 0 & 0x3F) as u8 | TAG_CONT;
+        let last2 = (code >> 6 & 0x3F) as u8 | TAG_CONT;
+        let last3 = (code >> 12 & 0x3F) as u8 | TAG_CONT;
+        let last4 = (code >> 18 & 0x3F) as u8 | TAG_FOUR_B;
+
+        if len == 2 {
+            *dst = last2 | TAG_TWO_B;
+            *dst.add(1) = last1;
+            return;
+        }
+
+        if len == 3 {
+            *dst = last3 | TAG_THREE_B;
+            *dst.add(1) = last2;
+            *dst.add(2) = last1;
+            return;
+        }
+
+        *dst = last4;
+        *dst.add(1) = last3;
+        *dst.add(2) = last2;
+        *dst.add(3) = last1;
+    }
+}","The behavior is undefined if the buffer pointed to by `dst` is not large enough to hold the encoded codepoint. A buffer of length four is large enough to encode any `char`. For a safe version of this function, see the [`encode_utf8_raw`] function."
+rust/library/core/src/str/mod.rs:769,slice_unchecked,,Bounds_Length_and_Position,excluded,"No direct safe function counterpart; the safe alternative is slicing syntax / trait indexing, not an isomorphic API.",,"    pub unsafe fn slice_unchecked(&self, begin: usize, end: usize) -> &str {
+        // SAFETY: the caller must uphold the safety contract for `get_unchecked`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &*(begin..end).get_unchecked(self) }
+    }",Callers of this function are responsible that three preconditions are satisfied: * `begin` must not exceed `end`. * `begin` and `end` must be byte positions within the string slice. * `begin` and `end` must lie on UTF-8 sequence boundaries.
+rust/library/core/src/str/mod.rs:803,slice_mut_unchecked,,Bounds_Length_and_Position,excluded,"No direct safe function counterpart; the safe alternative is slicing syntax / trait indexing, not an isomorphic API.",,"    pub unsafe fn slice_mut_unchecked(&mut self, begin: usize, end: usize) -> &mut str {
+        // SAFETY: the caller must uphold the safety contract for `get_unchecked_mut`;
+        // the slice is dereferenceable because `self` is a safe reference.
+        // The returned pointer is safe because impls of `SliceIndex` have to guarantee that it is.
+        unsafe { &mut *(begin..end).get_unchecked_mut(self) }
+    }",Callers of this function are responsible that three preconditions are satisfied: * `begin` must not exceed `end`. * `begin` and `end` must be byte positions within the string slice. * `begin` and `end` must lie on UTF-8 sequence boundaries.

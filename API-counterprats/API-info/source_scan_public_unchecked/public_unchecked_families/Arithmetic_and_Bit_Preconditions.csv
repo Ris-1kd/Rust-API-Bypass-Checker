@@ -1,0 +1,433 @@
+Location,Unsafe Name,Safe Name,Safety Family,Benchmark Status,Benchmark Note,Safe Source,Unsafe Source,Safety Condition
+rust/library/core/src/num/int_macros.rs:1106,unchecked_div_exact,div_exact,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn div_exact(self, rhs: Self) -> Option<Self> {
+            if self % rhs != 0 {
+                None
+            } else {
+                Some(self / rhs)
+            }
+        }","        pub const unsafe fn unchecked_div_exact(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_div_exact cannot overflow, divide by zero, or leave a remainder""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => rhs > 0 && lhs % rhs == 0 && (lhs != <$SelfT>::MIN || rhs != -1),
+            );
+            // SAFETY: Same precondition
+            unsafe { intrinsics::exact_div(self, rhs) }
+        }","::unchecked_div_exact cannot overflow, divide by zero, or leave a remainder"
+rust/library/core/src/num/int_macros.rs:1284,unchecked_neg,checked_neg,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_neg(self) -> Option<Self> {
+            let (a, b) = self.overflowing_neg();
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }","        pub const unsafe fn unchecked_neg(self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_neg cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                ) => !lhs.overflowing_neg().1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_sub(0, self)
+            }
+        }",::unchecked_neg cannot overflow
+rust/library/core/src/num/int_macros.rs:1401,unchecked_shl,checked_shl,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_shl(self, rhs: u32) -> Option<Self> {
+            // Not using overflowing_shl as that's a wrapping shift
+            if rhs < Self::BITS {
+                // SAFETY: just checked the RHS is in-range
+                Some(unsafe { self.unchecked_shl(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shl(self, rhs: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shl cannot overflow""),
+                (
+                    rhs: u32 = rhs,
+                ) => rhs < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_shl(self, rhs)
+            }
+        }",::unchecked_shl cannot overflow
+rust/library/core/src/num/int_macros.rs:1494,unchecked_shl_exact,shl_exact,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn shl_exact(self, rhs: u32) -> Option<$SelfT> {
+            if rhs < self.leading_zeros() || rhs < self.leading_ones() {
+                // SAFETY: rhs is checked above
+                Some(unsafe { self.unchecked_shl(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shl_exact(self, rhs: u32) -> $SelfT {
+            assert_unsafe_precondition!(
+                check_library_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shl_exact cannot shift out bits that would change the value of the first bit""),
+                (
+                    zeros: u32 = self.leading_zeros(),
+                    ones: u32 = self.leading_ones(),
+                    rhs: u32 = rhs,
+                ) => rhs < zeros || rhs < ones,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller
+            unsafe { self.unchecked_shl(rhs) }
+        }",::unchecked_shl_exact cannot shift out bits that would change the value of the first bit
+rust/library/core/src/num/int_macros.rs:1580,unchecked_shr,checked_shr,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_shr(self, rhs: u32) -> Option<Self> {
+            // Not using overflowing_shr as that's a wrapping shift
+            if rhs < Self::BITS {
+                // SAFETY: just checked the RHS is in-range
+                Some(unsafe { self.unchecked_shr(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shr(self, rhs: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shr cannot overflow""),
+                (
+                    rhs: u32 = rhs,
+                ) => rhs < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_shr(self, rhs)
+            }
+        }",::unchecked_shr cannot overflow
+rust/library/core/src/num/int_macros.rs:1676,unchecked_shr_exact,shr_exact,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn shr_exact(self, rhs: u32) -> Option<$SelfT> {
+            if rhs <= self.trailing_zeros() && rhs < <$SelfT>::BITS {
+                // SAFETY: rhs is checked above
+                Some(unsafe { self.unchecked_shr(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shr_exact(self, rhs: u32) -> $SelfT {
+            assert_unsafe_precondition!(
+                check_library_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shr_exact cannot shift out non-zero bits""),
+                (
+                    zeros: u32 = self.trailing_zeros(),
+                    bits: u32 =  <$SelfT>::BITS,
+                    rhs: u32 = rhs,
+                ) => rhs <= zeros && rhs < bits,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller
+            unsafe { self.unchecked_shr(rhs) }
+        }",::unchecked_shr_exact cannot shift out non-zero bits
+rust/library/core/src/num/int_macros.rs:583,unchecked_add,checked_add,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_add(self, rhs: Self) -> Option<Self> {
+            let (a, b) = self.overflowing_add(rhs);
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }","        pub const unsafe fn unchecked_add(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_add cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_add(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_add(self, rhs)
+            }
+        }",::unchecked_add cannot overflow
+rust/library/core/src/num/int_macros.rs:723,unchecked_sub,checked_sub,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_sub(self, rhs: Self) -> Option<Self> {
+            let (a, b) = self.overflowing_sub(rhs);
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }","        pub const unsafe fn unchecked_sub(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_sub cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_sub(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_sub(self, rhs)
+            }
+        }",::unchecked_sub cannot overflow
+rust/library/core/src/num/int_macros.rs:863,unchecked_mul,checked_mul,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_mul(self, rhs: Self) -> Option<Self> {
+            let (a, b) = self.overflowing_mul(rhs);
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }","        pub const unsafe fn unchecked_mul(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_mul cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_mul(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_mul(self, rhs)
+            }
+        }",::unchecked_mul cannot overflow
+rust/library/core/src/num/nonzero.rs:1155,unchecked_mul,checked_mul,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"            pub const fn checked_mul(self, other: Self) -> Option<Self> {
+                if let Some(result) = self.get().checked_mul(other.get()) {
+                    // SAFETY:
+                    // - `checked_mul` returns `None` on overflow
+                    // - `self` and `other` are non-zero
+                    // - the only way to get zero from a multiplication without overflow is for one
+                    //   of the sides to be zero
+                    //
+                    // So the result cannot be zero.
+                    Some(unsafe { Self::new_unchecked(result) })
+                } else {
+                    None
+                }
+            }","            pub const unsafe fn unchecked_mul(self, other: Self) -> Self {
+                // SAFETY: The caller ensures there is no overflow.
+                unsafe { Self::new_unchecked(self.get().unchecked_mul(other.get())) }
+            }",Not extracted automatically.
+rust/library/core/src/num/nonzero.rs:1723,unchecked_add,checked_add,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_add(self, other: $Int) -> Option<Self> {
+            if let Some(result) = self.get().checked_add(other) {
+                // SAFETY:
+                // - `checked_add` returns `None` on overflow
+                // - `self` is non-zero
+                // - the only way to get zero from an addition without overflow is for both
+                //   sides to be zero
+                //
+                // So the result cannot be zero.
+                Some(unsafe { Self::new_unchecked(result) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_add(self, other: $Int) -> Self {
+            // SAFETY: The caller ensures there is no overflow.
+            unsafe { Self::new_unchecked(self.get().unchecked_add(other)) }
+        }",Not extracted automatically.
+rust/library/core/src/num/uint_macros.rs:1065,unchecked_sub,checked_sub,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_sub(self, rhs: Self) -> Option<Self> {
+            // Per PR#103299, there's no advantage to the `overflowing` intrinsic
+            // for *unsigned* subtraction and we just emit the manual check anyway.
+            // Thus, rather than using `overflowing_sub` that produces a wrapping
+            // subtraction, check it ourself so we can use an unchecked one.
+
+            if self < rhs {
+                None
+            } else {
+                // SAFETY: just checked this can't overflow
+                Some(unsafe { intrinsics::unchecked_sub(self, rhs) })
+            }
+        }","        pub const unsafe fn unchecked_sub(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_sub cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_sub(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_sub(self, rhs)
+            }
+        }",::unchecked_sub cannot overflow
+rust/library/core/src/num/uint_macros.rs:1274,unchecked_mul,checked_mul,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_mul(self, rhs: Self) -> Option<Self> {
+            let (a, b) = self.overflowing_mul(rhs);
+            if intrinsics::unlikely(b) { None } else { Some(a) }
+        }","        pub const unsafe fn unchecked_mul(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_mul cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_mul(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_mul(self, rhs)
+            }
+        }",::unchecked_mul cannot overflow
+rust/library/core/src/num/uint_macros.rs:1476,unchecked_div_exact,div_exact,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn div_exact(self, rhs: Self) -> Option<Self> {
+            if self % rhs != 0 {
+                None
+            } else {
+                Some(self / rhs)
+            }
+        }","        pub const unsafe fn unchecked_div_exact(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_div_exact divide by zero or leave a remainder""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => rhs > 0 && lhs % rhs == 0,
+            );
+            // SAFETY: Same precondition
+            unsafe { intrinsics::exact_div(self, rhs) }
+        }",::unchecked_div_exact divide by zero or leave a remainder
+rust/library/core/src/num/uint_macros.rs:1959,unchecked_shl,checked_shl,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_shl(self, rhs: u32) -> Option<Self> {
+            // Not using overflowing_shl as that's a wrapping shift
+            if rhs < Self::BITS {
+                // SAFETY: just checked the RHS is in-range
+                Some(unsafe { self.unchecked_shl(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shl(self, rhs: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shl cannot overflow""),
+                (
+                    rhs: u32 = rhs,
+                ) => rhs < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_shl(self, rhs)
+            }
+        }",::unchecked_shl cannot overflow
+rust/library/core/src/num/uint_macros.rs:2058,unchecked_shl_exact,shl_exact,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn shl_exact(self, rhs: u32) -> Option<$SelfT> {
+            if rhs <= self.leading_zeros() && rhs < <$SelfT>::BITS {
+                // SAFETY: rhs is checked above
+                Some(unsafe { self.unchecked_shl(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shl_exact(self, rhs: u32) -> $SelfT {
+            assert_unsafe_precondition!(
+                check_library_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shl_exact cannot shift out non-zero bits""),
+                (
+                    zeros: u32 = self.leading_zeros(),
+                    bits: u32 =  <$SelfT>::BITS,
+                    rhs: u32 = rhs,
+                ) => rhs <= zeros && rhs < bits,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller
+            unsafe { self.unchecked_shl(rhs) }
+        }",::unchecked_shl_exact cannot shift out non-zero bits
+rust/library/core/src/num/uint_macros.rs:2144,unchecked_shr,checked_shr,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_shr(self, rhs: u32) -> Option<Self> {
+            // Not using overflowing_shr as that's a wrapping shift
+            if rhs < Self::BITS {
+                // SAFETY: just checked the RHS is in-range
+                Some(unsafe { self.unchecked_shr(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shr(self, rhs: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shr cannot overflow""),
+                (
+                    rhs: u32 = rhs,
+                ) => rhs < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_shr(self, rhs)
+            }
+        }",::unchecked_shr cannot overflow
+rust/library/core/src/num/uint_macros.rs:2243,unchecked_shr_exact,shr_exact,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn shr_exact(self, rhs: u32) -> Option<$SelfT> {
+            if rhs <= self.trailing_zeros() && rhs < <$SelfT>::BITS {
+                // SAFETY: rhs is checked above
+                Some(unsafe { self.unchecked_shr(rhs) })
+            } else {
+                None
+            }
+        }","        pub const unsafe fn unchecked_shr_exact(self, rhs: u32) -> $SelfT {
+            assert_unsafe_precondition!(
+                check_library_ub,
+                concat!(stringify!($SelfT), ""::unchecked_shr_exact cannot shift out non-zero bits""),
+                (
+                    zeros: u32 = self.trailing_zeros(),
+                    bits: u32 =  <$SelfT>::BITS,
+                    rhs: u32 = rhs,
+                ) => rhs <= zeros && rhs < bits,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller
+            unsafe { self.unchecked_shr(rhs) }
+        }",::unchecked_shr_exact cannot shift out non-zero bits
+rust/library/core/src/num/uint_macros.rs:502,unchecked_funnel_shl,funnel_shl,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn funnel_shl(self, rhs: Self, n: u32) -> Self {
+            assert!(n < Self::BITS, ""attempt to funnel shift left with overflow"");
+            // SAFETY: just checked that `shift` is in-range
+            unsafe { self.unchecked_funnel_shl(rhs, n) }
+        }","        pub const unsafe fn unchecked_funnel_shl(self, low: Self, n: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_funnel_shl cannot overflow""),
+                (n: u32 = n) => n < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_funnel_shl(self, low, n)
+            }
+        }",::unchecked_funnel_shl cannot overflow
+rust/library/core/src/num/uint_macros.rs:529,unchecked_funnel_shr,funnel_shr,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn funnel_shr(self, rhs: Self, n: u32) -> Self {
+            assert!(n < Self::BITS, ""attempt to funnel shift right with overflow"");
+            // SAFETY: just checked that `shift` is in-range
+            unsafe { self.unchecked_funnel_shr(rhs, n) }
+        }","        pub const unsafe fn unchecked_funnel_shr(self, low: Self, n: u32) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_funnel_shr cannot overflow""),
+                (n: u32 = n) => n < <$ActualT>::BITS,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_funnel_shr(self, low, n)
+            }
+        }",::unchecked_funnel_shr cannot overflow
+rust/library/core/src/num/uint_macros.rs:886,unchecked_add,checked_add,Arithmetic_and_Bit_Preconditions,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"        pub const fn checked_add(self, rhs: Self) -> Option<Self> {
+            // This used to use `overflowing_add`, but that means it ends up being
+            // a `wrapping_add`, losing some optimization opportunities. Notably,
+            // phrasing it this way helps `.checked_add(1)` optimize to a check
+            // against `MAX` and a `add nuw`.
+            // Per <https://github.com/rust-lang/rust/pull/124114#issuecomment-2066173305>,
+            // LLVM is happy to re-form the intrinsic later if useful.
+
+            if intrinsics::unlikely(intrinsics::add_with_overflow(self, rhs).1) {
+                None
+            } else {
+                // SAFETY: Just checked it doesn't overflow
+                Some(unsafe { intrinsics::unchecked_add(self, rhs) })
+            }
+        }","        pub const unsafe fn unchecked_add(self, rhs: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_add cannot overflow""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = rhs,
+                ) => !lhs.overflowing_add(rhs).1,
+            );
+
+            // SAFETY: this is guaranteed to be safe by the caller.
+            unsafe {
+                intrinsics::unchecked_add(self, rhs)
+            }
+        }",::unchecked_add cannot overflow
+rust/library/core/src/num/uint_macros.rs:1631,unchecked_disjoint_bitor,,Arithmetic_and_Bit_Preconditions,excluded,No direct checked/safe companion was found in the same numeric API family.,,"        pub const unsafe fn unchecked_disjoint_bitor(self, other: Self) -> Self {
+            assert_unsafe_precondition!(
+                check_language_ub,
+                concat!(stringify!($SelfT), ""::unchecked_disjoint_bitor cannot have overlapping bits""),
+                (
+                    lhs: $SelfT = self,
+                    rhs: $SelfT = other,
+                ) => (lhs & rhs) == 0,
+            );
+
+            // SAFETY: Same precondition
+            unsafe { intrinsics::disjoint_bitor(self, other) }
+        }","Requires that `(self & other) == 0`, otherwise it's immediate UB. Equivalently, requires that `(self | other) == (self + other)`."

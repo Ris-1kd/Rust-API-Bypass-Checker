@@ -1,0 +1,120 @@
+Location,Unsafe Name,Safe Name,Safety Family,Benchmark Status,Benchmark Note,Safe Source,Unsafe Source,Safety Condition
+rust/library/alloc/src/collections/btree/map.rs:3418,insert_after_unchecked,insert_after,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_after(&mut self, key: K, value: V) -> Result<(), UnorderedKeyError> {
+        if let Some((prev, _)) = self.peek_prev() {
+            if &key <= prev {
+                return Err(UnorderedKeyError {});
+            }
+        }
+        if let Some((next, _)) = self.peek_next() {
+            if &key >= next {
+                return Err(UnorderedKeyError {});
+            }
+        }
+        unsafe {
+            self.insert_after_unchecked(key, value);
+        }
+        Ok(())
+    }","    pub unsafe fn insert_after_unchecked(&mut self, key: K, value: V) {
+        let edge = match self.current.take() {
+            None => {
+                // Tree is empty, allocate a new root.
+                // SAFETY: We have no other reference to the tree.
+                let root = unsafe { self.root.reborrow() };
+                debug_assert!(root.is_none());
+                let mut node = NodeRef::new_leaf(self.alloc.clone());
+                // SAFETY: We don't touch the root while the handle is alive.
+                let handle = unsafe { node.borrow_mut().push_with_handle(key, value) };
+                *root = Some(node.forget_type());
+                *self.length += 1;
+                self.current = Some(handle.left_edge());
+                return;
+            }
+            Some(current) => current,
+        };
+
+        let handle = edge.insert_recursing(key, value, self.alloc.clone(), |ins| {
+            drop(ins.left);
+            // SAFETY: The handle to the newly inserted value is always on a
+            // leaf node, so adding a new root node doesn't invalidate it.
+            let root = unsafe { self.root.reborrow().as_mut().unwrap() };
+            root.push_internal_level(self.alloc.clone()).push(ins.kv.0, ins.kv.1, ins.right)
+        });
+        self.current = Some(handle.left_edge());
+        *self.length += 1;
+    }",You must ensure that the `BTreeMap` invariants are maintained. Specifically: * The key of the newly inserted element must be unique in the tree. * All keys in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/map.rs:3461,insert_before_unchecked,insert_before,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_before(&mut self, key: K, value: V) -> Result<(), UnorderedKeyError> {
+        if let Some((prev, _)) = self.peek_prev() {
+            if &key <= prev {
+                return Err(UnorderedKeyError {});
+            }
+        }
+        if let Some((next, _)) = self.peek_next() {
+            if &key >= next {
+                return Err(UnorderedKeyError {});
+            }
+        }
+        unsafe {
+            self.insert_before_unchecked(key, value);
+        }
+        Ok(())
+    }","    pub unsafe fn insert_before_unchecked(&mut self, key: K, value: V) {
+        let edge = match self.current.take() {
+            None => {
+                // SAFETY: We have no other reference to the tree.
+                match unsafe { self.root.reborrow() } {
+                    root @ None => {
+                        // Tree is empty, allocate a new root.
+                        let mut node = NodeRef::new_leaf(self.alloc.clone());
+                        // SAFETY: We don't touch the root while the handle is alive.
+                        let handle = unsafe { node.borrow_mut().push_with_handle(key, value) };
+                        *root = Some(node.forget_type());
+                        *self.length += 1;
+                        self.current = Some(handle.right_edge());
+                        return;
+                    }
+                    Some(root) => root.borrow_mut().last_leaf_edge(),
+                }
+            }
+            Some(current) => current,
+        };
+
+        let handle = edge.insert_recursing(key, value, self.alloc.clone(), |ins| {
+            drop(ins.left);
+            // SAFETY: The handle to the newly inserted value is always on a
+            // leaf node, so adding a new root node doesn't invalidate it.
+            let root = unsafe { self.root.reborrow().as_mut().unwrap() };
+            root.push_internal_level(self.alloc.clone()).push(ins.kv.0, ins.kv.1, ins.right)
+        });
+        self.current = Some(handle.right_edge());
+        *self.length += 1;
+    }",You must ensure that the `BTreeMap` invariants are maintained. Specifically: * The key of the newly inserted element must be unique in the tree. * All keys in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/map.rs:3623,insert_after_unchecked,insert_after,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_after(&mut self, key: K, value: V) -> Result<(), UnorderedKeyError> {
+        self.inner.insert_after(key, value)
+    }","    pub unsafe fn insert_after_unchecked(&mut self, key: K, value: V) {
+        unsafe { self.inner.insert_after_unchecked(key, value) }
+    }",You must ensure that the `BTreeMap` invariants are maintained. Specifically: * The key of the newly inserted element must be unique in the tree. * All keys in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/map.rs:3641,insert_before_unchecked,insert_before,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_before(&mut self, key: K, value: V) -> Result<(), UnorderedKeyError> {
+        self.inner.insert_before(key, value)
+    }","    pub unsafe fn insert_before_unchecked(&mut self, key: K, value: V) {
+        unsafe { self.inner.insert_before_unchecked(key, value) }
+    }",You must ensure that the `BTreeMap` invariants are maintained. Specifically: * The key of the newly inserted element must be unique in the tree. * All keys in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/set.rs:2371,insert_after_unchecked,insert_after,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_after(&mut self, value: T) -> Result<(), UnorderedKeyError> {
+        self.inner.insert_after(value, SetValZST)
+    }","    pub unsafe fn insert_after_unchecked(&mut self, value: T) {
+        unsafe { self.inner.insert_after_unchecked(value, SetValZST) }
+    }",You must ensure that the `BTreeSet` invariants are maintained. Specifically: * The newly inserted element must be unique in the tree. * All elements in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/set.rs:2389,insert_before_unchecked,insert_before,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_before(&mut self, value: T) -> Result<(), UnorderedKeyError> {
+        self.inner.insert_before(value, SetValZST)
+    }","    pub unsafe fn insert_before_unchecked(&mut self, value: T) {
+        unsafe { self.inner.insert_before_unchecked(value, SetValZST) }
+    }",You must ensure that the `BTreeSet` invariants are maintained. Specifically: * The newly inserted element must be unique in the tree. * All elements in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/set.rs:2457,insert_after_unchecked,insert_after,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_after(&mut self, value: T) -> Result<(), UnorderedKeyError> {
+        self.inner.insert_after(value, SetValZST)
+    }","    pub unsafe fn insert_after_unchecked(&mut self, value: T) {
+        unsafe { self.inner.insert_after_unchecked(value, SetValZST) }
+    }",You must ensure that the `BTreeSet` invariants are maintained. Specifically: * The key of the newly inserted element must be unique in the tree. * All elements in the tree must remain in sorted order.
+rust/library/alloc/src/collections/btree/set.rs:2475,insert_before_unchecked,insert_before,Ordering_and_Cursor_Position,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn insert_before(&mut self, value: T) -> Result<(), UnorderedKeyError> {
+        self.inner.insert_before(value, SetValZST)
+    }","    pub unsafe fn insert_before_unchecked(&mut self, value: T) {
+        unsafe { self.inner.insert_before_unchecked(value, SetValZST) }
+    }",You must ensure that the `BTreeSet` invariants are maintained. Specifically: * The newly inserted element must be unique in the tree. * All elements in the tree must remain in sorted order.

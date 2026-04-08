@@ -1,0 +1,129 @@
+Location,Unsafe Name,Safe Name,Safety Family,Benchmark Status,Benchmark Note,Safe Source,Unsafe Source,Safety Condition
+rust/library/alloc/src/ffi/c_str.rs:635,from_vec_with_nul_unchecked,from_vec_with_nul,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn from_vec_with_nul(v: Vec<u8>) -> Result<Self, FromVecWithNulError> {
+        let nul_pos = memchr::memchr(0, &v);
+        match nul_pos {
+            Some(nul_pos) if nul_pos + 1 == v.len() => {
+                // SAFETY: We know there is only one nul byte, at the end
+                // of the vec.
+                Ok(unsafe { Self::_from_vec_with_nul_unchecked(v) })
+            }
+            Some(nul_pos) => Err(FromVecWithNulError {
+                error_kind: FromBytesWithNulErrorKind::InteriorNul(nul_pos),
+                bytes: v,
+            }),
+            None => Err(FromVecWithNulError {
+                error_kind: FromBytesWithNulErrorKind::NotNulTerminated,
+                bytes: v,
+            }),
+        }
+    }","    pub unsafe fn from_vec_with_nul_unchecked(v: Vec<u8>) -> Self {
+        debug_assert!(memchr::memchr(0, &v).unwrap() + 1 == v.len());
+        unsafe { Self::_from_vec_with_nul_unchecked(v) }
+    }",The given [`Vec`] **must** have one nul byte as its last element. This means it cannot be empty nor have any other nul byte anywhere else.
+rust/library/alloc/src/string.rs:1013,from_utf8_unchecked,from_utf8,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub fn from_utf8(vec: Vec<u8>) -> Result<String, FromUtf8Error> {
+        match str::from_utf8(&vec) {
+            Ok(..) => Ok(String { vec }),
+            Err(e) => Err(FromUtf8Error { bytes: vec, error: e }),
+        }
+    }","    pub unsafe fn from_utf8_unchecked(bytes: Vec<u8>) -> String {
+        String { vec: bytes }
+    }","This function is unsafe because it does not check that the bytes passed to it are valid UTF-8. If this constraint is violated, it may cause memory unsafety issues with future users of the `String`, as the rest of the standard library assumes that `String`s are valid UTF-8."
+rust/library/core/src/ffi/c_str.rs:388,from_bytes_with_nul_unchecked,from_bytes_with_nul,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn from_bytes_with_nul(bytes: &[u8]) -> Result<&Self, FromBytesWithNulError> {
+        let nul_pos = memchr::memchr(0, bytes);
+        match nul_pos {
+            Some(nul_pos) if nul_pos + 1 == bytes.len() => {
+                // SAFETY: We know there is only one nul byte, at the end
+                // of the byte slice.
+                Ok(unsafe { Self::from_bytes_with_nul_unchecked(bytes) })
+            }
+            Some(position) => Err(FromBytesWithNulError::InteriorNul { position }),
+            None => Err(FromBytesWithNulError::NotNulTerminated),
+        }
+    }","    pub const unsafe fn from_bytes_with_nul_unchecked(bytes: &[u8]) -> &CStr {
+        const_eval_select!(
+            @capture { bytes: &[u8] } -> &CStr:
+            if const {
+                // Saturating so that an empty slice panics in the assert with a good
+                // message, not here due to underflow.
+                let mut i = bytes.len().saturating_sub(1);
+                assert!(!bytes.is_empty() && bytes[i] == 0, ""input was not nul-terminated"");
+
+                // Ending nul byte exists, skip to the rest.
+                while i != 0 {
+                    i -= 1;
+                    let byte = bytes[i];
+                    assert!(byte != 0, ""input contained interior nul"");
+                }
+
+                // SAFETY: See runtime cast comment below.
+                unsafe { &*(bytes as *const [u8] as *const CStr) }
+            } else {
+                // Chance at catching some UB at runtime with debug builds.
+                debug_assert!(!bytes.is_empty() && bytes[bytes.len() - 1] == 0);
+
+                // SAFETY: Casting to CStr is safe because its internal representation
+                // is a [u8] too (safe only inside std).
+                // Dereferencing the obtained pointer is safe because it comes from a
+                // reference. Making a reference is then safe because its lifetime
+                // is bound by the lifetime of the given `bytes`.
+                unsafe { &*(bytes as *const [u8] as *const CStr) }
+            }
+        )
+    }",The provided slice **must** be nul-terminated and not contain any interior nul bytes.
+rust/library/core/src/str/converts.rs:178,from_utf8_unchecked,from_utf8,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"pub const fn from_utf8(v: &[u8]) -> Result<&str, Utf8Error> {
+    // FIXME(const-hack): This should use `?` again, once it's `const`
+    match run_utf8_validation(v) {
+        Ok(_) => {
+            // SAFETY: validation succeeded.
+            Ok(unsafe { from_utf8_unchecked(v) })
+        }
+        Err(err) => Err(err),
+    }
+}","pub const unsafe fn from_utf8_unchecked(v: &[u8]) -> &str {
+    // SAFETY: the caller must guarantee that the bytes `v` are valid UTF-8.
+    // Also relies on `&str` and `&[u8]` having the same layout.
+    unsafe { mem::transmute(v) }
+}",The bytes passed in must be valid UTF-8.
+rust/library/core/src/str/converts.rs:208,from_utf8_unchecked_mut,from_utf8_mut,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"pub const fn from_utf8_mut(v: &mut [u8]) -> Result<&mut str, Utf8Error> {
+    // FIXME(const-hack): This should use `?` again, once it's `const`
+    match run_utf8_validation(v) {
+        Ok(_) => {
+            // SAFETY: validation succeeded.
+            Ok(unsafe { from_utf8_unchecked_mut(v) })
+        }
+        Err(err) => Err(err),
+    }
+}","pub const unsafe fn from_utf8_unchecked_mut(v: &mut [u8]) -> &mut str {
+    // SAFETY: the caller must guarantee that the bytes `v`
+    // are valid UTF-8, thus the cast to `*mut str` is safe.
+    // Also, the pointer dereference is safe because that pointer
+    // comes from a reference which is guaranteed to be valid for writes.
+    unsafe { &mut *(v as *mut [u8] as *mut str) }
+}","Converts a slice of bytes to a string slice without checking
+that the string contains valid UTF-8; mutable version"
+rust/library/core/src/str/mod.rs:316,from_utf8_unchecked,from_utf8,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn from_utf8(v: &[u8]) -> Result<&str, Utf8Error> {
+        converts::from_utf8(v)
+    }","    pub const unsafe fn from_utf8_unchecked(v: &[u8]) -> &str {
+        // SAFETY: converts::from_utf8_unchecked has the same safety requirements as this function.
+        unsafe { converts::from_utf8_unchecked(v) }
+    }",The bytes passed in must be valid UTF-8.
+rust/library/core/src/str/mod.rs:341,from_utf8_unchecked_mut,from_utf8_mut,Encoding_and_Text_Validity,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn from_utf8_mut(v: &mut [u8]) -> Result<&mut str, Utf8Error> {
+        converts::from_utf8_mut(v)
+    }","    pub const unsafe fn from_utf8_unchecked_mut(v: &mut [u8]) -> &mut str {
+        // SAFETY: converts::from_utf8_unchecked_mut has the same safety requirements as this function.
+        unsafe { converts::from_utf8_unchecked_mut(v) }
+    }","Converts a slice of bytes to a string slice without checking
+that the string contains valid UTF-8; mutable version"
+rust/library/alloc/src/ffi/c_str.rs:340,from_vec_unchecked,,Encoding_and_Text_Validity,excluded,No direct clean safe counterpart; nearby safe constructors validate a different contract.,,"    pub unsafe fn from_vec_unchecked(v: Vec<u8>) -> Self {
+        debug_assert!(memchr::memchr(0, &v).is_none());
+        unsafe { Self::_from_vec_unchecked(v) }
+    }",The caller must ensure `v` contains no nul bytes in its contents.
+rust/library/alloc/src/str.rs:616,from_boxed_utf8_unchecked,,Encoding_and_Text_Validity,excluded,No direct safe boxed-UTF8 constructor exists in the same shape.,,"pub unsafe fn from_boxed_utf8_unchecked(v: Box<[u8]>) -> Box<str> {
+    unsafe { Box::from_raw(Box::into_raw(v) as *mut str) }
+}",* The provided bytes must contain a valid UTF-8 sequence.
+rust/library/std/src/ffi/os_str.rs:184,from_encoded_bytes_unchecked,,Encoding_and_Text_Validity,excluded,No clean safe counterpart; platform-specific encoded-byte reconstruction is intentionally unsafe-only.,,"    pub unsafe fn from_encoded_bytes_unchecked(bytes: Vec<u8>) -> Self {
+        OsString { inner: unsafe { Buf::from_encoded_bytes_unchecked(bytes) } }
+    }","As the encoding is unspecified, callers must pass in bytes that originated as a mixture of validated UTF-8 and bytes from [`OsStr::as_encoded_bytes`] from within the same Rust version built for the same target platform.  For example, reconstructing an `OsString` from bytes sent over the network or stored in a file will likely violate these safety rules. Due to the encoding being self-synchronizing, the bytes from [`OsStr::as_encoded_bytes`] can be split either immediately before or immediately after any valid non-empty UTF-8 substring."
+rust/library/std/src/ffi/os_str.rs:881,from_encoded_bytes_unchecked,,Encoding_and_Text_Validity,excluded,No clean safe counterpart; platform-specific encoded-byte reconstruction is intentionally unsafe-only.,,"    pub unsafe fn from_encoded_bytes_unchecked(bytes: &[u8]) -> &Self {
+        Self::from_inner(unsafe { Slice::from_encoded_bytes_unchecked(bytes) })
+    }","As the encoding is unspecified, callers must pass in bytes that originated as a mixture of validated UTF-8 and bytes from [`OsStr::as_encoded_bytes`] from within the same Rust version built for the same target platform.  For example, reconstructing an `OsStr` from bytes sent over the network or stored in a file will likely violate these safety rules. Due to the encoding being self-synchronizing, the bytes from [`OsStr::as_encoded_bytes`] can be split either immediately before or immediately after any valid non-empty UTF-8 substring."

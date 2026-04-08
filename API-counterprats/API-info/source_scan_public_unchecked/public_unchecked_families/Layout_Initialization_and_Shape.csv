@@ -1,0 +1,46 @@
+Location,Unsafe Name,Safe Name,Safety Family,Benchmark Status,Benchmark Note,Safe Source,Unsafe Source,Safety Condition
+rust/library/core/src/alloc/layout.rs:132,from_size_align_unchecked,from_size_align,Layout_Initialization_and_Shape,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn from_size_align(size: usize, align: usize) -> Result<Self, LayoutError> {
+        if Layout::is_size_align_valid(size, align) {
+            // SAFETY: Layout::is_size_align_valid checks the preconditions for this call.
+            unsafe { Ok(Layout { size, align: mem::transmute(align) }) }
+        } else {
+            Err(LayoutError)
+        }
+    }","    pub const unsafe fn from_size_align_unchecked(size: usize, align: usize) -> Self {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""Layout::from_size_align_unchecked requires that align is a power of 2 \
+            and the rounded-up allocation size does not exceed isize::MAX"",
+            (
+                size: usize = size,
+                align: usize = align,
+            ) => Layout::is_size_align_valid(size, align)
+        );
+        // SAFETY: the caller is required to uphold the preconditions.
+        unsafe { Layout { size, align: mem::transmute(align) } }
+    }",This function is unsafe as it does not verify the preconditions from [`Layout::from_size_align`].
+rust/library/core/src/alloc/layout.rs:156,from_size_alignment_unchecked,from_size_alignment,Layout_Initialization_and_Shape,candidate,Same-file safe counterpart found; suitable for group-internal benchmark discussion.,"    pub const fn from_size_alignment(
+        size: usize,
+        alignment: Alignment,
+    ) -> Result<Self, LayoutError> {
+        if Layout::is_size_alignment_valid(size, alignment) {
+            // SAFETY: Layout::size invariants checked above.
+            Ok(Layout { size, align: alignment })
+        } else {
+            Err(LayoutError)
+        }
+    }","    pub const unsafe fn from_size_alignment_unchecked(size: usize, alignment: Alignment) -> Self {
+        assert_unsafe_precondition!(
+            check_library_ub,
+            ""Layout::from_size_alignment_unchecked requires \
+            that the rounded-up allocation size does not exceed isize::MAX"",
+            (
+                size: usize = size,
+                alignment: Alignment = alignment,
+            ) => Layout::is_size_alignment_valid(size, alignment)
+        );
+        // SAFETY: the caller is required to uphold the preconditions.
+        Layout { size, align: alignment }
+    }",This function is unsafe as it does not verify the preconditions from [`Layout::from_size_alignment`].
+rust/library/core/src/array/iter.rs:141,new_unchecked,new,Layout_Initialization_and_Shape,excluded,"Safe `new` consumes a fully initialized array, while `new_unchecked` rebuilds an iterator from a partially initialized buffer plus range state; not a clean safe/unsafe pair.",    pub fn new(array: [T;,"    pub const unsafe fn new_unchecked(
+        buffer: [MaybeUninit<T>;","- The `buffer[initialized]` elements must all be initialized. - The range must be canonical, with `initialized.start <= initialized.end`. - The range must be in-bounds for the buffer, with `initialized.end <= N`. (Like how indexing `[0][100..100]` fails despite the range being empty.) It's sound to have more elements initialized than mentioned, though that will most likely result in them being leaked."
