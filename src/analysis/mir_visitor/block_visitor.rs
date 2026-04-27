@@ -1272,6 +1272,22 @@ where
         // Get `SymbolicValue` from `mir::Operand::Constant`
         let func_to_call = self.visit_operand(func);
         info!("func_to_call is {:?}", func_to_call);
+        let actual_args: Vec<(Rc<Path>, Rc<SymbolicValue>)> = args
+            .iter()
+            .map(|arg| (self.get_operand_path(&arg.node), self.visit_operand(&arg.node)))
+            .collect();
+        let actual_argument_types: Vec<Ty<'tcx>> = args
+            .iter()
+            .map(|arg| {
+                let arg_ty = self.get_operand_rustc_type(&arg.node);
+                self.body_visitor
+                    .type_visitor
+                    .specialize_generic_argument_type(
+                        arg_ty,
+                        &self.body_visitor.type_visitor.generic_argument_map,
+                    )
+            })
+            .collect();
         // Get `FunctionReference` from `SymbolicValue`
         let func_ref = self.get_func_ref(&func_to_call);
         // If the function cannot be reliably analyzed, simply ignore it and return
@@ -1299,11 +1315,6 @@ where
             generic_args,
             &self.body_visitor.type_visitor.generic_argument_map,
         );
-        let actual_args: Vec<(Rc<Path>, Rc<SymbolicValue>)> = args
-            .iter()
-            .map(|arg| (self.get_operand_path(&arg.node), self.visit_operand(&arg.node)))
-            .collect();
-
         // let mut args_path_vec: Vec<(Rc<Path>, Rc<SymbolicValue>)> = Vec::new();
         // for args_index in 0..args.len() {
         //     args_path_vec.push((
@@ -1318,18 +1329,6 @@ where
         //         .insert(*span, args_path_vec);
         // }
 
-        let actual_argument_types: Vec<Ty<'tcx>> = args
-            .iter()
-            .map(|arg| {
-                let arg_ty = self.get_operand_rustc_type(&arg.node);
-                self.body_visitor
-                    .type_visitor
-                    .specialize_generic_argument_type(
-                        arg_ty,
-                        &self.body_visitor.type_visitor.generic_argument_map,
-                    )
-            })
-            .collect();
         // Construct the map from generic arguments to their actual types
         let callee_generic_argument_map = self.body_visitor.type_visitor.get_generic_arguments_map(
             callee_def_id,
