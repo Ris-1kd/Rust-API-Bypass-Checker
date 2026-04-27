@@ -31,6 +31,7 @@ pub struct AnalysisInfo {
     pub total_diagnostics: usize,
     pub supported_diagnostics: usize,
     pub unsupported_diagnostics: usize,
+    pub call_boundary_diagnostics: usize,
     pub supported_special_calls: usize,
     pub unsupported_special_calls: usize,
 }
