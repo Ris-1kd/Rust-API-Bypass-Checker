@@ -125,7 +125,8 @@ where
         }
     }
 
-    /// Analyze the function based on the current environment (caller's state) and return the post state
+    /// Legacy wrapper-only fallback: analyze a callee under the caller state and return its post
+    /// state. The default ordinary-call path no longer uses this.
     pub fn create_function_post_state(&mut self) -> AbstractDomain<DomainType> {
         debug!(
             "Creating callee's post state, def_id={:?}, type of def_id={:?}",
