@@ -1267,8 +1267,6 @@ where
             self.body_visitor.type_visitor.generic_argument_map
         );
         debug!("Before visit_call, env: {:?}", self.state());
-        // Store the offset that is about to be used while executing the following call visitor
-        let old_offset = self.body_visitor.next_fresh_variable_offset;
         // Get `SymbolicValue` from `mir::Operand::Constant`
         let func_to_call = self.visit_operand(func);
         info!("func_to_call is {:?}", func_to_call);
