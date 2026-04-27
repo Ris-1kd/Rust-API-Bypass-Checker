@@ -11,6 +11,7 @@ use std::collections::HashMap;
 pub enum DiagnosticCause {
     Bitwise,    // Bit-wise overflow
     Arithmetic, // Arithmetic overflow
+    CallBoundary, // Default interprocedural descent disabled at call boundary
     Assembly,   // Inline assembly
     Comparison, // Comparison operations
     DivZero,    // Division by zero / remainder by zero
