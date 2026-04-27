@@ -1388,27 +1388,8 @@ where
             return;
         }
 
-        debug!("Executing call visitor...");
-        // Run the call visitor and get post states
-        let function_post_state = call_visitor
-            .get_function_post_state()
-            .unwrap_or_else(AbstractDomain::default);
-
-        // Here, the offset should have already been reset
-
-        debug!(
-            "Finish call visitor, get function post state {:?}",
-            function_post_state
-        );
-        debug!(
-            "Before handling side-effects, pre env {:?}",
-            call_visitor.block_visitor.state()
-        );
-        call_visitor.transfer_and_refine_normal_return_state(&function_post_state, old_offset);
-        debug!(
-            "After handling side-effects, post env {:?}",
-            call_visitor.block_visitor.state()
-        );
+        debug!("Downgrading ordinary call at the local boundary");
+        call_visitor.handle_opaque_call_boundary();
     }
 
     fn get_operand_rustc_type(&mut self, operand: &mir::Operand<'tcx>) -> Ty<'tcx> {
