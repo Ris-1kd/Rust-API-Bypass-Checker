@@ -34,4 +34,5 @@ pub struct AnalysisInfo {
     pub call_boundary_diagnostics: usize,
     pub supported_special_calls: usize,
     pub unsupported_special_calls: usize,
+    pub opaque_call_boundaries: usize,
 }
