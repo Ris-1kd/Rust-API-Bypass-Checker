@@ -1,6 +1,6 @@
-# Rust API Bypass Checker: Redundant Safety Check Optimizer
+# Rust API Bypass Checker
 
-A static analysis tool that identifies redundant safety checks in Rust programs to improve performance. By analyzing MIR (Mid-level Intermediate Representation), the tool detects where safe APIs can be safely replaced with their unchecked counterparts without compromising memory safety.
+A conservative MIR-based checker for a restricted set of Rust safe/unsafe API counterparts. The current implementation focuses on local numerical conditions under which specific unchecked calls may be safe, while explicitly downgrading unsupported calls to unknown.
 
 ## Overview
 
