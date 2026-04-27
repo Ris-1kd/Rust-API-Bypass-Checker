@@ -70,10 +70,10 @@ The root crate currently pins `nightly-2025-01-10`. A separate benchmark-only wo
 ```sh
 # Analyze a crate via main.rs or lib.rs
 
-# Access the DefId list of reachable entries 
+# Inspect candidate entry functions
 $ ./target/debug/api-bypass <file> --show_reachable_entries
 
-# Analyze a particular function
+# Analyze a particular function as the root of a local numerical run
 $ ./target/debug/api-bypass <file> --entry_def_id_index <defid> 
 ```
 
