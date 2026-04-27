@@ -48,7 +48,7 @@ Diagnostics should be interpreted conservatively.
 * Rust nightly (`nightly-2025-01-10`)
 * Dependencies:
   ```sh
-  $ rustup component add rustc-dev llvm-tools-preview
+$ rustup component add rustc-dev llvm-tools-preview
   $ sudo apt-get install libgmp-dev libmpfr-dev libppl-dev libz3-dev llvm-15 clang-15 libclang-15-dev  # Ubuntu
   $ export LIBCLANG_PATH=`llvm-config-15 --libdir`/libclang.so
   ```
@@ -62,6 +62,8 @@ $ export LIBCLANG_PATH=`llvm-config-15 --libdir`/libclang.so
 $ export RUSTFLAGS="-Clink-args=-fuse-ld=lld"
 $ cargo build
 ```
+
+The root crate currently pins `nightly-2025-01-10`. A separate benchmark-only workspace under `API-counterprats/` may use a newer nightly for Criterion experiments.
 
 ## Usage
 
