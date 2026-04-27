@@ -1298,6 +1298,7 @@ where
             self.body_visitor
                 .state
                 .update_value_at(destination_path, symbolic_value::TOP.into());
+            self.body_visitor.context.opaque_call_boundaries += 1;
             let warning = self.body_visitor.context.session.dcx().struct_span_warn(
                 self.body_visitor.current_span,
                 "[Bypasser] Interprocedural call downgraded to local unknown at `<unknown call>`: unresolved or indirect callees are outside the supported fragment",
