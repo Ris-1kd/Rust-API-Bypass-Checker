@@ -65,6 +65,8 @@ At the moment, analyzer outputs should be interpreted as:
   - The reported check comes from the supported numerical fragment.
 - Unsupported diagnostic:
   - The analyzer reached a call site outside the supported fragment and downgraded the result to `unknown`.
+- Call-boundary diagnostic:
+  - The analyzer reached an ordinary non-special call and stopped at the local call boundary.
 - No diagnostic:
   - Not a global proof of safety.
   - It only means no diagnostic was produced under the current supported fragment and current precision.
@@ -76,8 +78,10 @@ The analyzer summary now records:
 - `total_diagnostics`
 - `supported_diagnostics`
 - `unsupported_diagnostics`
+- `call_boundary_diagnostics`
 - `supported_special_calls`
 - `unsupported_special_calls`
+- `opaque_call_boundaries`
 
 These numbers are intended to make the paper claim align with the actual implementation boundary.
 
