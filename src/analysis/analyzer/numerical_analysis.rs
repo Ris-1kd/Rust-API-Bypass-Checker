@@ -112,6 +112,12 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
                 )
             })
             .count();
+        let call_boundary_diagnostics = diagnostics
+            .iter()
+            .filter(|diag| {
+                diag.cause == crate::analysis::diagnostics::DiagnosticCause::CallBoundary
+            })
+            .count();
         let supported_diagnostics = total_diagnostics.saturating_sub(unsupported_diagnostics);
 
         info!("================== Start To Output Diagnostics ==================");
@@ -122,6 +128,7 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
             total_diagnostics,
             supported_diagnostics,
             unsupported_diagnostics,
+            call_boundary_diagnostics,
             supported_special_calls: self.context.supported_special_calls,
             unsupported_special_calls: self.context.unsupported_special_calls,
         })
