@@ -9,6 +9,7 @@ The analyzer is now intentionally conservative:
 - The abstract state is numerical-only.
 - The only active numerical domain is `interval`.
 - Heap, alias, ownership, promoted-constant, and symbolic object tracking are not modeled as first-class analysis state.
+- Default callee descent is disabled for ordinary calls; non-special calls are treated as local call boundaries.
 - Calls outside the supported fragment are explicitly downgraded to `Unsupported` and their destinations are forgotten to `unknown`.
 
 ## Supported Cases
