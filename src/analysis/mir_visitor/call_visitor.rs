@@ -486,6 +486,19 @@ where
         );
     }
 
+    pub fn handle_opaque_call_boundary(&mut self) -> bool {
+        let api_name = self
+            .callee_func_ref
+            .as_ref()
+            .map(|func_ref| func_ref.function_name.clone())
+            .unwrap_or_else(|| "unknown call".to_string().into());
+        self.emit_call_boundary_diagnostic(
+            &api_name,
+            "default callee descent is disabled outside the special-API and micro-wrapper fragment",
+        );
+        true
+    }
+
     /// If the current call is to a well known function for which we don't have a cached summary,
     /// this function will update the environment as appropriate and return true. If the return
     /// result is false, just carry on with the normal logic.
