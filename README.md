@@ -25,6 +25,16 @@ fn process_array(arr: &[i32]) {
 
 The tool identifies that the bounds check in `arr.get(i)` is redundant and suggests using direct indexing for better performance.
 
+## Supported Fragment
+
+The analyzer is intentionally narrow.
+
+- The abstract state is numerical-only.
+- The active numerical domain is `interval`.
+- The current reasoning is intraprocedural in spirit: default descent into ordinary callees is disabled.
+- Special handling is limited to a small whitelist of local checked/unchecked APIs, such as `get`, `split_at`, `swap`, and `checked_add`.
+- Calls outside this fragment are downgraded to local unknowns at the call boundary.
+
 ## Requirements
 
 * Rust nightly (`nightly-2025-01-10`)
