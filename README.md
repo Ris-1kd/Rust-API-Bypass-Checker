@@ -80,8 +80,8 @@ $ ./target/debug/api-bypass <file> --entry_def_id_index <defid>
 ### Options
 
 - `--entry_def_id_index <function>`: Entry function DefId (acquired via `show_reachable_entries`)
--  `--show_all_entries`: Display all entry functions within the current crate.
--  `--show_reachable_entries`: Display reachable functions within the current crate.
+- `--show_all_entries`: Display all candidate entry functions within the current crate.
+- `--show_reachable_entries`: Display entry candidates discovered by the current front-end scan.
 
 ## Test Cases
 
