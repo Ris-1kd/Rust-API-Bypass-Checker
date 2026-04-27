@@ -85,11 +85,11 @@ $ ./target/debug/api-bypass <file> --entry_def_id_index <defid>
 
 ## Test Cases
 
-- `tests/checked_add/`: Integer arithmetic optimization scenarios
-- `tests/get/`: Slice access pattern optimizations
-- `tests/split_at/`: Slice splitting boundary check optimizations
-- `tests/swap/`: Element swapping safety validation
-- `tests/as_chunks`: Slice division safety validation
+- `tests/checked_add/`: Local integer overflow-check scenarios
+- `tests/get/`: Local slice bounds-check scenarios
+- `tests/split_at/`: Local split-index reasoning scenarios
+- `tests/swap/`: Local two-index bounds reasoning scenarios
+- `case-study/`: A larger MIR case used to stress-test the reduced `swap` support path
 
 ## License
 
