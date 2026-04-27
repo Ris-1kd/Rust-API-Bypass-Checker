@@ -41,6 +41,9 @@ The current supported fragment is limited to local, intraprocedural-style checks
 
 The following are intentionally outside the supported fragment and now produce `Unsupported` diagnostics instead of pretending to analyze them:
 
+- Ordinary non-special function calls
+  - Default interprocedural descent is disabled.
+  - These call sites are downgraded to local `unknown` at the call boundary.
 - Heap-backed reconstruction and ownership transfer
   - `Vec::from_raw_parts`
   - `Into<Vec<_>>`
