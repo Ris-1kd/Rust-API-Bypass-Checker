@@ -73,11 +73,12 @@ impl BypasserCallbacks {
             // Run analyzer
             if let Ok(analysis_result) = numerical_analysis.run() {
                 info!(
-                    "Numerical Analysis Completed: {} ms, diagnostics={}, supported_diagnostics={}, unsupported_diagnostics={}, supported_special_calls={}, unsupported_special_calls={}",
+                    "Numerical Analysis Completed: {} ms, diagnostics={}, supported_diagnostics={}, unsupported_diagnostics={}, call_boundary_diagnostics={}, supported_special_calls={}, unsupported_special_calls={}",
                     analysis_result.analysis_time.as_millis(),
                     analysis_result.total_diagnostics,
                     analysis_result.supported_diagnostics,
                     analysis_result.unsupported_diagnostics,
+                    analysis_result.call_boundary_diagnostics,
                     analysis_result.supported_special_calls,
                     analysis_result.unsupported_special_calls,
                 );
