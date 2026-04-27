@@ -35,6 +35,14 @@ The analyzer is intentionally narrow.
 - Special handling is limited to a small whitelist of local checked/unchecked APIs, such as `get`, `split_at`, `swap`, and `checked_add`.
 - Calls outside this fragment are downgraded to local unknowns at the call boundary.
 
+## Result Semantics
+
+Diagnostics should be interpreted conservatively.
+
+- A supported diagnostic comes from the supported numerical fragment.
+- An unsupported or call-boundary diagnostic means the analyzer deliberately stopped and downgraded the result to unknown.
+- The absence of a diagnostic is not a global proof of safety.
+
 ## Requirements
 
 * Rust nightly (`nightly-2025-01-10`)
