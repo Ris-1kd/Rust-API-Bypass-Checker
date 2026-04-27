@@ -438,6 +438,22 @@ where
         )
     }
 
+    fn forget_argument_related_state(&mut self, path: &Rc<Path>, value: &Rc<SymbolicValue>) {
+        self.block_visitor.body_visitor.state.forget_paths_rooted_by(path);
+        match &value.expression {
+            Expression::Reference(inner)
+            | Expression::Variable { path: inner, .. }
+            | Expression::Numerical(inner)
+            | Expression::Widen { path: inner, .. } => {
+                self.block_visitor
+                    .body_visitor
+                    .state
+                    .forget_paths_rooted_by(inner);
+            }
+            _ => {}
+        }
+    }
+
     /// If the current call is to a well known function for which we don't have a cached summary,
     /// this function will update the environment as appropriate and return true. If the return
     /// result is false, just carry on with the normal logic.
