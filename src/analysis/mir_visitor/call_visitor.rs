@@ -318,6 +318,10 @@ where
         self.block_visitor.body_visitor.context.supported_special_calls += 1;
     }
 
+    fn record_call_boundary(&mut self) {
+        self.block_visitor.body_visitor.context.opaque_call_boundaries += 1;
+    }
+
     fn forget_destination_value(&mut self) {
         #[allow(irrefutable_let_patterns)]
         let destination_path = if let dest = self.destination {
