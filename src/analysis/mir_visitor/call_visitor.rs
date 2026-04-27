@@ -431,6 +431,13 @@ where
         )
     }
 
+    fn type_allows_callee_side_effects(ty: Ty<'tcx>) -> bool {
+        matches!(
+            ty.kind(),
+            TyKind::Ref(_, _, Mutability::Mut) | TyKind::RawPtr(_, Mutability::Mut)
+        )
+    }
+
     /// If the current call is to a well known function for which we don't have a cached summary,
     /// this function will update the environment as appropriate and return true. If the return
     /// result is false, just carry on with the normal logic.
