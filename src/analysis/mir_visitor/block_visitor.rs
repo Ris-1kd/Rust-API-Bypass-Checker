@@ -1298,6 +1298,12 @@ where
             self.body_visitor
                 .state
                 .update_value_at(destination_path, symbolic_value::TOP.into());
+            let warning = self.body_visitor.context.session.dcx().struct_span_warn(
+                self.body_visitor.current_span,
+                "[Bypasser] Interprocedural call downgraded to local unknown at `<unknown call>`: unresolved or indirect callees are outside the supported fragment",
+            );
+            self.body_visitor
+                .emit_diagnostic(warning, false, DiagnosticCause::CallBoundary);
             info!(
                 "function {} can't be reliably analyzed because it calls an unknown function.",
                 utils::summary_key_str(self.body_visitor.context.tcx, self.def_id),
