@@ -1294,6 +1294,10 @@ where
         let func_ref_to_call = if let Some(fr) = func_ref {
             fr
         } else {
+            let destination_path = self.get_path_for_place(&destination);
+            self.body_visitor
+                .state
+                .update_value_at(destination_path, symbolic_value::TOP.into());
             info!(
                 "function {} can't be reliably analyzed because it calls an unknown function.",
                 utils::summary_key_str(self.body_visitor.context.tcx, self.def_id),
