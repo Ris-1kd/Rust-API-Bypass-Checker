@@ -1298,6 +1298,15 @@ where
             self.body_visitor
                 .state
                 .update_value_at(destination_path, symbolic_value::TOP.into());
+            for ((path, _), ty) in actual_args.iter().zip(actual_argument_types.iter()) {
+                if matches!(
+                    ty.kind(),
+                    TyKind::Ref(_, _, rustc_hir::Mutability::Mut)
+                        | TyKind::RawPtr(_, rustc_hir::Mutability::Mut)
+                ) {
+                    self.body_visitor.state.forget_paths_rooted_by(path);
+                }
+            }
             self.body_visitor.context.opaque_call_boundaries += 1;
             let warning = self.body_visitor.context.session.dcx().struct_span_warn(
                 self.body_visitor.current_span,
