@@ -16,6 +16,8 @@ The analyzer is now intentionally conservative:
 
 The current supported fragment is limited to local, intraprocedural-style checks whose safety condition can be expressed with integer constraints:
 
+- Only special APIs and a tiny wrapper-like micro-summary set are analyzed beyond plain MIR transfer.
+
 - Integer `checked_add`
   - The analyzer checks whether the addition may overflow.
   - The returned `Option` is not modeled precisely; it is forgotten to `unknown`.
