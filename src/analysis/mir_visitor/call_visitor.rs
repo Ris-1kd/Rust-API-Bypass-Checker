@@ -297,6 +297,7 @@ where
     }
 
     pub fn get_function_post_state(&mut self) -> Option<AbstractDomain<DomainType>> {
+        debug!("Attempting legacy wrapper-only callee analysis fallback");
         // 获得被调用函数的符号值
         let fun_val = self.callee_fun_val.clone();
         // 获得函数引用
