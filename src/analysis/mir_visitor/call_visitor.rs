@@ -462,6 +462,30 @@ where
         }
     }
 
+    fn emit_call_boundary_diagnostic(&mut self, api_name: &str, reason: &str) {
+        self.record_call_boundary();
+        self.forget_destination_value();
+        self.forget_possible_callee_side_effects();
+        let warning = self
+            .block_visitor
+            .body_visitor
+            .context
+            .session
+            .dcx()
+            .struct_span_warn(
+                self.block_visitor.body_visitor.current_span,
+                format!(
+                    "[Bypasser] Interprocedural call downgraded to local unknown at `{}`: {}",
+                    api_name, reason
+                ),
+            );
+        self.block_visitor.body_visitor.emit_diagnostic(
+            warning,
+            false,
+            DiagnosticCause::CallBoundary,
+        );
+    }
+
     /// If the current call is to a well known function for which we don't have a cached summary,
     /// this function will update the environment as appropriate and return true. If the return
     /// result is false, just carry on with the normal logic.
