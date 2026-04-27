@@ -93,6 +93,9 @@ pub struct GlobalContext<'tcx, 'compilation> {
 
     /// Count of special-call sites explicitly downgraded to unsupported/unknown.
     pub unsupported_special_calls: usize,
+
+    /// Count of ordinary call sites downgraded at the intraprocedural call boundary.
+    pub opaque_call_boundaries: usize,
 }
 
 impl<'tcx, 'compilation> fmt::Debug for GlobalContext<'tcx, 'compilation> {
