@@ -454,6 +454,14 @@ where
         }
     }
 
+    fn forget_possible_callee_side_effects(&mut self) {
+        for ((path, value), ty) in self.actual_args.iter().zip(self.actual_argument_types.iter()) {
+            if Self::type_allows_callee_side_effects(*ty) {
+                self.forget_argument_related_state(path, value);
+            }
+        }
+    }
+
     /// If the current call is to a well known function for which we don't have a cached summary,
     /// this function will update the environment as appropriate and return true. If the return
     /// result is false, just carry on with the normal logic.
