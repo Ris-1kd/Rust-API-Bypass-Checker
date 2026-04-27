@@ -98,6 +98,6 @@ See [LICENSE](LICENSE) and [licenses](licenses).
 ## Acknowledgments
 
 Built upon:
-- [MirChecker](https://github.com/lizhuohua/rust-mir-checker) - MIR analysis framework
+- [MirChecker](https://github.com/lizhuohua/rust-mir-checker) - Original MIR analysis framework from which this checker was narrowed and adapted
 - [MIRAI](https://github.com/facebookexperimental/MIRAI) - Static analysis techniques
 - [Crab](https://github.com/seahorn/crab) - Abstract domain implementations
