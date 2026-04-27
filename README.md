@@ -4,11 +4,12 @@ A conservative MIR-based checker for a restricted set of Rust safe/unsafe API co
 
 ## Overview
 
-This tool analyzes code patterns to identify unnecessary safety checks that are already guaranteed by program logic, enabling performance optimizations such as:
+This tool analyzes MIR-level control-flow and integer constraints around a small supported fragment of checked/unchecked APIs. In the current implementation, it is intended to:
 
 - `slice.get(index)` → `slice.get_unchecked(index)` when bounds are proven safe
-- `integer.checked_add(other)` → `integer.wrapping_add(other)` when overflow is impossible
-- Array indexing optimizations when bounds are logically guaranteed
+- `slice.split_at(mid)` → `slice.split_at_unchecked(mid)` when split bounds are proven safe
+- `slice.swap(a, b)` under locally provable in-bounds indices
+- `integer.checked_add(other)` when overflow is provably impossible
 
 ## Example
 
