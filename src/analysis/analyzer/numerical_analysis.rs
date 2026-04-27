@@ -104,7 +104,13 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
         let total_diagnostics = diagnostics.len();
         let unsupported_diagnostics = diagnostics
             .iter()
-            .filter(|diag| diag.cause == crate::analysis::diagnostics::DiagnosticCause::Unsupported)
+            .filter(|diag| {
+                matches!(
+                    diag.cause,
+                    crate::analysis::diagnostics::DiagnosticCause::Unsupported
+                        | crate::analysis::diagnostics::DiagnosticCause::CallBoundary
+                )
+            })
             .count();
         let supported_diagnostics = total_diagnostics.saturating_sub(unsupported_diagnostics);
 
