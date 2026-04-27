@@ -294,6 +294,7 @@ impl<'tcx, 'compilation> GlobalContext<'tcx, 'compilation> {
             diagnostics_for: DiagnosticsForDefId::default(),
             supported_special_calls: 0,
             unsupported_special_calls: 0,
+            opaque_call_boundaries: 0,
         })
     }
 
