@@ -131,6 +131,7 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
             call_boundary_diagnostics,
             supported_special_calls: self.context.supported_special_calls,
             unsupported_special_calls: self.context.unsupported_special_calls,
+            opaque_call_boundaries: self.context.opaque_call_boundaries,
         })
     }
 
