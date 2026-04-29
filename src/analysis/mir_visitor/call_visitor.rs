@@ -1346,7 +1346,7 @@ where
 
     fn handle_swap(&mut self) -> bool {
         assert!(self.actual_args.len() == 3);
-        let state = self.block_visitor.state().clone();
+        let mut state = self.block_visitor.state().clone();
         let body_visitor = &mut self.block_visitor.body_visitor;
 
         let array = &self.actual_args[0].0;
