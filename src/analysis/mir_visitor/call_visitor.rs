@@ -12,7 +12,7 @@ use crate::analysis::diagnostics::DiagnosticCause;
 use crate::analysis::memory::constant_value::{ConstantValue, FunctionReference};
 use crate::analysis::memory::expression::{Expression, ExpressionType};
 use crate::analysis::memory::known_names::KnownNames;
-use crate::analysis::memory::path::{Path, PathRefinement};
+use crate::analysis::memory::path::{Path, PathEnum, PathRefinement};
 use crate::analysis::memory::symbolic_value::{self, SymbolicValue, SymbolicValueTrait};
 use crate::analysis::mir_visitor::block_visitor::BlockVisitor;
 use crate::analysis::mir_visitor::body_visitor::WtoFixPointIterator;
@@ -474,6 +474,17 @@ where
         } else {
             None
         }
+    }
+
+    fn local_place_for_path(&self, path: &Rc<Path>) -> Option<mir::Place<'tcx>> {
+        let local = match &path.value {
+            PathEnum::Result => mir::Local::from_usize(0),
+            PathEnum::Parameter { ordinal } | PathEnum::LocalVariable { ordinal } => {
+                mir::Local::from_usize(*ordinal)
+            }
+            _ => return None,
+        };
+        (local.index() < self.block_visitor.mir.local_decls.len()).then(|| local.into())
     }
 
     fn straight_line_predecessor_chain(
