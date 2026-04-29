@@ -601,6 +601,16 @@ where
             .unwrap_or(false)
     }
 
+    fn dominating_bounds_prove_index(
+        &mut self,
+        bb: mir::BasicBlock,
+        index: &Rc<SymbolicValue>,
+    ) -> bool {
+        self.dominating_assert_conditions(bb)
+            .into_iter()
+            .any(|condition| Self::condition_matches_index(&condition, index))
+    }
+
     fn emit_call_boundary_diagnostic(&mut self, api_name: &str, reason: &str) {
         self.record_call_boundary();
         self.forget_destination_value();
