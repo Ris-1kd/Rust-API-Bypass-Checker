@@ -24,6 +24,7 @@ fn process_array(arr: &[i32]) {
 ```
 
 The tool aims to recognize that the bounds check in `arr.get(i)` is locally redundant and to surface a diagnostic within its supported fragment, rather than to perform automatic rewriting.
+Ordinary helper calls remain local unknowns by default, except for a tiny wrapper-like shim set that is intentionally suppressed rather than analyzed interprocedurally.
 
 ## Supported Fragment
 
