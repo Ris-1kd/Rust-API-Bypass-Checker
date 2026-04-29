@@ -25,7 +25,6 @@ use crate::checker::assertion_checker::{AssertionChecker, CheckerResult};
 use crate::checker::checker_trait::CheckerTrait;
 use rustc_hir::Mutability;
 use rustc_hir::def_id::DefId;
-use rustc_index::Idx;
 // use rustc_middle::mir;
 // use rustc_middle::ty::subst::GenericArgsRef;
 // use rustc_middle::ty::{Ty, TyKind};
@@ -436,6 +435,30 @@ where
         )
     }
 
+    fn is_boolean_function_trait_wrapper(&mut self) -> bool {
+        if self
+            .block_visitor
+            .body_visitor
+            .type_visitor
+            .get_place_type(
+                &self.destination,
+                self.block_visitor.body_visitor.current_span,
+            )
+            != ExpressionType::Bool
+        {
+            return false;
+        }
+        let def_path = self
+            .block_visitor
+            .body_visitor
+            .context
+            .tcx
+            .def_path_str(self.callee_def_id);
+        def_path.contains("::FnMut::call_mut")
+            || def_path.contains("::Fn::call")
+            || def_path.contains("::FnOnce::call_once")
+    }
+
     fn type_allows_callee_side_effects(ty: Ty<'tcx>) -> bool {
         matches!(
             ty.kind(),
@@ -681,7 +704,17 @@ where
         );
     }
 
+    fn handle_boolean_function_trait_wrapper(&mut self) -> bool {
+        self.record_call_boundary();
+        self.forget_destination_value();
+        self.forget_possible_callee_side_effects();
+        true
+    }
+
     pub fn handle_opaque_call_boundary(&mut self) -> bool {
+        if self.is_boolean_function_trait_wrapper() {
+            return self.handle_boolean_function_trait_wrapper();
+        }
         let api_name = self
             .callee_func_ref
             .as_ref()
