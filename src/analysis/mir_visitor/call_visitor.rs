@@ -475,6 +475,27 @@ where
         }
     }
 
+    fn straight_line_predecessor_chain(
+        &self,
+        bb: mir::BasicBlock,
+        limit: usize,
+    ) -> Vec<mir::BasicBlock> {
+        let mut chain = Vec::new();
+        let mut cursor = bb;
+        let mut seen = HashSet::new();
+        while chain.len() < limit {
+            let Some(pred) = self.unique_predecessor(cursor) else {
+                break;
+            };
+            if !seen.insert(pred) {
+                break;
+            }
+            chain.push(pred);
+            cursor = pred;
+        }
+        chain
+    }
+
     fn emit_call_boundary_diagnostic(&mut self, api_name: &str, reason: &str) {
         self.record_call_boundary();
         self.forget_destination_value();
