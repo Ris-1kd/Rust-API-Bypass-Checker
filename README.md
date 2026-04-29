@@ -42,6 +42,7 @@ Diagnostics should be interpreted conservatively.
 
 - A supported diagnostic comes from the supported numerical fragment.
 - An unsupported or call-boundary diagnostic means the analyzer deliberately stopped and downgraded the result to unknown.
+- Selected boolean callback wrappers may also be downgraded to unknown silently when they are treated as local shims rather than reportable boundaries.
 - The absence of a diagnostic is not a global proof of safety.
 
 ## Requirements
