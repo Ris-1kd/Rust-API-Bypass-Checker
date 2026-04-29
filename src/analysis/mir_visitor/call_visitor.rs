@@ -496,6 +496,28 @@ where
         chain
     }
 
+    fn symbolic_assert_condition(
+        &mut self,
+        cond: &mir::Operand<'tcx>,
+        expected: bool,
+    ) -> Rc<SymbolicValue> {
+        let cond_value = if let Some(place) = cond.place() {
+            self.block_visitor
+                .body_visitor
+                .place_to_abstract_value
+                .get(&place)
+                .cloned()
+                .unwrap_or_else(|| self.block_visitor.visit_operand(cond))
+        } else {
+            self.block_visitor.visit_operand(cond)
+        };
+        if expected {
+            cond_value
+        } else {
+            cond_value.logical_not()
+        }
+    }
+
     fn emit_call_boundary_diagnostic(&mut self, api_name: &str, reason: &str) {
         self.record_call_boundary();
         self.forget_destination_value();
