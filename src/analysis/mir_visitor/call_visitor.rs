@@ -466,6 +466,15 @@ where
         }
     }
 
+    fn unique_predecessor(&self, bb: mir::BasicBlock) -> Option<mir::BasicBlock> {
+        let predecessors = &self.block_visitor.mir.basic_blocks.predecessors()[bb];
+        if predecessors.len() == 1 {
+            Some(predecessors[0])
+        } else {
+            None
+        }
+    }
+
     fn emit_call_boundary_diagnostic(&mut self, api_name: &str, reason: &str) {
         self.record_call_boundary();
         self.forget_destination_value();
