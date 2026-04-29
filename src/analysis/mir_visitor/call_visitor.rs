@@ -583,6 +583,15 @@ where
         }
     }
 
+    fn condition_left_operand<'a>(
+        condition: &'a Rc<SymbolicValue>,
+    ) -> Option<&'a Rc<SymbolicValue>> {
+        match &condition.expression {
+            Expression::LessThan { left, .. } | Expression::LessOrEqual { left, .. } => Some(left),
+            _ => None,
+        }
+    }
+
     fn emit_call_boundary_diagnostic(&mut self, api_name: &str, reason: &str) {
         self.record_call_boundary();
         self.forget_destination_value();
