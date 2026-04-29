@@ -497,6 +497,28 @@ where
         }
     }
 
+    fn normalized_symbolic_value(&self, value: &Rc<SymbolicValue>) -> Rc<SymbolicValue> {
+        let mut current = value.clone();
+        let mut depth = 0;
+        while depth < 8 {
+            let Some(path) = Self::path_from_symbolic_value(&current) else {
+                break;
+            };
+            let Some(place) = self.local_place_for_path(&path) else {
+                break;
+            };
+            let Some(next) = self.block_visitor.body_visitor.place_to_abstract_value.get(&place) else {
+                break;
+            };
+            if **next == *current {
+                break;
+            }
+            current = next.clone();
+            depth += 1;
+        }
+        current
+    }
+
     fn straight_line_predecessor_chain(
         &self,
         bb: mir::BasicBlock,
