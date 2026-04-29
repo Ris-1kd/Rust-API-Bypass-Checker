@@ -1418,7 +1418,11 @@ where
             },
             1,
         );
-        let check_result_b = {
+        let check_result_b = if self
+            .dominating_bounds_prove_index(self.block_visitor.current_block, index_b_val)
+        {
+            CheckerResult::Safe
+        } else {
             let assert_checker = AssertionChecker::new(body_visitor);
             assert_checker.check_assert_condition(index_b_safe_cond, true, &state)
         };
