@@ -541,16 +541,16 @@ where
 
     fn dominating_assert_conditions(&mut self, bb: mir::BasicBlock) -> Vec<Rc<SymbolicValue>> {
         let mut conditions = Vec::new();
-        for pred in self.straight_line_predecessor_chain(bb, 8) {
+        for (pred, target) in self.straight_line_predecessor_edges(bb, 8) {
             let terminator = self.block_visitor.mir[pred].terminator();
             if let TerminatorKind::Assert {
                 cond,
                 expected,
-                target,
+                target: assert_target,
                 ..
             } = &terminator.kind
             {
-                if *target == bb {
+                if *assert_target == target {
                     conditions.push(self.symbolic_assert_condition(cond, *expected));
                 }
             }
