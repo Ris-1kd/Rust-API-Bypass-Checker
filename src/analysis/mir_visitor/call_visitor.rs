@@ -25,6 +25,7 @@ use crate::checker::assertion_checker::{AssertionChecker, CheckerResult};
 use crate::checker::checker_trait::CheckerTrait;
 use rustc_hir::Mutability;
 use rustc_hir::def_id::DefId;
+use rustc_index::Idx;
 // use rustc_middle::mir;
 // use rustc_middle::ty::subst::GenericArgsRef;
 // use rustc_middle::ty::{Ty, TyKind};
