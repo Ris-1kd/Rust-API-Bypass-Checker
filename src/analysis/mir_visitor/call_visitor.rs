@@ -528,9 +528,15 @@ where
                 .place_to_abstract_value
                 .get(&place)
                 .cloned()
-                .unwrap_or_else(|| self.block_visitor.visit_operand(cond))
+                .unwrap_or_else(|| {
+                    let path = self.block_visitor.get_path_for_place(&place);
+                    self.block_visitor.body_visitor.lookup_path_and_refine_result(
+                        path,
+                        self.block_visitor.body_visitor.context.tcx.types.bool,
+                    )
+                })
         } else {
-            self.block_visitor.visit_operand(cond)
+            symbolic_value::TOP.into()
         };
         if expected {
             cond_value
