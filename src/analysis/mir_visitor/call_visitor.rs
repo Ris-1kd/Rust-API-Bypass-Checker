@@ -20,6 +20,7 @@ use crate::analysis::numerical::apron_domain::{
     ApronAbstractDomain, ApronDomainType, GetManagerTrait,
 };
 use crate::analysis::numerical::interval::{Bound, Interval};
+use crate::analysis::numerical::linear_constraint::LinearConstraintSystem;
 use crate::checker::assertion_checker::{AssertionChecker, CheckerResult};
 use crate::checker::checker_trait::CheckerTrait;
 use rustc_hir::Mutability;
@@ -28,9 +29,10 @@ use rustc_hir::def_id::DefId;
 // use rustc_middle::ty::subst::GenericArgsRef;
 // use rustc_middle::ty::{Ty, TyKind};
 use rustc_middle::mir;
+use rustc_middle::mir::TerminatorKind;
 use rustc_middle::ty::{GenericArgsRef, Ty, TyKind};
 use rustc_span::source_map::Spanned;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter, Result};
 use std::rc::Rc;
 
