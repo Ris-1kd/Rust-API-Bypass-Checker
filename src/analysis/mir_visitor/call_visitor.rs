@@ -487,6 +487,16 @@ where
         (local.index() < self.block_visitor.mir.local_decls.len()).then(|| local.into())
     }
 
+    fn path_from_symbolic_value(value: &Rc<SymbolicValue>) -> Option<Rc<Path>> {
+        match &value.expression {
+            Expression::Numerical(path)
+            | Expression::Reference(path)
+            | Expression::Variable { path, .. }
+            | Expression::Widen { path, .. } => Some(path.clone()),
+            _ => None,
+        }
+    }
+
     fn straight_line_predecessor_chain(
         &self,
         bb: mir::BasicBlock,
