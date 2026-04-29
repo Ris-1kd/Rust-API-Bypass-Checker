@@ -637,11 +637,13 @@ where
     }
 
     fn condition_matches_index(
+        &self,
         condition: &Rc<SymbolicValue>,
         index: &Rc<SymbolicValue>,
     ) -> bool {
+        let normalized_index = self.normalized_symbolic_value(index);
         Self::condition_left_operand(condition)
-            .map(|left| **left == **index)
+            .map(|left| self.normalized_symbolic_value(left) == normalized_index)
             .unwrap_or(false)
     }
 
@@ -652,7 +654,7 @@ where
     ) -> bool {
         self.dominating_assert_conditions(bb)
             .into_iter()
-            .any(|condition| Self::condition_matches_index(&condition, index))
+            .any(|condition| self.condition_matches_index(&condition, index))
     }
 
     fn emit_call_boundary_diagnostic(&mut self, api_name: &str, reason: &str) {
