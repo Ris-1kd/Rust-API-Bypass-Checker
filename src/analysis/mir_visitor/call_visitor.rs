@@ -567,6 +567,16 @@ where
         }
     }
 
+    fn enrich_state_with_dominating_asserts(
+        &mut self,
+        bb: mir::BasicBlock,
+        state: &mut AbstractDomain<DomainType>,
+    ) {
+        for condition in self.dominating_assert_conditions(bb) {
+            Self::add_symbolic_condition_to_state(state, condition);
+        }
+    }
+
     fn emit_call_boundary_diagnostic(&mut self, api_name: &str, reason: &str) {
         self.record_call_boundary();
         self.forget_destination_value();
