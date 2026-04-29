@@ -436,7 +436,19 @@ where
     }
 
     fn is_boolean_function_trait_wrapper(&mut self) -> bool {
-        if self
+        let destination_is_bool = matches!(
+            self.block_visitor
+                .body_visitor
+                .type_visitor
+                .get_rustc_place_type(
+                    &self.destination,
+                    self.block_visitor.body_visitor.current_span,
+                )
+                .kind(),
+            TyKind::Bool
+        );
+        if !destination_is_bool
+            && self
             .block_visitor
             .body_visitor
             .type_visitor
@@ -448,13 +460,21 @@ where
         {
             return false;
         }
+        let function_name = self
+            .callee_func_ref
+            .as_ref()
+            .map(|func_ref| func_ref.function_name.as_str())
+            .unwrap_or("");
         let def_path = self
             .block_visitor
             .body_visitor
             .context
             .tcx
             .def_path_str(self.callee_def_id);
-        def_path.contains("::FnMut::call_mut")
+        function_name.contains("FnMut.call_mut")
+            || function_name.contains("Fn.call")
+            || function_name.contains("FnOnce.call_once")
+            || def_path.contains("::FnMut::call_mut")
             || def_path.contains("::Fn::call")
             || def_path.contains("::FnOnce::call_once")
     }
@@ -540,27 +560,6 @@ where
             depth += 1;
         }
         current
-    }
-
-    fn straight_line_predecessor_chain(
-        &self,
-        bb: mir::BasicBlock,
-        limit: usize,
-    ) -> Vec<mir::BasicBlock> {
-        let mut chain = Vec::new();
-        let mut cursor = bb;
-        let mut seen = HashSet::new();
-        while chain.len() < limit {
-            let Some(pred) = self.unique_predecessor(cursor) else {
-                break;
-            };
-            if !seen.insert(pred) {
-                break;
-            }
-            chain.push(pred);
-            cursor = pred;
-        }
-        chain
     }
 
     fn straight_line_predecessor_edges(
