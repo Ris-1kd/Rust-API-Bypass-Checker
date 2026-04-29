@@ -1382,6 +1382,10 @@ where
         assert!(self.actual_args.len() == 3);
         let mut state = self.block_visitor.state().clone();
         self.enrich_state_with_dominating_asserts(self.block_visitor.current_block, &mut state);
+        let index_a_already_proved = self
+            .dominating_bounds_prove_index(self.block_visitor.current_block, &self.actual_args[1].1);
+        let index_b_already_proved = self
+            .dominating_bounds_prove_index(self.block_visitor.current_block, &self.actual_args[2].1);
         let body_visitor = &mut self.block_visitor.body_visitor;
 
         let array = &self.actual_args[0].0;
@@ -1403,9 +1407,7 @@ where
             },
             1,
         );
-        let check_result_a = if self
-            .dominating_bounds_prove_index(self.block_visitor.current_block, index_a_val)
-        {
+        let check_result_a = if index_a_already_proved {
             CheckerResult::Safe
         } else {
             let assert_checker = AssertionChecker::new(body_visitor);
@@ -1418,9 +1420,7 @@ where
             },
             1,
         );
-        let check_result_b = if self
-            .dominating_bounds_prove_index(self.block_visitor.current_block, index_b_val)
-        {
+        let check_result_b = if index_b_already_proved {
             CheckerResult::Safe
         } else {
             let assert_checker = AssertionChecker::new(body_visitor);
