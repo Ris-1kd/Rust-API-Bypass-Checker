@@ -496,6 +496,27 @@ where
         chain
     }
 
+    fn straight_line_predecessor_edges(
+        &self,
+        bb: mir::BasicBlock,
+        limit: usize,
+    ) -> Vec<(mir::BasicBlock, mir::BasicBlock)> {
+        let mut edges = Vec::new();
+        let mut cursor = bb;
+        let mut seen = HashSet::new();
+        while edges.len() < limit {
+            let Some(pred) = self.unique_predecessor(cursor) else {
+                break;
+            };
+            if !seen.insert((pred, cursor)) {
+                break;
+            }
+            edges.push((pred, cursor));
+            cursor = pred;
+        }
+        edges
+    }
+
     fn symbolic_assert_condition(
         &mut self,
         cond: &mir::Operand<'tcx>,
