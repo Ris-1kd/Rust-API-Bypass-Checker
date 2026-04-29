@@ -91,7 +91,7 @@ $ ./target/debug/api-bypass <file> --entry_def_id_index <defid>
 - `tests/get/`: Local slice bounds-check scenarios
 - `tests/split_at/`: Local split-index reasoning scenarios
 - `tests/swap/`: Local two-index bounds reasoning scenarios
-- `case-study/`: A larger MIR case used to stress-test the reduced `swap` support path
+- `case-study/`: A larger MIR case used to stress-test the reduced `swap` support path under local callback-boundary downgrades
 
 ## License
 
