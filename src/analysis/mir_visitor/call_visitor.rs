@@ -558,6 +558,15 @@ where
         conditions
     }
 
+    fn add_symbolic_condition_to_state(
+        state: &mut AbstractDomain<DomainType>,
+        condition: Rc<SymbolicValue>,
+    ) {
+        if let Ok(system) = LinearConstraintSystem::try_from(condition) {
+            state.numerical_domain.add_constraints(system);
+        }
+    }
+
     fn emit_call_boundary_diagnostic(&mut self, api_name: &str, reason: &str) {
         self.record_call_boundary();
         self.forget_destination_value();
