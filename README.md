@@ -33,6 +33,7 @@ The analyzer is intentionally narrow.
 - The active numerical domain is `interval`.
 - The current reasoning is intraprocedural in spirit: default descent into ordinary callees is disabled.
 - Special handling is limited to a small whitelist of local checked/unchecked APIs, such as `get`, `split_at`, `swap`, and `checked_add`.
+- A tiny micro-wrapper exception set suppresses selected boolean function-trait shims without restoring general interprocedural descent.
 - Calls outside this fragment are downgraded to local unknowns at the call boundary.
 
 ## Result Semantics
