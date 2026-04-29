@@ -592,6 +592,15 @@ where
         }
     }
 
+    fn condition_matches_index(
+        condition: &Rc<SymbolicValue>,
+        index: &Rc<SymbolicValue>,
+    ) -> bool {
+        Self::condition_left_operand(condition)
+            .map(|left| **left == **index)
+            .unwrap_or(false)
+    }
+
     fn emit_call_boundary_diagnostic(&mut self, api_name: &str, reason: &str) {
         self.record_call_boundary();
         self.forget_destination_value();
