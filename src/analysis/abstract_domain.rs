@@ -53,11 +53,10 @@ where
     }
 
     pub fn is_top(&self) -> bool {
-        self.numerical_domain.is_top()
+        self.numerical_domain.is_top() && self.nullness_domain.is_empty()
     }
 
     pub fn leq(&self, other: &Self) -> bool {
-        // TODO: consider symbolic domain
         self.numerical_domain.leq(&other.numerical_domain)
     }
 
