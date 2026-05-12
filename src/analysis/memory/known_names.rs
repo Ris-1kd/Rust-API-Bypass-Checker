@@ -302,6 +302,7 @@ impl KnownNamesCache {
                 .map(|n| match n.as_str() {
                     "mut_ptr" => get_known_name_for_ptr_mut_ptr_namespace(def_path_data_iter),
                     "const_ptr" => get_known_name_for_ptr_const_ptr_namespace(def_path_data_iter),
+                    "non_null" => get_known_name_for_ptr_non_null_namespace(def_path_data_iter),
                     _ => KnownNames::None,
                 })
                 .unwrap_or(KnownNames::None)

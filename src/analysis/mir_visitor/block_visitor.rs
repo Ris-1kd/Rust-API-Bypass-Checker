@@ -1863,6 +1863,19 @@ where
         ty: rustc_middle::ty::Ty<'tcx>,
     ) {
         let operand_val = self.visit_operand(operand);
+        let pointer_cast_result = |operand_val: Rc<SymbolicValue>| {
+            if operand_val.expression.infer_type() == ExpressionType::Reference {
+                operand_val
+            } else {
+                SymbolicValue::make_from(
+                    Expression::Cast {
+                        operand: operand_val.clone(),
+                        target_type: ExpressionType::Reference,
+                    },
+                    operand_val.expression_size.saturating_add(1),
+                )
+            }
+        };
         match cast_kind {
             // TODO: do we need to check overflow while casting?
             mir::CastKind::Transmute 
