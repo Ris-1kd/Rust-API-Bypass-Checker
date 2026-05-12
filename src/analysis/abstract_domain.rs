@@ -118,6 +118,7 @@ where
 
     pub fn remove(&mut self, path: &Rc<Path>) {
         self.numerical_domain.forget(path);
+        self.nullness_domain.forget(path);
     }
 
     pub fn forget_paths_rooted_by(&mut self, root: &Rc<Path>) {
@@ -134,6 +135,7 @@ where
     pub fn rename(&mut self, old_path: &Rc<Path>, new_path: &Rc<Path>) {
         debug!("Renaming {:?} to {:?}", old_path, new_path);
         self.numerical_domain.rename(old_path, new_path);
+        self.nullness_domain.rename(old_path, new_path);
     }
 
     pub fn duplicate(&mut self, old_path: &Rc<Path>, new_path: &Rc<Path>) {
