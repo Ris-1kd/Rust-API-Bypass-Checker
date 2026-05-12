@@ -284,6 +284,7 @@ where
         let numerical = self.numerical_domain.join(&other.numerical_domain);
         Self {
             numerical_domain: numerical,
+            nullness_domain: self.nullness_domain.join(&other.nullness_domain),
             exit_conditions: HashMap::new(),
         }
     }
@@ -293,6 +294,7 @@ where
         let numerical = self.numerical_domain.meet(&other.numerical_domain);
         Self {
             numerical_domain: numerical,
+            nullness_domain: self.nullness_domain.meet(&other.nullness_domain),
             exit_conditions: HashMap::new(),
         }
     }
