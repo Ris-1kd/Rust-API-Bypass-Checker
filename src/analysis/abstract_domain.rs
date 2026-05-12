@@ -209,8 +209,12 @@ where
 
         if value.is_bottom() || value.is_top() {
             self.numerical_domain.forget(&path);
+            self.nullness_domain.forget(&path);
             return;
         }
+
+        let nullness = self.infer_reference_nullness(&value);
+        self.update_nullness_at(&path, nullness);
 
         match &value.expression {
             Expression::Numerical(rpath) => {
