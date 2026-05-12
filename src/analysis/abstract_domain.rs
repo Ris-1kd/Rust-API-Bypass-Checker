@@ -140,6 +140,41 @@ where
 
     pub fn duplicate(&mut self, old_path: &Rc<Path>, new_path: &Rc<Path>) {
         self.numerical_domain.duplicate(old_path, new_path);
+        self.nullness_domain.duplicate(old_path, new_path);
+    }
+
+    pub fn get_nullness(&self, path: &Rc<Path>) -> Option<PointerNullness> {
+        self.nullness_domain.get(path)
+    }
+
+    fn update_nullness_at(&mut self, path: &Rc<Path>, value: Option<PointerNullness>) {
+        if let Some(nullness) = value {
+            self.nullness_domain.set(path.clone(), nullness);
+        } else {
+            self.nullness_domain.forget(path);
+        }
+    }
+
+    fn infer_reference_nullness(&self, value: &Rc<SymbolicValue>) -> Option<PointerNullness> {
+        match &value.expression {
+            Expression::Reference(..) => Some(PointerNullness::NonNull),
+            Expression::Variable { path, var_type } if *var_type == crate::analysis::memory::expression::ExpressionType::Reference => {
+                self.nullness_domain.get(path)
+            }
+            Expression::Cast { operand, target_type }
+                if *target_type == crate::analysis::memory::expression::ExpressionType::Reference =>
+            {
+                if operand.expression.is_zero() {
+                    Some(PointerNullness::Null)
+                } else {
+                    self.infer_reference_nullness(operand)
+                }
+            }
+            Expression::CompileTimeConstant(ConstantValue::Function(..)) => {
+                Some(PointerNullness::NonNull)
+            }
+            _ => None,
+        }
     }
 
     /// Returns a reference to the value associated with the given path, if there is one.
@@ -155,6 +190,14 @@ where
                 let e = Expression::Numerical(path.clone());
                 Some(SymbolicValue::make_from(e, 1))
             }
+        } else if self.nullness_domain.contains(path) {
+            Some(SymbolicValue::make_from(
+                Expression::Variable {
+                    path: path.clone(),
+                    var_type: crate::analysis::memory::expression::ExpressionType::Reference,
+                },
+                1,
+            ))
         } else {
             None
         }
