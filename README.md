@@ -1,6 +1,6 @@
 # Rust API Bypass Checker
 
-A conservative MIR-based checker for a restricted set of Rust safe/unsafe API counterparts. The current implementation focuses on local numerical conditions under which specific unchecked calls may be safe, while explicitly downgrading unsupported calls to unknown and keeping only a tiny wrapper-like exception set at call boundaries.
+A conservative MIR-based checker for a restricted set of Rust safe/unsafe API counterparts. The current implementation focuses on local numerical and pointer-nullness conditions under which specific unchecked calls may be safe, while explicitly downgrading unsupported calls to unknown and keeping only a tiny wrapper-like exception set at call boundaries.
 
 ## Overview
 
