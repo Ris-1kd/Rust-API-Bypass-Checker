@@ -323,5 +323,6 @@ where
 
     pub fn subset(&self, other: &Self) -> bool {
         self.numerical_domain.leq(&other.numerical_domain)
+            && self.nullness_domain.leq(&other.nullness_domain)
     }
 }

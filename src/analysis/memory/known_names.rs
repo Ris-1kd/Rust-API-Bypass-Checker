@@ -34,6 +34,9 @@ pub enum KnownNames {
 
     VecFromRawParts,
 
+    StdPtrNonNullNew,
+
+    StdPtrConstPtrAsRef,
     StdPtrConstPtrCast,
     StdPtrConstPtrAdd,
     StdPtrConstPtrSub,
