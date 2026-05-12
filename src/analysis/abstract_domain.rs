@@ -303,6 +303,7 @@ where
         let numerical = self.numerical_domain.widening_with(&other.numerical_domain);
         Self {
             numerical_domain: numerical,
+            nullness_domain: self.nullness_domain.widening_with(&other.nullness_domain),
             exit_conditions: HashMap::new(),
         }
     }
@@ -315,6 +316,7 @@ where
 
         Self {
             numerical_domain: numerical,
+            nullness_domain: self.nullness_domain.narrowing_with(&other.nullness_domain),
             exit_conditions: HashMap::new(),
         }
     }
