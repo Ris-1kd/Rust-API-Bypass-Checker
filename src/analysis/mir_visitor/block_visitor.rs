@@ -1885,7 +1885,12 @@ where
             | mir::CastKind::IntToFloat
             | mir::CastKind::FnPtrToPtr
             | mir::CastKind::PtrToPtr => {
-                let result = operand_val.cast(ExpressionType::from(ty.kind()));
+                let target_type = ExpressionType::from(ty.kind());
+                let result = if target_type == ExpressionType::Reference {
+                    pointer_cast_result(operand_val)
+                } else {
+                    operand_val.cast(target_type)
+                };
                 self.body_visitor.state.update_value_at(path, result);
             }
             // Leave pointer unchanged
@@ -1902,7 +1907,13 @@ where
             // Cast into a dyn* object.
             // | mir::CastKind::DynStar 
             => {
-                self.visit_use(path, operand);
+                let target_type = ExpressionType::from(ty.kind());
+                if target_type == ExpressionType::Reference {
+                    let result = pointer_cast_result(operand_val);
+                    self.body_visitor.state.update_value_at(path, result);
+                } else {
+                    self.visit_use(path, operand);
+                }
             }
         }
     }
