@@ -31,4 +31,8 @@ pre_result/
 case-study/
 target-nightly-2025-11
 *.log
+*.rlib
+nullness_bad
 rust/
+reference/
+.codex
