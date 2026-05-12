@@ -10,6 +10,7 @@ This tool analyzes MIR-level control-flow and integer constraints around a small
 - `slice.split_at(mid)` → `slice.split_at_unchecked(mid)` when split bounds are proven safe
 - `slice.swap(a, b)` under locally provable in-bounds indices
 - `integer.checked_add(other)` when overflow is provably impossible
+- `ptr.as_ref()`, `ptr.as_mut()`, and `NonNull::new(ptr)` when pointer nullness is locally known
 
 ## Example
 
