@@ -50,6 +50,8 @@ pub enum KnownNames {
     StdPtrConstPtrWrappingByteAdd,
     StdPtrConstPtrWrappingByteSub,
     StdPtrConstPtrWrappingByteOffset,
+    StdPtrMutPtrAsRef,
+    StdPtrMutPtrAsMut,
     StdPtrMutPtrCast,
     StdPtrMutPtrAdd,
     StdPtrMutPtrSub,
@@ -237,6 +239,8 @@ impl KnownNamesCache {
             get_path_data_elem_name(def_path_data_iter.next())
                 .map(|n| match n.as_str() {
                     // "write_bytes" => KnownNames::StdIntrinsicsWriteBytes,
+                    "as_ref" => KnownNames::StdPtrMutPtrAsRef,
+                    "as_mut" => KnownNames::StdPtrMutPtrAsMut,
                     "offset_from" => KnownNames::StdPtrConstPtrOffsetFrom,
                     "byte_offset_from" => KnownNames::StdPtrMutPtrByteOffsetFrom,
                     "cast" => KnownNames::StdPtrMutPtrCast,
