@@ -12,6 +12,7 @@ use crate::analysis::diagnostics::DiagnosticCause;
 use crate::analysis::memory::constant_value::{ConstantValue, FunctionReference};
 use crate::analysis::memory::expression::{Expression, ExpressionType};
 use crate::analysis::memory::known_names::KnownNames;
+use crate::analysis::memory::nullness_domain::PointerNullness;
 use crate::analysis::memory::path::{Path, PathEnum, PathRefinement};
 use crate::analysis::memory::symbolic_value::{self, SymbolicValue, SymbolicValueTrait};
 use crate::analysis::mir_visitor::block_visitor::BlockVisitor;

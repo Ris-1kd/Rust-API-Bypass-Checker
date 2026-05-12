@@ -266,6 +266,24 @@ where
             return value;
         }
 
+        if result_type == ExpressionType::Reference {
+            if let PathEnum::Alias { value } = &path.value {
+                match value.expression.infer_type() {
+                    ExpressionType::Reference => return value.clone(),
+                    _ if value.expression.is_zero() => {
+                        return SymbolicValue::make_from(
+                            Expression::Cast {
+                                operand: value.clone(),
+                                target_type: ExpressionType::Reference,
+                            },
+                            value.expression_size.saturating_add(1),
+                        );
+                    }
+                    _ => {}
+                }
+            }
+        }
+
         if result_type.is_integer() {
             let result = SymbolicValue::make_from(
                 Expression::Variable {
