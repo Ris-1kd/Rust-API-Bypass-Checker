@@ -34,7 +34,7 @@ The analyzer is intentionally narrow.
 - The abstract state combines interval-style numerical facts with local pointer-nullness facts.
 - The active numerical domain is `interval`.
 - The current reasoning is intraprocedural in spirit: default descent into ordinary callees is disabled.
-- Special handling is limited to a small whitelist of local checked/unchecked APIs, such as `get`, `split_at`, `swap`, and `checked_add`.
+- Special handling is limited to a small whitelist of local checked/unchecked APIs, such as `get`, `split_at`, `swap`, `checked_add`, and pointer nullness checks.
 - A tiny micro-wrapper exception set suppresses selected boolean function-trait shims without restoring general interprocedural descent.
 - Calls outside this fragment are downgraded to local unknowns at the call boundary.
 
