@@ -58,10 +58,11 @@ where
 
     pub fn leq(&self, other: &Self) -> bool {
         self.numerical_domain.leq(&other.numerical_domain)
+            && self.nullness_domain.leq(&other.nullness_domain)
     }
 
     pub fn is_empty(&self) -> bool {
-        self.numerical_domain.is_top()
+        self.numerical_domain.is_top() && self.nullness_domain.is_empty()
     }
 
     pub fn default() -> Self {
