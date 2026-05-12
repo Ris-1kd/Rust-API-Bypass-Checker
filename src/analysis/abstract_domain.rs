@@ -22,6 +22,8 @@ where
 {
     // Only stores the values of paths that are integers
     pub numerical_domain: ApronAbstractDomain<DomainType>,
+    // Stores must-null / must-non-null facts for pointer-like values
+    pub nullness_domain: NullnessDomain,
     // Stores branch conditions
     pub exit_conditions: HashMap<mir::BasicBlock, Rc<SymbolicValue>>,
 }
@@ -32,7 +34,11 @@ where
     ApronAbstractDomain<DomainType>: GetManagerTrait,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "numerical: {:?}", self.numerical_domain)
+        write!(
+            f,
+            "numerical: {:?}, nullness: {:?}",
+            self.numerical_domain, self.nullness_domain
+        )
     }
 }
 
