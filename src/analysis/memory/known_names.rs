@@ -266,6 +266,7 @@ impl KnownNamesCache {
             get_path_data_elem_name(def_path_data_iter.next())
                 .map(|n| match n.as_str() {
                     // "write_bytes" => KnownNames::StdIntrinsicsWriteBytes,
+                    "as_ref" => KnownNames::StdPtrConstPtrAsRef,
                     "offset_from" => KnownNames::StdPtrConstPtrOffsetFrom,
                     "byte_offset_from" => KnownNames::StdPtrMutPtrByteOffsetFrom,
                     "cast" => KnownNames::StdPtrConstPtrCast,
@@ -281,6 +282,16 @@ impl KnownNamesCache {
                     "wrapping_byte_add" => KnownNames::StdPtrConstPtrWrappingByteAdd,
                     "wrapping_byte_sub" => KnownNames::StdPtrConstPtrWrappingByteSub,
                     "wrapping_byte_offset" => KnownNames::StdPtrConstPtrWrappingByteOffset,
+                    _ => KnownNames::None,
+                })
+                .unwrap_or(KnownNames::None)
+        };
+
+        let get_known_name_for_ptr_non_null_namespace = |mut def_path_data_iter: Iter<'_>| {
+            def_path_data_iter.next();
+            get_path_data_elem_name(def_path_data_iter.next())
+                .map(|n| match n.as_str() {
+                    "new" => KnownNames::StdPtrNonNullNew,
                     _ => KnownNames::None,
                 })
                 .unwrap_or(KnownNames::None)
