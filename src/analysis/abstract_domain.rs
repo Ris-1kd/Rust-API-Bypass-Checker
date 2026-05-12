@@ -1,5 +1,6 @@
 use crate::analysis::memory::constant_value::ConstantValue;
 use crate::analysis::memory::expression::Expression;
+use crate::analysis::memory::nullness_domain::{NullnessDomain, PointerNullness};
 use crate::analysis::memory::path::{Path, PathEnum};
 use crate::analysis::memory::symbolic_value::{SymbolicValue, SymbolicValueTrait};
 use crate::analysis::numerical::apron_domain::{
@@ -8,7 +9,7 @@ use crate::analysis::numerical::apron_domain::{
 use crate::analysis::numerical::lattice::LatticeTrait;
 use rug::Integer;
 use rustc_middle::mir;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::fmt;
 use std::rc::Rc;
