@@ -31,7 +31,7 @@ Ordinary helper calls remain local unknowns by default, except for a tiny wrappe
 
 The analyzer is intentionally narrow.
 
-- The abstract state is numerical-only.
+- The abstract state combines interval-style numerical facts with local pointer-nullness facts.
 - The active numerical domain is `interval`.
 - The current reasoning is intraprocedural in spirit: default descent into ordinary callees is disabled.
 - Special handling is limited to a small whitelist of local checked/unchecked APIs, such as `get`, `split_at`, `swap`, and `checked_add`.
