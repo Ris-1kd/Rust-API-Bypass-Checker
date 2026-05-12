@@ -841,6 +841,36 @@ where
                 }
                 return true;
             }
+            KnownNames::StdPtrConstPtrAsRef | KnownNames::StdPtrMutPtrAsRef => {
+                if self.supports_local_nullness_check() {
+                    self.record_supported_special_call();
+                    return self.handle_ptr_as_ref_checked();
+                }
+                return self.emit_unsupported_special_call(
+                    "pointer::as_ref",
+                    "only local nullness checks over pointer-like receivers are supported",
+                );
+            }
+            KnownNames::StdPtrMutPtrAsMut => {
+                if self.supports_local_nullness_check() {
+                    self.record_supported_special_call();
+                    return self.handle_ptr_as_mut_checked();
+                }
+                return self.emit_unsupported_special_call(
+                    "pointer::as_mut",
+                    "only local nullness checks over pointer-like receivers are supported",
+                );
+            }
+            KnownNames::StdPtrNonNullNew => {
+                if self.supports_local_nullness_check() {
+                    self.record_supported_special_call();
+                    return self.handle_non_null_new_checked();
+                }
+                return self.emit_unsupported_special_call(
+                    "NonNull::new",
+                    "only local nullness checks over pointer-like receivers are supported",
+                );
+            }
             KnownNames::StdPtrMutPtrOffset
             | KnownNames::StdPtrConstPtrOffset
             | KnownNames::StdPtrMutPtrAdd
@@ -1600,6 +1630,59 @@ where
 
         // We do not model the post-swap contents precisely; forget sequence-derived facts.
         body_visitor.state.forget_paths_rooted_by(array);
+        true
+    }
+
+    fn emit_nullness_diagnostic(
+        &mut self,
+        check_result: CheckerResult,
+        api_name: &str,
+        null_message: &str,
+    ) {
+        let body_visitor = &mut self.block_visitor.body_visitor;
+        match check_result {
+            CheckerResult::Safe => {}
+            CheckerResult::Unsafe => {
+                let error = body_visitor.context.session.dcx().struct_span_warn(
+                    body_visitor.current_span,
+                    format!("[Bypasser] Provably error: {} in {}()", null_message, api_name),
+                );
+                body_visitor.emit_diagnostic(error, false, DiagnosticCause::Memory);
+            }
+            CheckerResult::Warning => {
+                let warning = body_visitor.context.session.dcx().struct_span_warn(
+                    body_visitor.current_span,
+                    format!(
+                        "[Bypasser] Possible error: {} may be violated in {}()",
+                        null_message, api_name
+                    ),
+                );
+                body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Memory);
+            }
+        }
+    }
+
+    fn handle_ptr_as_ref_checked(&mut self) -> bool {
+        assert!(self.actual_args.len() == 1);
+        let check_result = self.check_pointer_argument_non_null(0);
+        self.emit_nullness_diagnostic(check_result, "pointer::as_ref", "pointer nullness");
+        self.forget_destination_value();
+        true
+    }
+
+    fn handle_ptr_as_mut_checked(&mut self) -> bool {
+        assert!(self.actual_args.len() == 1);
+        let check_result = self.check_pointer_argument_non_null(0);
+        self.emit_nullness_diagnostic(check_result, "pointer::as_mut", "pointer nullness");
+        self.forget_destination_value();
+        true
+    }
+
+    fn handle_non_null_new_checked(&mut self) -> bool {
+        assert!(self.actual_args.len() == 1);
+        let check_result = self.check_pointer_argument_non_null(0);
+        self.emit_nullness_diagnostic(check_result, "NonNull::new", "pointer nullness");
+        self.forget_destination_value();
         true
     }
 
