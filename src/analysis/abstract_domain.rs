@@ -68,12 +68,19 @@ where
     pub fn default() -> Self {
         Self {
             numerical_domain: ApronAbstractDomain::default(),
+            nullness_domain: NullnessDomain::default(),
             exit_conditions: HashMap::new(),
         }
     }
 
     pub fn get_paths_iter(&self) -> Vec<Rc<Path>> {
-        self.numerical_domain.get_paths_iter()
+        let paths: HashSet<Rc<Path>> = self
+            .numerical_domain
+            .get_paths_iter()
+            .into_iter()
+            .chain(self.nullness_domain.get_paths_iter())
+            .collect();
+        paths.into_iter().collect()
     }
 
     /// Drop all local/parameter variables that belong to callee call frames created with a fresh
