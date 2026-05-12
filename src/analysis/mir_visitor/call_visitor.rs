@@ -436,6 +436,18 @@ where
         )
     }
 
+    fn is_supported_pointer_like_type(ty: Ty<'tcx>) -> bool {
+        matches!(ty.kind(), TyKind::RawPtr(..) | TyKind::Ref(..))
+    }
+
+    fn supports_local_nullness_check(&self) -> bool {
+        self.actual_argument_types
+            .first()
+            .copied()
+            .map(Self::is_supported_pointer_like_type)
+            .unwrap_or(false)
+    }
+
     fn is_boolean_function_trait_wrapper(&mut self) -> bool {
         let destination_is_bool = matches!(
             self.block_visitor
@@ -561,6 +573,50 @@ where
             depth += 1;
         }
         current
+    }
+
+    fn pointer_nullness_of(&self, value: &Rc<SymbolicValue>) -> Option<PointerNullness> {
+        let normalized = self.normalized_symbolic_value(value);
+        match &normalized.expression {
+            Expression::Reference(..) => Some(PointerNullness::NonNull),
+            Expression::Variable { path, var_type } if *var_type == ExpressionType::Reference => {
+                self.block_visitor.state().get_nullness(path)
+            }
+            Expression::Cast {
+                operand,
+                target_type,
+            } if *target_type == ExpressionType::Reference => {
+                if operand.expression.is_zero() {
+                    Some(PointerNullness::Null)
+                } else {
+                    self.pointer_nullness_of(operand)
+                }
+            }
+            Expression::CompileTimeConstant(ConstantValue::Function(..)) => {
+                Some(PointerNullness::NonNull)
+            }
+            _ => Self::path_from_symbolic_value(&normalized)
+                .and_then(|path| self.block_visitor.state().get_nullness(&path)),
+        }
+    }
+
+    fn pointer_nullness_of_argument(&self, index: usize) -> Option<PointerNullness> {
+        self.actual_args
+            .get(index)
+            .and_then(|(path, value)| {
+                self.block_visitor
+                    .state()
+                    .get_nullness(path)
+                    .or_else(|| self.pointer_nullness_of(value))
+            })
+    }
+
+    fn check_pointer_argument_non_null(&self, index: usize) -> CheckerResult {
+        match self.pointer_nullness_of_argument(index) {
+            Some(PointerNullness::NonNull) => CheckerResult::Safe,
+            Some(PointerNullness::Null) => CheckerResult::Unsafe,
+            None => CheckerResult::Warning,
+        }
     }
 
     fn straight_line_predecessor_edges(
