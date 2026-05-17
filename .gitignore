@@ -37,3 +37,4 @@ rust/
 reference/
 .codex
 opt-level-get-demo/
+e2e/
