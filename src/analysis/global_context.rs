@@ -167,11 +167,6 @@ impl<'tcx, 'compilation> GlobalContext<'tcx, 'compilation> {
         //     all_entries.values().next().unwrap().def_id
         // };
 
-        if analysis_options.auto_analysis {
-            info!("Auto analysis is currently disabled in numerical-only mode");
-            return None;
-        }
-
         let mut entry_point: Option<DefId> = None;
         if analysis_options.entry_def_id_index != None {
             let index = analysis_options.entry_def_id_index.unwrap();
@@ -280,7 +275,23 @@ impl<'tcx, 'compilation> GlobalContext<'tcx, 'compilation> {
             return None
         }
 
-        let entry_point = entry_point.unwrap();
+        let entry_point = if analysis_options.auto_analysis {
+            let Some(first_entry) = reachable_entries.first() else {
+                error!("No reachable entry point found for auto analysis");
+                return None;
+            };
+            info!(
+                "Auto analysis enabled: {} reachable entry points will be analyzed",
+                reachable_entries.len()
+            );
+            first_entry.def_id
+        } else {
+            let Some(entry_point) = entry_point else {
+                error!("No entry point specified; use --entry_def_id_index or --auto_analysis");
+                return None;
+            };
+            entry_point
+        };
 
         Some(Self {
             tcx,
