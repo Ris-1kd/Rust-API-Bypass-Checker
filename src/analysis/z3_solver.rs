@@ -198,13 +198,15 @@ impl Z3Solver {
         unsafe {
             let sort = z3_sys::Z3_get_sort(self.z3_context, exp);
             let sort_kind = z3_sys::Z3_get_sort_kind(self.z3_context, sort);
-            if sort_kind != z3_sys::SortKind::Bool {
-                let if_cond = z3_sys::Z3_mk_eq(self.z3_context, exp, self.zero);
-                let true_ast = z3_sys::Z3_mk_true(self.z3_context);
-                let false_ast = z3_sys::Z3_mk_false(self.z3_context);
-                self.make_ite_z3_expression(if_cond, false_ast, true_ast)
-            } else {
-                exp
+            match sort_kind {
+                z3_sys::SortKind::Bool => exp,
+                z3_sys::SortKind::Int => {
+                    let if_cond = z3_sys::Z3_mk_eq(self.z3_context, exp, self.zero);
+                    let true_ast = z3_sys::Z3_mk_true(self.z3_context);
+                    let false_ast = z3_sys::Z3_mk_false(self.z3_context);
+                    self.make_ite_z3_expression(if_cond, false_ast, true_ast)
+                }
+                _ => self.fresh_bool(),
             }
         }
     }
@@ -221,8 +223,10 @@ impl Z3Solver {
             Top | Bottom => self.make_constant(&ConstantValue::Top),
 
             And { left, right } => {
-                let left_ast = self.get_symbolic_as_z3_expression(left);
-                let right_ast = self.get_symbolic_as_z3_expression(right);
+                let left_ast =
+                    self.convert_to_bool_sort(self.get_symbolic_as_z3_expression(left));
+                let right_ast =
+                    self.convert_to_bool_sort(self.get_symbolic_as_z3_expression(right));
                 unsafe { z3_sys::Z3_mk_and(self.z3_context, 2, vec![left_ast, right_ast].as_ptr()) }
             }
 
@@ -239,7 +243,9 @@ impl Z3Solver {
             LessThan { left, right } => self.make_comparison(left, right, z3_sys::Z3_mk_lt),
 
             LogicalNot { operand } => {
-                self.make_not_z3_expression(self.get_symbolic_as_z3_expression(operand))
+                self.make_not_z3_expression(
+                    self.convert_to_bool_sort(self.get_symbolic_as_z3_expression(operand)),
+                )
             }
 
             Ne { left, right } => {
@@ -247,26 +253,22 @@ impl Z3Solver {
             }
 
             Mul { left, right } => {
-                let left_ast = self.get_symbolic_as_z3_expression(left);
-                let right_ast = self.get_symbolic_as_z3_expression(right);
-                unsafe { z3_sys::Z3_mk_mul(self.z3_context, 2, vec![left_ast, right_ast].as_ptr())}
+                self.make_int_binary(left, right, z3_sys::Z3_mk_mul)
             }
 
             Add { left, right } => {
-                let left_ast = self.get_symbolic_as_z3_expression(left);
-                let right_ast = self.get_symbolic_as_z3_expression(right);
-                unsafe { z3_sys::Z3_mk_add(self.z3_context, 2, vec![left_ast, right_ast].as_ptr()) }
+                self.make_int_binary(left, right, z3_sys::Z3_mk_add)
             }
 
             Sub { left, right } => {
-                let left_ast = self.get_symbolic_as_z3_expression(left);
-                let right_ast = self.get_symbolic_as_z3_expression(right);
-                unsafe { z3_sys::Z3_mk_sub(self.z3_context, 2, vec![left_ast, right_ast].as_ptr()) }
+                self.make_int_binary(left, right, z3_sys::Z3_mk_sub)
             }
 
             Or { left, right } => {
-                let left_ast = self.get_symbolic_as_z3_expression(left);
-                let right_ast = self.get_symbolic_as_z3_expression(right);
+                let left_ast =
+                    self.convert_to_bool_sort(self.get_symbolic_as_z3_expression(left));
+                let right_ast =
+                    self.convert_to_bool_sort(self.get_symbolic_as_z3_expression(right));
                 unsafe { z3_sys::Z3_mk_or(self.z3_context, 2, vec![left_ast, right_ast].as_ptr()) }
             }
             
@@ -354,7 +356,45 @@ impl Z3Solver {
     ) -> Z3Expression {
         let left = self.get_symbolic_as_z3_expression(lhs);
         let right = self.get_symbolic_as_z3_expression(rhs);
-        unsafe { op(self.z3_context, left, right) }
+        if self.is_int_sort(left) && self.is_int_sort(right) {
+            unsafe { op(self.z3_context, left, right) }
+        } else {
+            self.fresh_bool()
+        }
+    }
+
+    fn make_int_binary(
+        &self,
+        lhs: &Rc<SymbolicValue>,
+        rhs: &Rc<SymbolicValue>,
+        op: unsafe extern "C" fn(
+            ctx: z3_sys::Z3_context,
+            num_args: std::os::raw::c_uint,
+            args: *const Z3Expression,
+        ) -> Z3Expression,
+    ) -> Z3Expression {
+        let left = self.get_symbolic_as_z3_expression(lhs);
+        let right = self.get_symbolic_as_z3_expression(rhs);
+        if self.is_int_sort(left) && self.is_int_sort(right) {
+            unsafe { op(self.z3_context, 2, vec![left, right].as_ptr()) }
+        } else {
+            self.fresh_int()
+        }
+    }
+
+    fn is_int_sort(&self, exp: Z3Expression) -> bool {
+        unsafe {
+            let sort = z3_sys::Z3_get_sort(self.z3_context, exp);
+            z3_sys::Z3_get_sort_kind(self.z3_context, sort) == z3_sys::SortKind::Int
+        }
+    }
+
+    fn fresh_bool(&self) -> Z3Expression {
+        unsafe { z3_sys::Z3_mk_fresh_const(self.z3_context, self.empty_str, self.bool_sort) }
+    }
+
+    fn fresh_int(&self) -> Z3Expression {
+        unsafe { z3_sys::Z3_mk_fresh_const(self.z3_context, self.empty_str, self.int_sort) }
     }
 
     fn set_backtrack_position(&self) {
