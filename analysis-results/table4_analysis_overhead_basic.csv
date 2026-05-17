@@ -1,0 +1,14 @@
+crate,reachable_entries,analysis_time_ms,analysis_time_s,wall_time_s,diagnostics,supported_diagnostics,unsupported_diagnostics,call_boundary_diagnostics,supported_special_calls,unsupported_special_calls,opaque_call_boundaries,notes
+algorithm,66,5922,5.922,22.850,761,123,638,601,117,69,972,"temporary source copy required nightly feature gates for unsigned_is_multiple_of and num_midpoint_signed"
+regex-automata,303,15207,15.207,22.033,4539,297,4242,4124,307,363,7051,
+itertools,25,744,0.744,3.232,127,10,117,107,17,12,140,
+ring,149,2741,2.741,10.106,1027,42,985,969,64,16,1126,
+rand,24,734,0.734,3.466,197,24,173,167,18,7,219,
+bytes,109,891,0.891,1.950,339,34,305,302,34,3,318,
+chrono,153,4553,4.553,7.449,1142,25,1117,1086,50,46,1272,
+regex-syntax,36,1213,1.213,3.998,580,3,577,569,3,10,650,
+rustls,59,7079,7.079,12.960,1067,28,1039,1033,30,6,1259,
+aho-corasick,13,240,0.240,2.432,132,4,128,125,2,5,141,
+smallvec,4,81,0.081,0.819,28,6,22,20,3,3,23,
+slab,13,243,0.243,0.819,58,0,58,35,0,25,44,
+arrayvec,3,41,0.041,1.334,15,2,13,13,1,0,13,
