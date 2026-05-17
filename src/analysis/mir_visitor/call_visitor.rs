@@ -24,6 +24,7 @@ use crate::analysis::numerical::interval::{Bound, Interval};
 use crate::analysis::numerical::linear_constraint::LinearConstraintSystem;
 use crate::checker::assertion_checker::{AssertionChecker, CheckerResult};
 use crate::checker::checker_trait::CheckerTrait;
+use rustc_hir::def::DefKind;
 use rustc_hir::Mutability;
 use rustc_hir::def_id::DefId;
 // use rustc_middle::mir;
@@ -148,6 +149,15 @@ where
             .tcx
             .is_mir_available(self.callee_def_id)
         {
+            let def_kind = self
+                .block_visitor
+                .body_visitor
+                .context
+                .tcx
+                .def_kind(self.callee_def_id);
+            if !matches!(def_kind, DefKind::Fn | DefKind::AssocFn | DefKind::Closure) {
+                return AbstractDomain::default();
+            }
             // Get initial state from caller's state
             // We need to get all the values that may be used in callee's analysis
             // So here we get all the values that represent heap allocations

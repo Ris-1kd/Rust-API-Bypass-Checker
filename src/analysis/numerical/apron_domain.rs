@@ -765,22 +765,42 @@ where
 
     fn merge_var_map(lhs: &mut Self, rhs: &mut Self) -> BTreeMap<Rc<Path>, apron_sys::ap_dim_t> {
         // Merge two `var_map`
-        assert_eq!(lhs.var_map.len(), lhs.get_dims());
-        assert_eq!(rhs.var_map.len(), rhs.get_dims());
+        if lhs.var_map.len() != lhs.get_dims() || rhs.var_map.len() != rhs.get_dims() {
+            lhs.set_to_top();
+            rhs.set_to_top();
+            return BTreeMap::new();
+        }
         let mut vars: Vec<Rc<Path>> = lhs.var_map.keys().cloned().collect();
         for v in rhs.var_map.keys() {
             if !vars.contains(&v) {
                 vars.push(v.clone());
             }
         }
+        if vars.len() < lhs.get_dims() || vars.len() < rhs.get_dims() {
+            lhs.set_to_top();
+            rhs.set_to_top();
+            return BTreeMap::new();
+        }
         lhs.add_dimensions(vars.len() - lhs.get_dims());
         rhs.add_dimensions(vars.len() - rhs.get_dims());
-        assert_eq!(lhs.get_dims(), rhs.get_dims());
+        if lhs.get_dims() != rhs.get_dims() {
+            lhs.set_to_top();
+            rhs.set_to_top();
+            return BTreeMap::new();
+        }
 
         let mut new_var_map: BTreeMap<Rc<Path>, apron_sys::ap_dim_t> = BTreeMap::new();
         for (i, v) in vars.iter().enumerate() {
             new_var_map.insert(v.clone(), i as apron_sys::ap_dim_t);
         }
+
+        let find_dim = |map: &BTreeMap<Rc<Path>, apron_sys::ap_dim_t>,
+                        key: &Rc<Path>|
+         -> Option<apron_sys::ap_dim_t> {
+            map.get(key)
+                .copied()
+                .or_else(|| map.iter().find(|(path, _)| *path == key).map(|(_, dim)| *dim))
+        };
 
         unsafe {
             let perm_x = apron_sys::ap_dimperm_alloc(lhs.get_dims());
@@ -788,7 +808,11 @@ where
             let mut xmap1 = vec![0; lhs.get_dims()];
             let mut xmap2 = vec![0; lhs.get_dims()];
             for (var, &old_index) in &lhs.var_map {
-                let new_index = new_var_map[var];
+                let Some(new_index) = find_dim(&new_var_map, var) else {
+                    lhs.set_to_top();
+                    rhs.set_to_top();
+                    return BTreeMap::new();
+                };
                 *(*perm_x).dim.offset(old_index as isize) = new_index;
                 xmap1[old_index as usize] = 1;
                 xmap2[new_index as usize] = 1;
@@ -808,7 +832,11 @@ where
             let mut ymap1 = vec![0; lhs.get_dims()];
             let mut ymap2 = vec![0; lhs.get_dims()];
             for (var, &old_index) in &rhs.var_map {
-                let new_index = new_var_map[var];
+                let Some(new_index) = find_dim(&new_var_map, var) else {
+                    lhs.set_to_top();
+                    rhs.set_to_top();
+                    return BTreeMap::new();
+                };
                 *(*perm_y).dim.offset(old_index as isize) = new_index;
                 ymap1[old_index as usize] = 1;
                 ymap2[new_index as usize] = 1;
@@ -867,14 +895,19 @@ where
     }
 
     fn get_var_dim_insert(&mut self, var: Rc<Path>) -> apron_sys::ap_dim_t {
-        assert_eq!(self.var_map.len(), self.get_dims());
+        if self.var_map.len() != self.get_dims() {
+            self.set_to_top();
+        }
         if let Some(dim) = self.get_var_dim(&var) {
             dim
         } else {
             let dim = self.var_map.len() as apron_sys::ap_dim_t;
             self.var_map.insert(var.clone(), dim);
             self.add_dimensions(1);
-            assert_eq!(self.var_map.len(), self.get_dims());
+            if self.var_map.len() != self.get_dims() {
+                self.set_to_top();
+                return self.get_var_dim_insert(var);
+            }
             dim
         }
     }

@@ -118,7 +118,43 @@ fn cargo() -> Command {
     Command::new(std::env::var_os("CARGO").unwrap_or_else(|| OsString::from("cargo")))
 }
 
+fn forward_to_rustc() -> ! {
+    let first = std::env::args().nth(1).unwrap_or_else(|| "rustc".to_string());
+    let first_is_rustc = Path::new(&first)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(|file_name| file_name == "rustc")
+        .unwrap_or(false);
+    let mut cmd = if first_is_rustc {
+        let mut cmd = Command::new(first);
+        cmd.args(std::env::args().skip(2));
+        cmd
+    } else {
+        let mut cmd = Command::new("rustc");
+        cmd.args(std::env::args().skip(1));
+        cmd
+    };
+    let status = cmd
+        .status()
+        .expect("could not forward invocation to rustc");
+    std::process::exit(status.code().unwrap_or(-1))
+}
+
 fn main() {
+    if let Some(arg1) = std::env::args().nth(1) {
+        let tool_subcommand_mode = Path::new(&arg1)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(|file_name| matches!(file_name, "api-bypass" | "bypasser" | "mir-checker"))
+            .unwrap_or(false);
+        let rustc_version_query = std::env::args()
+            .skip(1)
+            .any(|arg| matches!(arg.as_str(), "--version" | "-V" | "-vV"));
+        if !tool_subcommand_mode && rustc_version_query {
+            forward_to_rustc();
+        }
+    }
+
     // Check for version and help flags even when invoked through the cargo wrapper.
     if std::env::args().any(|a| a == "--help" || a == "-h") {
         show_help();

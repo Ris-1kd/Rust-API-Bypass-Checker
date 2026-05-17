@@ -9,6 +9,7 @@ use crate::analysis::numerical::apron_domain::{
 };
 use crate::analysis::option::AbstractDomainType;
 use log::info;
+use rustc_hir::def::DefKind;
 use rustc_hir::def_id::DefId;
 use std::cmp::Ordering;
 use std::time::Instant;
@@ -86,16 +87,34 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
         info!("================== Numerical Analysis Starts ==================");
         info!("Abstract Domain Type: {:?}", self.context.analysis_options.domain_type);
         info!("Widening Delay: {}", self.context.analysis_options.widening_delay);
-        info!("Start Analyzing Entry Point Function: {}", self.context.tcx.item_name(self.context.entry_point));
+        let entry_points: Vec<_> = if self.context.analysis_options.auto_analysis {
+            self.context
+                .reachable_entries
+                .iter()
+                .map(|entry| entry.def_id)
+                .collect()
+        } else {
+            vec![self.context.entry_point]
+        };
 
-        // Start analysis with the entry point
-        let def_id = self.context.entry_point;
+        info!(
+            "Start Analyzing {} Entry Point Function(s)",
+            entry_points.len()
+        );
 
-        match self.context.analysis_options.domain_type {
-            AbstractDomainType::Interval => {
-                self.analyze_function(def_id, AbstractDomain::<ApronInterval>::default());
+        for def_id in entry_points {
+            self.context.entry_point = def_id;
+            info!(
+                "Start Analyzing Entry Point Function: {}",
+                self.context.tcx.item_name(def_id)
+            );
+
+            match self.context.analysis_options.domain_type {
+                AbstractDomainType::Interval => {
+                    self.analyze_function(def_id, AbstractDomain::<ApronInterval>::default());
+                }
+                __ => {} // ignored all other numerical domains, only retain the interval.
             }
-            __ => {} // ignored all other numerical domains, only retain the interval.
         }
 
         info!("================== Numerical Analysis Ends ==================");
@@ -143,6 +162,16 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
         DomainType: ApronDomainType,
         ApronAbstractDomain<DomainType>: GetManagerTrait,
     {
+        let def_kind = self.context.tcx.def_kind(def_id);
+        if !matches!(def_kind, DefKind::Fn | DefKind::AssocFn | DefKind::Closure) {
+            info!(
+                "Skip non-function MIR item during analysis: {:?} ({:?})",
+                self.context.tcx.def_path_str(def_id),
+                def_kind
+            );
+            return;
+        }
+
         let func_name = self.context.tcx.item_name(def_id);
         info!(
             "================== Fixed-Point Algorithm Starts To Analyze: {} ==================",
