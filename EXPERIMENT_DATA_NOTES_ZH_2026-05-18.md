@@ -84,18 +84,61 @@ Arti 是语义上最自然的真实调用链之一。它可以说明替换点确
 
 ### ring BigInt Buffer Splitting
 
+背景：
+
+这个候选来自 `ring` 的大整数模幂运算实现。它不是 HKDF 路径，而是
+`ring/src/arithmetic/bigint/exp.rs` 中围绕工作缓冲区进行分区和复用的
+buffer-processing 逻辑。该逻辑的核心不是某个完整密码学算法的吞吐量，而是一个
+真实库内部反复执行的底层数据布局操作：预先分配一段 working buffer，然后按照
+模数长度等布局参数将其切分成多个互不重叠的可变区域，用于保存中间状态和缓存值。
+
 路径：
 
 ```text
-ring bigint exponentiation buffer-processing component
-  -> repeated fixed-layout buffer partitioning
+ring bigint exponentiation implementation
+  -> allocate / receive a working buffer
+  -> split the buffer into table region and state region
+  -> repeatedly partition the state region into disjoint mutable subregions
   -> split_at_mut(m_len)
+```
+
+更具体地说，源代码中存在类似如下的 buffer 分区模式：
+
+```text
+working buffer
+  -> lookup table region + mutable state region
+  -> acc / base_cached / m_cached style state regions
+```
+
+这里列出 `acc`、`base_cached`、`m_cached` 的目的只是帮助理解 workload 的数据流，
+不建议在论文正文中展开过多变量名。正文更适合抽象描述为：
+
+```text
+repeatedly partitioning a pre-allocated working buffer into disjoint mutable
+regions with split_at_mut under statically known layout parameters
 ```
 
 替换点：
 
 - safe：`split_at_mut(m_len)`
 - unsafe：等价于 `split_at_mut_unchecked` 的 unchecked mutable slice construction
+
+安全条件：
+
+- `m_len <= current_region.len()`。
+- 两个返回的 mutable slice 必须不重叠。
+- 在该 workload 中，这些条件来自固定的 buffer layout 和 record size 约束，而不是运行时猜测。
+- 因为每次分区都是从同一个已知布局的 working buffer 中按固定长度切出区域，所以它非常适合展示
+  “安全条件由上层结构性不变量保证”的情况。
+
+工作负载含义：
+
+- benchmark 不测完整 RSA 或完整 BigInt exponentiation。
+- 它保留的是该实现中的关键 buffer-layout 操作：对大量记录反复执行同样的分区和轻量状态更新。
+- 这样做的目的不是声称 `ring` 整体密码学操作加速了 3-4%，而是观察当替换点位于一个重复执行的
+  数据布局组件中时，局部安全检查移除是否还能在更高层 component 中被观察到。
+- 这和 Table 5 的 function-level micro-benchmark 不同：Table 5 更接近“围绕目标函数直接构造输入”，
+  而这里保留了真实库中一段上层 buffer 组织逻辑和输入结构。
 
 验证方式：
 
@@ -118,6 +161,22 @@ application-derived component，而不是完整应用加速。另一个需要注
 如果 Table 5 中 `ring` 只报告了 HKDF 的 `fill_okm()`，那么这个 BigInt case 和
 Table 5 并不完全对应，除非正文中明确说明它是额外 case study，或者同步更新
 Table 5。
+
+和 HKDF / Table 5 的关系：
+
+- `ring::hkdf::fill_okm()` 是当前 Table 5 中和 `ring` 对应的目标函数。
+- BigInt buffer split 不是 `fill_okm()`，因此不能在正文中暗示它是 Table 5 那一行的直接延伸。
+- 如果论文坚持 Section 6.3 必须从 Table 5 直接延伸，那么应使用 HKDF，但 HKDF 的性能结果很弱。
+- 如果论文允许 Section 6.3 是“额外 application-derived case study”，则 BigInt 更适合作为正向例子。
+- 最安全的措辞是避免写 “end-to-end ring speedup”，而写 “a workload derived from ring's buffer-processing logic”。
+
+适合正文的一句话版本：
+
+```text
+The extracted workload preserves the component's key buffer-layout operation:
+repeatedly partitioning a pre-allocated working buffer into disjoint mutable
+regions with split_at_mut under statically known layout parameters.
+```
 
 ### rand partial_shuffle
 
@@ -274,6 +333,40 @@ ripgrep 候选。
 
 这些数据是在目标函数级别测量 safe/unsafe replacement 在 O1、O2、O3 下的表现。
 
+讨论背景：
+
+审稿意见要求讨论优化等级敏感性。我们之前明确区分了两个层面：
+
+- 分析器层面：分析器读取 Rust 编译产生的 MIR，代码中主要使用 `tcx.optimized_mir`。优化等级可能影响
+  MIR 的形态，例如内联、简化控制流、去除某些中间变量等，但不会改变程序语义，也不会把分析器要处理的
+  MIR statement/terminator 变成完全不同的语言。因此优化等级对分析过程本身是一个 reproducibility
+  细节，而不是本文性能结果的主变量。
+- 性能测量层面：safe/unsafe replacement 的收益来自去掉运行时检查或更轻量的 unsafe primitive。
+  这个问题必须在优化后的 release 配置下讨论，因为 debug/O0 下 unsafe 标准库实现中可能仍然保留
+  debug assertion 或 unsafe precondition check，不能代表实际 release 性能。
+
+关于 Rust/Cargo 优化等级：
+
+- Cargo 默认 `dev` profile 基本对应 `opt-level=0`，即 debug 构建。
+- Cargo 默认 `release` profile 对应 `opt-level=3`，这一点之前确认过；因此不能把 “release mode”
+  写成 O2。
+- `opt-level=1`、`opt-level=2`、`opt-level=3` 都是性能导向的优化等级，但它们不是简单地保证
+  safe/unsafe ratio 单调变化。
+- `opt-level=s` 和 `opt-level=z` 是 size-oriented 配置，目标偏向减小二进制体积，而不是最大化运行时性能。
+
+为什么不使用 debug/O0 作为性能主实验：
+
+- 一些标准库 unsafe API 内部包含 `assert_unsafe_precondition!` 之类的机制。
+- 这些检查在 debug 或特定 UB-check 配置下可能仍然执行。
+- 因此在 O0/debug 下比较 safe API 和 unsafe API，测到的并不一定是“去掉安全检查后的 release 性能差异”。
+- O0 更适合作为功能调试设置，而不是本文讨论的 performance replacement 场景。
+
+为什么主实验使用 Cargo release/O3：
+
+- 这是 Cargo 默认 release profile，是 Rust 用户最常见的性能导向构建配置。
+- 我们的目标不是比较编译器优化等级本身，而是评估在常见 release 构建下，已验证的 replacement 是否能带来可观察差异。
+- O1/O2/Os/Oz 可以作为 sensitivity checks，但不应取代主实验配置。
+
 | Crate | Opt | Safe Mean | Unsafe Mean | Safe/Unsafe | Speedup |
 |---|---:|---:|---:|---:|---:|
 | arrayvec | O1 | 1.8238 us | 2.1072 us | 0.8655x | -13.45% |
@@ -301,6 +394,22 @@ ripgrep 候选。
   performance-oriented release 配置。
 - 不能根据这些数据声称“优化等级越高收益越高”或“优化等级越高收益越低”。
 
+逐项观察：
+
+- `arrayvec` 在 O1/O3 下为负，在 O2 下略正，说明该 case 的替换收益非常容易被周围代码生成差异覆盖。
+- `bit-vec` 从 O1 到 O3 逐渐变好，O3 下约 `+4.65%`，这是少数和直觉一致的结果。
+- `itertools` 只有 O3 略正，O1/O2 反而为负，说明 heap/iterator 相关路径受优化策略影响较大。
+- `rand` 在 O2 下出现较高正收益，但 O3 近似持平，这说明不能简单把 O2/O3 看成线性增强关系。
+- `ring` 在 O1/O2 略正，O3 略负，符合我们对 HKDF 路径的判断：局部替换点被更大的上下文成本和噪声稀释。
+
+论文中更适合强调的结论：
+
+- 优化等级会影响具体数值，但不会改变本文的保守结论：replacement 的实际收益取决于 API 语义、调用频率、
+  以及替换点是否在热路径上。
+- 因为 target-function 结果不单调，所以不应该用这些数据声称“某个优化等级下我们的技术更强”。
+- 更合理的说法是：我们选择标准 release/O3 作为主配置，并用 O1/O2/O3 作为敏感性检查，结果表明测量值存在
+  workload-dependent variation。
+
 ## Size-Oriented 优化等级
 
 数据来源：
@@ -318,6 +427,9 @@ ripgrep 候选。
 
 - `Os` 和 `Oz` 是面向二进制体积的优化设置，不是主要的运行时性能配置。
 - 它们的行为可能和 O1/O2/O3 不同，因此更适合作为 sensitivity check，而不是主实验设置。
+- 当前只对 `rand` 做了一个小规模检查，因此不能把它扩展成全局结论。
+- `Oz` 下 `rand` 出现 `+12.27%`，但这更适合说明 size-oriented 配置下代码布局和优化策略会改变测量结果，
+  不适合作为本文主性能结论。
 
 ## API-Level 优化等级敏感性
 
@@ -359,6 +471,24 @@ target-function 级别结果，也不是 application-derived 结果。
 - 这些数据适合用于说明“优化等级不会改变主要趋势”，但不能直接证明
   target-function 或 application-level 的收益。
 
+和 target-function 结果的区别：
+
+- API-level benchmark 直接测标准库 API pair 本身，因此更能反映某个安全检查的局部成本。
+- target-function benchmark 把 API replacement 放回真实函数或 crate 内部，结果会受到外围逻辑影响。
+- application-derived case study 又进一步加入真实数据结构和路径频率因素，因此收益更容易被稀释。
+- 因此，API-level 数据可以支撑“哪些 API 类型理论上有较大局部差异”，但不能直接推出应用层收益。
+
+适合 response letter 的简化说法：
+
+```text
+We additionally measured selected API-level and target-function-level cases
+under multiple optimization levels. The results show that optimization levels
+affect the absolute measurements, but the relative benefit remains highly
+dependent on the API semantics and the surrounding workload. Therefore, we use
+Cargo's default release configuration as the main setting and treat other
+optimization levels as sensitivity checks.
+```
+
 ## 保守论文口径
 
 可以考虑的表述方向：
@@ -374,4 +504,15 @@ replacement, and whether the replaced check lies on a hot execution path. This
 supports our choice to report the main results under the standard release
 configuration while treating optimization-level differences as a sensitivity
 factor rather than a separate optimization claim.
+```
+
+中文理解版：
+
+```text
+我们以 Cargo 默认 release profile 作为主实验配置，因为它是 Rust 中最常见的性能导向发布配置。
+为了回应优化等级敏感性问题，我们额外在 API-level 和 target-function-level 上测量了 O1、O2、O3，
+并对 size-oriented 的 Os/Oz 做了小规模补充检查。实验结果并不呈现单调趋势：safe/unsafe 替换的
+相对收益取决于 API 的语义、周围代码的复杂度、以及替换点是否位于频繁执行路径上。因此，我们将
+release/O3 作为主结果配置，而把其他优化等级作为敏感性分析，而不是把优化等级本身作为一个新的
+性能主张。
 ```
