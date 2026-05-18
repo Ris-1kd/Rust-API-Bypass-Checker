@@ -1,4 +1,7 @@
-// A thin wrapper for Apron Numerical Abstract Domain Library
+// Compatibility wrapper for the numerical abstract domain.
+//
+// The analyzer now uses a single pure Rust interval domain. The public names in this module are
+// kept temporarily so the MIR visitor/checker layers do not need a broad mechanical rename.
 
 use crate::analysis::memory::path::Path;
 use crate::analysis::numerical::interval::{Bound, Interval};
@@ -7,21 +10,15 @@ use crate::analysis::numerical::linear_constraint::{
     LinearConstraint, LinearConstraintSystem, LinearExpression,
 };
 use crate::analysis::option::AbstractDomainType;
-use apron_sys;
-use foreign_types::foreign_type;
-use foreign_types::ForeignType;
-use rug::{Assign, Integer, Rational};
+use rug::Integer;
 use std::collections::BTreeMap;
-use std::convert::From;
 use std::fmt::{self, Debug};
 use std::marker::PhantomData;
-use std::ptr::NonNull;
 use std::rc::Rc;
-use std::sync::Arc;
 
-/// The operators that numerical abstract domain supports
+/// The operators that numerical abstract domain supports.
+#[derive(Clone, Copy, Debug)]
 pub enum ApronOperation {
-    // Binop
     Add,
     Sub,
     Mul,
@@ -32,45 +29,23 @@ pub enum ApronOperation {
     And,
     Or,
     Xor,
-    // Unop
     Not,
     Neg,
 }
 
-impl ApronOperation {
-    /// Check whether the operator is elementary arithmetic
-    /// Because Apron seems to only support elementary arithmetic
-    fn is_elementary(&self) -> bool {
-        matches!(
-            self,
-            Self::Add | Self::Sub | Self::Mul | Self::Div | Self::Rem
-        )
-    }
-}
-
-/// The following types are used as parameters of `ApronAbstractDomain`,
-/// indicating which kind of abstract domain should be used.
-/// All of them implement the `ApronDomainType` trait
 #[derive(Clone)]
-// Apron Interval
 pub struct ApronInterval;
 #[derive(Clone)]
-// Apron Octagon
 pub struct ApronOctagon;
 #[derive(Clone)]
-// Apron NewPolka Convex Polyhedra
 pub struct ApronPolyhedra;
 #[derive(Clone)]
-// Apron NewPolka Linear Equalities
 pub struct ApronLinearEqualities;
 #[derive(Clone)]
-// Apron PPL Convex Polyhedra
 pub struct ApronPplPolyhedra;
 #[derive(Clone)]
-// Apron PPL Linear Congruences
 pub struct ApronPplLinearCongruences;
 #[derive(Clone)]
-// Apron Reduced Product of NewPolka Convex Polyhedra and PPL Linear Congruences
 pub struct ApronPkgridPolyhedraLinCongruences;
 
 pub trait ApronDomainType: Clone {}
@@ -83,181 +58,58 @@ impl ApronDomainType for ApronPplPolyhedra {}
 impl ApronDomainType for ApronPplLinearCongruences {}
 impl ApronDomainType for ApronPkgridPolyhedraLinCongruences {}
 
-/// Different types of abstract domains have different managers
-/// So we define a trait to share the same function name `get_manager`
-/// `get_domain_type` is used to determine the current type of abstract domain
-/// This is useful when different domains need to be handled in different strategies
 pub trait GetManagerTrait {
-    fn get_manager() -> Arc<ApronManager>;
     fn get_domain_type() -> AbstractDomainType;
 }
 
-// Define wrappers for `ap_manager_t`
-// Used to represent an Apron manager
-foreign_type! {
-    pub unsafe type ApronManager : Sync + Send
-    {
-        type CType = apron_sys::ap_manager_t;
-        fn drop = apron_sys::ap_manager_free;
-    }
-}
-
-// Used to represent an abstract state together with the manager that owns it.
-pub struct AbstractState {
-    ptr: NonNull<apron_sys::ap_abstract0_t>,
-    manager: Arc<ApronManager>,
-}
-
-unsafe impl Sync for AbstractState {}
-unsafe impl Send for AbstractState {}
-
-impl Drop for AbstractState {
-    fn drop(&mut self) {
-        unsafe {
-            apron_sys::ap_abstract0_free(self.manager.as_ptr(), self.as_ptr())
-        }
-    }
-}
-
-impl AbstractState {
-    unsafe fn from_ptr(ptr: *mut apron_sys::ap_abstract0_t, manager: Arc<ApronManager>) -> Self {
-        Self {
-            ptr: NonNull::new_unchecked(ptr),
-            manager,
-        }
-    }
-
-    pub(crate) fn as_ptr(&self) -> *mut apron_sys::ap_abstract0_t {
-        self.ptr.as_ptr()
-    }
-}
-
-lazy_static! {
-    static ref APRON_INTERVAL_MANAGER: Arc<ApronManager> =
-        unsafe { Arc::new(ApronManager::from_ptr(apron_sys::box_manager_alloc())) };
-    static ref APRON_POLYHEDRA_MANAGER: Arc<ApronManager> =
-        unsafe { Arc::new(ApronManager::from_ptr(apron_sys::pk_manager_alloc(false))) };
-    static ref APRON_OCTAGON_MANAGER: Arc<ApronManager> =
-        unsafe { Arc::new(ApronManager::from_ptr(apron_sys::oct_manager_alloc())) };
-    static ref APRON_LINEAR_EQUALITIES_MANAGER: Arc<ApronManager> =
-        unsafe { Arc::new(ApronManager::from_ptr(apron_sys::pkeq_manager_alloc())) };
-    static ref APRON_PPL_POLYHEDRA_MANAGER: Arc<ApronManager> = unsafe {
-        Arc::new(ApronManager::from_ptr(
-            apron_sys::ap_ppl_poly_manager_alloc(false),
-        ))
-    };
-    static ref APRON_PPL_LINEAR_CONGRUENCES_MANAGER: Arc<ApronManager> = unsafe {
-        Arc::new(ApronManager::from_ptr(
-            apron_sys::ap_ppl_grid_manager_alloc(),
-        ))
-    };
-    static ref APRON_PKGRID_POLYHEDRA_LIN_CONGRUENCES_MANAGER: Arc<ApronManager> = unsafe {
-        Arc::new(ApronManager::from_ptr(apron_sys::ap_pkgrid_manager_alloc(
-            apron_sys::pk_manager_alloc(false),
-            apron_sys::ap_ppl_grid_manager_alloc(),
-        )))
-    };
-}
-
-/// Represent an Apron abstract domain, whose domain type is specified by parameter `Type`
+/// A map-based interval abstract state. A missing variable means top.
+#[derive(Clone)]
 pub struct ApronAbstractDomain<Type>
 where
     Type: ApronDomainType,
 {
-    abstract_state: AbstractState,
-    var_map: BTreeMap<Rc<Path>, apron_sys::ap_dim_t>,
-    phantom: PhantomData<Type>, // This just makes the compiler happy
+    intervals: BTreeMap<Rc<Path>, Interval>,
+    bottom: bool,
+    phantom: PhantomData<Type>,
 }
 
-// Abstract state is stored as a pointer to the C type `ap_abstract0_t`
-// So merely cloning the pointer will create two domains that share the same abstract state
-// To clone a domain, we need to manually copy the abstract state by using the Apron C API `ap_abstract0_copy`
-impl<Type> Clone for ApronAbstractDomain<Type>
-where
-    Type: ApronDomainType,
-    ApronAbstractDomain<Type>: GetManagerTrait,
-{
-    fn clone(&self) -> Self {
-        let manager = Self::get_manager();
-        Self {
-            var_map: self.var_map.clone(),
-            phantom: self.phantom,
-            abstract_state: unsafe {
-                AbstractState::from_ptr(apron_sys::ap_abstract0_copy(
-                    manager.as_ptr(),
-                    self.abstract_state.as_ptr(),
-                ), manager)
-            },
-        }
-    }
-}
-
-// The following `impl`s bind each domain kind to its own cached Apron manager.
 impl GetManagerTrait for ApronAbstractDomain<ApronInterval> {
-    fn get_manager() -> Arc<ApronManager> {
-        APRON_INTERVAL_MANAGER.clone()
-    }
-
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::Interval
     }
 }
 
 impl GetManagerTrait for ApronAbstractDomain<ApronPolyhedra> {
-    fn get_manager() -> Arc<ApronManager> {
-        APRON_POLYHEDRA_MANAGER.clone()
-    }
-
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::Polyhedra
     }
 }
 
 impl GetManagerTrait for ApronAbstractDomain<ApronOctagon> {
-    fn get_manager() -> Arc<ApronManager> {
-        APRON_OCTAGON_MANAGER.clone()
-    }
-
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::Octagon
     }
 }
 
 impl GetManagerTrait for ApronAbstractDomain<ApronLinearEqualities> {
-    fn get_manager() -> Arc<ApronManager> {
-        APRON_LINEAR_EQUALITIES_MANAGER.clone()
-    }
-
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::LinearEqualities
     }
 }
 
 impl GetManagerTrait for ApronAbstractDomain<ApronPplPolyhedra> {
-    fn get_manager() -> Arc<ApronManager> {
-        APRON_PPL_POLYHEDRA_MANAGER.clone()
-    }
-
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::PplPolyhedra
     }
 }
 
 impl GetManagerTrait for ApronAbstractDomain<ApronPplLinearCongruences> {
-    fn get_manager() -> Arc<ApronManager> {
-        APRON_PPL_LINEAR_CONGRUENCES_MANAGER.clone()
-    }
-
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::PplLinearCongruences
     }
 }
 
 impl GetManagerTrait for ApronAbstractDomain<ApronPkgridPolyhedraLinCongruences> {
-    fn get_manager() -> Arc<ApronManager> {
-        APRON_PKGRID_POLYHEDRA_LIN_CONGRUENCES_MANAGER.clone()
-    }
-
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::PkgridPolyhedraLinCongruences
     }
@@ -273,84 +125,43 @@ where
     }
 }
 
-// Abstract domain forms a lattice
 impl<Type> LatticeTrait for ApronAbstractDomain<Type>
 where
     Type: ApronDomainType,
     ApronAbstractDomain<Type>: GetManagerTrait,
 {
     fn top() -> Self {
-        let manager = Self::get_manager();
-        let abstract_state = unsafe {
-            AbstractState::from_ptr(apron_sys::ap_abstract0_top(manager.as_ptr(), 0, 0), manager)
-        };
-
         Self {
-            abstract_state,
-            var_map: BTreeMap::new(),
-            phantom: PhantomData,
-        }
-    }
-
-    fn bottom() -> Self {
-        let manager = Self::get_manager();
-        let abstract_state = unsafe {
-            AbstractState::from_ptr(
-                apron_sys::ap_abstract0_bottom(manager.as_ptr(), 0, 0),
-                manager,
-            )
-        };
-
-        Self {
-            abstract_state,
-            var_map: BTreeMap::new(),
-            phantom: PhantomData,
-        }
-    }
-
-    fn set_to_top(&mut self) {
-        let manager = Self::get_manager();
-        let abstract_state = unsafe {
-            AbstractState::from_ptr(apron_sys::ap_abstract0_top(manager.as_ptr(), 0, 0), manager)
-        };
-        *self = Self {
-            abstract_state,
-            var_map: BTreeMap::new(),
-            phantom: PhantomData,
-        }
-    }
-
-    fn set_to_bottom(&mut self) {
-        let manager = Self::get_manager();
-        let abstract_state = unsafe {
-            AbstractState::from_ptr(
-                apron_sys::ap_abstract0_bottom(manager.as_ptr(), 0, 0),
-                manager,
-            )
-        };
-        *self = Self {
-            abstract_state,
-            var_map: BTreeMap::new(),
+            intervals: BTreeMap::new(),
+            bottom: false,
             phantom: PhantomData,
         }
     }
 
     fn is_top(&self) -> bool {
-        unsafe {
-            apron_sys::ap_abstract0_is_top(
-                Self::get_manager().as_ptr(),
-                self.abstract_state.as_ptr(),
-            )
+        !self.bottom && self.intervals.is_empty()
+    }
+
+    fn set_to_top(&mut self) {
+        self.bottom = false;
+        self.intervals.clear();
+    }
+
+    fn bottom() -> Self {
+        Self {
+            intervals: BTreeMap::new(),
+            bottom: true,
+            phantom: PhantomData,
         }
     }
 
     fn is_bottom(&self) -> bool {
-        unsafe {
-            apron_sys::ap_abstract0_is_bottom(
-                Self::get_manager().as_ptr(),
-                self.abstract_state.as_ptr(),
-            )
-        }
+        self.bottom
+    }
+
+    fn set_to_bottom(&mut self) {
+        self.bottom = true;
+        self.intervals.clear();
     }
 
     fn lub(&self, other: &Self) -> Self {
@@ -365,46 +176,28 @@ where
 impl<Type> ApronAbstractDomain<Type>
 where
     Type: ApronDomainType,
-    // This is to make sure `Self` can be converted, i.e., `<Self as GetManagerTrait>`
     ApronAbstractDomain<Type>: GetManagerTrait,
 {
-    unsafe fn wrap_state(ptr: *mut apron_sys::ap_abstract0_t) -> AbstractState {
-        AbstractState::from_ptr(ptr, Self::get_manager())
-    }
-
-    /// Determine whether `lhs <= rhs`, with respect to the partial ordering defined by lattice
     pub fn leq(&self, other: &Self) -> bool {
-        if self.is_bottom() {
-            true
-        } else if other.is_bottom() {
-            false
-        } else if other.is_top() {
-            true
-        } else if self.is_top() && !other.is_top() {
-            false
-        } else if self.is_top() && other.is_top() {
-            true
-        } else {
-            // Seems like `ap_abstract0_is_leq` will panic for some domains if two operands have different dimensions
-            if self.get_dims() != other.get_dims() {
-                warn!("When comparing two ApronAbstractDomain, two operands have different dimensions");
-                false
-            } else {
-                let join = self.join(other);
-                unsafe {
-                    apron_sys::ap_abstract0_is_leq(
-                        Self::get_manager().as_ptr(),
-                        join.abstract_state.as_ptr(),
-                        other.abstract_state.as_ptr(),
-                    )
-                }
+        if self.is_bottom() || other.is_top() {
+            return true;
+        }
+        if other.is_bottom() {
+            return self.is_bottom();
+        }
+        for (path, itv) in &self.intervals {
+            if !interval_leq(itv, &other.var2itv(path)) {
+                return false;
             }
         }
+        for (path, other_itv) in &other.intervals {
+            if !self.intervals.contains_key(path) && !other_itv.is_top() {
+                return false;
+            }
+        }
+        true
     }
 
-    /// Used to handle move assignments: `new_path = old_path;`
-    /// `new_path` get the value of `old_path`, and `old_path` goes out of scope
-    /// The overall effect is equivalent to renaming `old_path` to `new_path`
     pub fn rename(&mut self, old_path: &Rc<Path>, new_path: &Rc<Path>) {
         if self.contains(old_path) {
             self.assign_var(new_path.clone(), old_path.clone());
@@ -412,145 +205,98 @@ where
         }
     }
 
-    /// Used to handle copy assignments: `new_path = old_path;`
     pub fn duplicate(&mut self, old_path: &Rc<Path>, new_path: &Rc<Path>) {
         if self.contains(old_path) {
             self.assign_var(new_path.clone(), old_path.clone());
         }
     }
 
-    /// Get a list of paths that are in the current domain
     pub fn get_paths_iter(&self) -> Vec<Rc<Path>> {
-        self.var_map.keys().cloned().collect()
+        self.intervals.keys().cloned().collect()
     }
 
-    /// Determine whether `path` is in the current domain
     pub fn contains(&self, path: &Rc<Path>) -> bool {
-        self.var_map.contains_key(path)
+        self.intervals.contains_key(path)
     }
 
-    /// Get a reference to `AbstractState`
-    pub fn get_state(&self) -> &AbstractState {
-        &self.abstract_state
+    pub fn get_domain_type() -> AbstractDomainType {
+        <Self as GetManagerTrait>::get_domain_type()
     }
 
-    /// Get a reference to `ApronManager`
-    pub fn get_manager() -> Arc<ApronManager> {
-        <Self as GetManagerTrait>::get_manager()
-    }
-
-    /// Get abstract value according to the given path, and transform it to an interval
     pub fn get_interval(&self, var: &Rc<Path>) -> Interval {
         self.var2itv(var)
     }
 
-    /// Handle assignment `var = n` where n is a constant integer
     pub fn assign_int(&mut self, var: Rc<Path>, n: Integer) {
-        self.assign_linexpr(var, &LinearExpression::from(n));
+        self.assign_interval(var, singleton(n));
     }
 
-    /// Handle assignment `var = rvalue` where `rvalue` is a path
     pub fn assign_var(&mut self, var: Rc<Path>, rvalue: Rc<Path>) {
-        self.assign_linexpr(var, &(LinearExpression::default() + rvalue));
+        let itv = self.var2itv(&rvalue);
+        self.assign_interval(var, itv);
     }
 
     pub fn assign_interval(&mut self, var: Rc<Path>, itv: Interval) {
         self.set_interval(&var, itv);
     }
 
-    /// Compute narrowing
     pub fn narrowing_with(&self, rhs: &Self) -> Self {
-        if self.is_bottom() || rhs.is_bottom() {
-            Self::bottom()
-        } else if self.is_top() {
-            rhs.clone()
-        } else if rhs.is_top() {
-            self.clone()
-        } else {
-            let mut res = self.clone();
-            let mut other = rhs.clone();
-
-            let new_var_map = Self::merge_var_map(&mut res, &mut other);
-            match Self::get_domain_type() {
-                AbstractDomainType::Octagon => {
-                    res.var_map = new_var_map;
-                    res.abstract_state = unsafe { Self::wrap_state(apron_sys::ap_abstract0_oct_narrowing(
-                        Self::get_manager().as_ptr(),
-                        res.get_state().as_ptr(),
-                        other.get_state().as_ptr(),
-                    )) };
-                    res
-                }
-                // FIXME: use meet instead of narrowing.
-                // Make sure iterations will terminate
-                _ => self.meet(rhs),
-            }
-        }
+        self.meet(rhs)
     }
 
-    /// Compute widening
     pub fn widening_with(&self, rhs: &Self) -> Self {
-        let mut res = self.clone();
-        let mut other = rhs.clone();
-
-        let new_var_map = Self::merge_var_map(&mut res, &mut other);
-        res.var_map = new_var_map;
-        res.abstract_state = unsafe { Self::wrap_state(apron_sys::ap_abstract0_widening(
-            Self::get_manager().as_ptr(),
-            res.get_state().as_ptr(),
-            other.get_state().as_ptr(),
-        )) };
+        if self.is_bottom() {
+            return rhs.clone();
+        }
+        if rhs.is_bottom() {
+            return self.clone();
+        }
+        let mut res = Self::top();
+        for path in union_paths(self, rhs) {
+            let old = self.var2itv(&path);
+            let new = rhs.var2itv(&path);
+            let widened = widen_interval(&old, &new);
+            res.set_interval(&path, widened);
+        }
         res
     }
 
-    /// Compute the least upper bound
     pub fn join(&self, rhs: &Self) -> Self {
         if self.is_bottom() || rhs.is_top() {
-            rhs.clone()
-        } else if self.is_top() || rhs.is_bottom() {
-            self.clone()
-        } else {
-            let mut res = self.clone();
-            let mut other = rhs.clone();
-
-            let new_var_map = Self::merge_var_map(&mut res, &mut other);
-            res.var_map = new_var_map;
-            // debug!("Merged Var Map: {:?}", res.var_map);
-            res.abstract_state = unsafe { Self::wrap_state(apron_sys::ap_abstract0_join(
-                Self::get_manager().as_ptr(),
-                false,
-                res.get_state().as_ptr(),
-                other.get_state().as_ptr(),
-            )) };
-            res
+            return rhs.clone();
         }
+        if rhs.is_bottom() || self.is_top() {
+            return self.clone();
+        }
+        let mut res = Self::top();
+        for path in union_paths(self, rhs) {
+            let joined = join_interval(&self.var2itv(&path), &rhs.var2itv(&path));
+            res.set_interval(&path, joined);
+        }
+        res
     }
 
-    /// Compute the greatest lower bound
     pub fn meet(&self, rhs: &Self) -> Self {
         if self.is_bottom() || rhs.is_bottom() {
-            Self::bottom()
-        } else if self.is_top() {
-            rhs.clone()
-        } else if rhs.is_top() {
-            self.clone()
-        } else {
-            let mut res = self.clone();
-            let mut other = rhs.clone();
-
-            let new_var_map = Self::merge_var_map(&mut res, &mut other);
-            res.var_map = new_var_map;
-            res.abstract_state = unsafe { Self::wrap_state(apron_sys::ap_abstract0_meet(
-                Self::get_manager().as_ptr(),
-                false,
-                res.get_state().as_ptr(),
-                other.get_state().as_ptr(),
-            )) };
-            res
+            return Self::bottom();
         }
+        if self.is_top() {
+            return rhs.clone();
+        }
+        if rhs.is_top() {
+            return self.clone();
+        }
+        let mut res = Self::top();
+        for path in union_paths(self, rhs) {
+            let met = meet_interval(&self.var2itv(&path), &rhs.var2itv(&path));
+            if met.is_bottom() {
+                return Self::bottom();
+            }
+            res.set_interval(&path, met);
+        }
+        res
     }
 
-    /// Apply the binary operation statement: `res = lhs op rhs`
     pub fn apply_bin_op_place_place(
         &mut self,
         op: ApronOperation,
@@ -559,21 +305,12 @@ where
         res: &Rc<Path>,
     ) {
         if !self.is_bottom() {
-            if op.is_elementary() {
-                // Use apron library
-                let lhs_expr = self.var2texpr(lhs);
-                let rhs_expr = self.var2texpr(rhs);
-                self.do_bin_op_expr(op, lhs_expr, rhs_expr, res);
-            } else {
-                // Use interval operations
-                let lhs_itv = self.var2itv(lhs);
-                let rhs_itv = self.var2itv(rhs);
-                self.do_bin_op_itv(op, lhs_itv, rhs_itv, res);
-            }
+            let lhs_itv = self.var2itv(lhs);
+            let rhs_itv = self.var2itv(rhs);
+            self.set_interval(res, eval_bin_op(op, lhs_itv, rhs_itv));
         }
     }
 
-    /// Apply the binary operation statement: `res = cst op rhs`
     pub fn apply_bin_op_const_place(
         &mut self,
         op: ApronOperation,
@@ -582,21 +319,12 @@ where
         res: &Rc<Path>,
     ) {
         if !self.is_bottom() {
-            if op.is_elementary() {
-                // Use apron library
-                let lhs_expr = Self::num2texpr(cst);
-                let rhs_expr = self.var2texpr(rhs);
-                self.do_bin_op_expr(op, lhs_expr, rhs_expr, res);
-            } else {
-                // Use interval operations
-                let lhs_itv = Interval::new(Bound::from(cst.clone()), Bound::from(cst.clone()));
-                let rhs_itv = self.var2itv(rhs);
-                self.do_bin_op_itv(op, lhs_itv, rhs_itv, res);
-            }
+            let lhs_itv = singleton(cst.clone());
+            let rhs_itv = self.var2itv(rhs);
+            self.set_interval(res, eval_bin_op(op, lhs_itv, rhs_itv));
         }
     }
 
-    /// Apply the binary operation statement: `res = lhs op cst`
     pub fn apply_bin_op_place_const(
         &mut self,
         op: ApronOperation,
@@ -605,75 +333,28 @@ where
         res: &Rc<Path>,
     ) {
         if !self.is_bottom() {
-            if op.is_elementary() {
-                // Use apron library
-                let lhs_expr = self.var2texpr(lhs);
-                let rhs_expr = Self::num2texpr(cst);
-                self.do_bin_op_expr(op, lhs_expr, rhs_expr, res);
-            } else {
-                // Use interval operations
-                let lhs_itv = self.var2itv(lhs);
-                let rhs_itv = Interval::new(Bound::from(cst.clone()), Bound::from(cst.clone()));
-                self.do_bin_op_itv(op, lhs_itv, rhs_itv, res);
-            }
+            let lhs_itv = self.var2itv(lhs);
+            let rhs_itv = singleton(cst.clone());
+            self.set_interval(res, eval_bin_op(op, lhs_itv, rhs_itv));
         }
     }
 
-    /// Apply the unary operation statement: `res = - rhs`, or `res = !rhs`
     pub fn apply_un_op_place(&mut self, op: ApronOperation, rhs: &Rc<Path>, res: &Rc<Path>) {
         if !self.is_bottom() {
-            let rhs_expr = self.var2texpr(rhs);
-            let res_expr = match op {
-                ApronOperation::Neg => Self::neg(rhs_expr),
-                // TODO: implement not operation
-                ApronOperation::Not => unreachable!(),
+            let rhs_itv = self.var2itv(rhs);
+            let res_itv = match op {
+                ApronOperation::Neg => negate_interval(rhs_itv),
+                ApronOperation::Not => Interval::top(),
                 _ => unreachable!("Undefined UnOp, this is a bug"),
             };
-            let dim_res = self.get_var_dim_insert(res.clone());
-            unsafe {
-                self.abstract_state = Self::wrap_state(apron_sys::ap_abstract0_assign_texpr(
-                    Self::get_manager().as_ptr(),
-                    false,
-                    self.abstract_state.as_ptr(),
-                    dim_res,
-                    res_expr,
-                    std::ptr::null_mut(),
-                ));
-                apron_sys::ap_texpr0_free(res_expr);
-            }
+            self.set_interval(res, res_itv);
         }
     }
 
-    /// Remove a path from current abstract domain
     pub fn forget(&mut self, var: &Rc<Path>) {
-        let mut vec_dims = Vec::new();
-        if let Some(dim) = self.get_var_dim(var) {
-            vec_dims.push(dim);
-            self.abstract_state = unsafe { Self::wrap_state(apron_sys::ap_abstract0_forget_array(
-                Self::get_manager().as_ptr(),
-                false,
-                self.abstract_state.as_ptr(),
-                &mut vec_dims[0] as *mut apron_sys::ap_dim_t,
-                1,
-                false,
-            )) };
-
-            let mut new_var_map: BTreeMap<Rc<Path>, apron_sys::ap_dim_t> = BTreeMap::new();
-            // We have to iterate by the dim to preserve the order
-            let mut old_var_map: Vec<(&Rc<Path>, &apron_sys::ap_dim_t)> =
-                self.var_map.iter().collect();
-            old_var_map.sort_by(|a, b| a.1.cmp(b.1));
-            for (var, old_dim) in old_var_map {
-                if dim != *old_dim {
-                    new_var_map.insert(var.clone(), new_var_map.len() as apron_sys::ap_dim_t);
-                }
-            }
-            self.remove_dimensions(vec_dims);
-            self.var_map = new_var_map;
-        }
+        self.intervals.remove(var);
     }
 
-    /// Add a linear constraint system into current abstract domain
     pub fn add_constraints(&mut self, conds: LinearConstraintSystem) {
         if self.is_bottom() {
             return;
@@ -682,579 +363,92 @@ where
             self.set_to_bottom();
             return;
         }
-        if conds.is_true() {
+        for cst in &conds {
+            self.add_constraint(cst);
+            if self.is_bottom() {
+                return;
+            }
+        }
+    }
+
+    fn add_constraint(&mut self, cst: &LinearConstraint) {
+        if cst.is_contradiction() {
+            self.set_to_bottom();
             return;
         }
-        let mut array = unsafe { apron_sys::ap_tcons0_array_make(conds.size()) };
-
-        for (i, cst) in (&conds).into_iter().enumerate() {
-            let tcons = self.const2tconst(cst);
-            unsafe {
-                *array.p.add(i) = tcons;
-            }
+        if cst.is_tautology() {
+            return;
         }
-
-        self.abstract_state = unsafe { Self::wrap_state(apron_sys::ap_abstract0_meet_tcons_array(
-            Self::get_manager().as_ptr(),
-            false,
-            self.abstract_state.as_ptr(),
-            &mut array as *mut apron_sys::ap_tcons0_array_t,
-        )) };
-
-        unsafe {
-            apron_sys::ap_tcons0_array_clear(&mut array as *mut apron_sys::ap_tcons0_array_t);
-        }
-    }
-
-    /// Converting `ap_lincons0_t` into `LinearConstraint`
-    // TODO: should we expose such a low-level API?
-    pub fn apcons2cons(&self, cons: apron_sys::ap_lincons0_t) -> LinearConstraint {
-        unsafe {
-            let linexp = cons.linexpr0;
-            // For terms
-            let mut e = LinearExpression::from(0);
-            for i in 0..(*linexp).size {
-                let dim;
-                let coeff;
-                if (*linexp).discr == apron_sys::ap_linexpr_discr_t_AP_LINEXPR_DENSE {
-                    dim = i as apron_sys::ap_dim_t;
-                    coeff = (*linexp).p.coeff.add(i)
-                } else {
-                    dim = (*(*linexp).p.linterm.add(i)).dim;
-                    coeff = &mut (*(*linexp).p.linterm.add(i)).coeff as *mut apron_sys::ap_coeff_t;
-                }
-
-                if apron_sys::ap_coeff_zero(coeff) {
-                    continue;
-                } else {
-                    e.add_term(self.get_variable(dim), Self::coeff2num(coeff));
-                }
-            }
-            // For constant
-            let cst = &mut (*linexp).cst as *mut apron_sys::ap_coeff_t;
-            if !apron_sys::ap_coeff_zero(cst) {
-                e = e + Self::coeff2num(cst);
-            }
-            // For constraint type
-            match cons.constyp {
-                apron_sys::ap_constyp_t_AP_CONS_EQ => {
-                    // e == k
-                    LinearConstraint::Equality(e)
-                }
-                apron_sys::ap_constyp_t_AP_CONS_SUPEQ => {
-                    // e >= k
-                    LinearConstraint::LessEq(-e)
-                }
-                apron_sys::ap_constyp_t_AP_CONS_SUP => {
-                    // e > k
-                    LinearConstraint::LessThan(-e)
-                }
-                apron_sys::ap_constyp_t_AP_CONS_EQMOD => LinearConstraint::new_true(),
-                apron_sys::ap_constyp_t_AP_CONS_DISEQ => {
-                    // e != k
-                    LinearConstraint::Inequality(e)
-                }
-                _ => {
-                    unreachable!();
-                }
-            }
-        }
-    }
-
-    // The followings are private methods
-
-    fn merge_var_map(lhs: &mut Self, rhs: &mut Self) -> BTreeMap<Rc<Path>, apron_sys::ap_dim_t> {
-        // Merge two `var_map`
-        if lhs.var_map.len() != lhs.get_dims() || rhs.var_map.len() != rhs.get_dims() {
-            lhs.set_to_top();
-            rhs.set_to_top();
-            return BTreeMap::new();
-        }
-        let mut vars: Vec<Rc<Path>> = lhs.var_map.keys().cloned().collect();
-        for v in rhs.var_map.keys() {
-            if !vars.contains(&v) {
-                vars.push(v.clone());
-            }
-        }
-        if vars.len() < lhs.get_dims() || vars.len() < rhs.get_dims() {
-            lhs.set_to_top();
-            rhs.set_to_top();
-            return BTreeMap::new();
-        }
-        lhs.add_dimensions(vars.len() - lhs.get_dims());
-        rhs.add_dimensions(vars.len() - rhs.get_dims());
-        if lhs.get_dims() != rhs.get_dims() {
-            lhs.set_to_top();
-            rhs.set_to_top();
-            return BTreeMap::new();
-        }
-
-        let mut new_var_map: BTreeMap<Rc<Path>, apron_sys::ap_dim_t> = BTreeMap::new();
-        for (i, v) in vars.iter().enumerate() {
-            new_var_map.insert(v.clone(), i as apron_sys::ap_dim_t);
-        }
-
-        let find_dim = |map: &BTreeMap<Rc<Path>, apron_sys::ap_dim_t>,
-                        key: &Rc<Path>|
-         -> Option<apron_sys::ap_dim_t> {
-            map.get(key)
-                .copied()
-                .or_else(|| map.iter().find(|(path, _)| *path == key).map(|(_, dim)| *dim))
-        };
-
-        unsafe {
-            let perm_x = apron_sys::ap_dimperm_alloc(lhs.get_dims());
-            let perm_y = apron_sys::ap_dimperm_alloc(rhs.get_dims());
-            let mut xmap1 = vec![0; lhs.get_dims()];
-            let mut xmap2 = vec![0; lhs.get_dims()];
-            for (var, &old_index) in &lhs.var_map {
-                let Some(new_index) = find_dim(&new_var_map, var) else {
-                    lhs.set_to_top();
-                    rhs.set_to_top();
-                    return BTreeMap::new();
-                };
-                *(*perm_x).dim.offset(old_index as isize) = new_index;
-                xmap1[old_index as usize] = 1;
-                xmap2[new_index as usize] = 1;
-            }
-            let mut counter = 0;
-            for i in 0..lhs.get_dims() {
-                if xmap1[i] == 1 {
-                    continue;
-                }
-                while xmap2[counter] == 1 {
-                    counter += 1;
-                }
-                *(*perm_x).dim.add(i) = counter as u32;
-                counter += 1;
-            }
-
-            let mut ymap1 = vec![0; lhs.get_dims()];
-            let mut ymap2 = vec![0; lhs.get_dims()];
-            for (var, &old_index) in &rhs.var_map {
-                let Some(new_index) = find_dim(&new_var_map, var) else {
-                    lhs.set_to_top();
-                    rhs.set_to_top();
-                    return BTreeMap::new();
-                };
-                *(*perm_y).dim.offset(old_index as isize) = new_index;
-                ymap1[old_index as usize] = 1;
-                ymap2[new_index as usize] = 1;
-            }
-            let mut counter = 0;
-            for i in 0..lhs.get_dims() {
-                if ymap1[i] == 1 {
-                    continue;
-                }
-                while ymap2[counter] == 1 {
-                    counter += 1;
-                }
-                *(*perm_y).dim.add(i) = counter as u32;
-                counter += 1;
-            }
-
-            lhs.abstract_state = Self::wrap_state(apron_sys::ap_abstract0_permute_dimensions(
-                Self::get_manager().as_ptr(),
-                false,
-                lhs.abstract_state.as_ptr(),
-                perm_x,
-            ));
-            rhs.abstract_state = Self::wrap_state(apron_sys::ap_abstract0_permute_dimensions(
-                Self::get_manager().as_ptr(),
-                false,
-                rhs.abstract_state.as_ptr(),
-                perm_y,
-            ));
-
-            apron_sys::ap_dimperm_free_wrapper(perm_x);
-            apron_sys::ap_dimperm_free_wrapper(perm_y);
-        }
-        new_var_map
-    }
-
-    fn assign_linexpr(&mut self, var: Rc<Path>, exp: &LinearExpression) {
-        if !self.is_bottom() {
-            let texpr = self.expr2texpr(exp);
-            let dim = self.get_var_dim_insert(var);
-            unsafe {
-                self.abstract_state = Self::wrap_state(apron_sys::ap_abstract0_assign_texpr(
-                    Self::get_manager().as_ptr(),
-                    false,
-                    self.abstract_state.as_ptr(),
-                    dim,
-                    texpr,
-                    std::ptr::null_mut(),
-                ));
-                apron_sys::ap_texpr0_free(texpr);
-            }
-        }
-    }
-
-    fn get_var_dim(&self, v: &Rc<Path>) -> Option<apron_sys::ap_dim_t> {
-        self.var_map.get(v).copied()
-    }
-
-    fn get_var_dim_insert(&mut self, var: Rc<Path>) -> apron_sys::ap_dim_t {
-        if self.var_map.len() != self.get_dims() {
-            self.set_to_top();
-        }
-        if let Some(dim) = self.get_var_dim(&var) {
-            dim
-        } else {
-            let dim = self.var_map.len() as apron_sys::ap_dim_t;
-            self.var_map.insert(var.clone(), dim);
-            self.add_dimensions(1);
-            if self.var_map.len() != self.get_dims() {
-                self.set_to_top();
-                return self.get_var_dim_insert(var);
-            }
-            dim
-        }
-    }
-
-    fn add_dimensions(&mut self, dims: usize) {
-        if dims > 0 {
-            unsafe {
-                let dim_change = apron_sys::ap_dimchange_alloc(dims, 0);
-                for i in 0..dims {
-                    (*(*dim_change).dim.add(i)) = self.get_dims() as u32;
-                }
-                self.abstract_state = Self::wrap_state(apron_sys::ap_abstract0_add_dimensions(
-                    Self::get_manager().as_ptr(),
-                    false,
-                    self.abstract_state.as_ptr(),
-                    dim_change,
-                    false,
-                ));
-                apron_sys::ap_dimchange_free_wrapper(dim_change);
-            }
-        }
-    }
-
-    fn get_dims(&self) -> usize {
-        let dims = unsafe {
-            apron_sys::ap_abstract0_dimension(
-                Self::get_manager().as_ptr(),
-                self.abstract_state.as_ptr(),
-            )
-        };
-        dims.intdim
-    }
-
-    fn remove_dimensions(&mut self, dims: Vec<apron_sys::ap_dim_t>) {
-        if !dims.is_empty() {
-            let mut dims = dims;
-            dims.sort_unstable();
-            unsafe {
-                let dim_change = apron_sys::ap_dimchange_alloc(dims.len(), 0);
-                for (i, item) in dims.iter().enumerate() {
-                    (*(*dim_change).dim.add(i)) = *item;
-                }
-                self.abstract_state = Self::wrap_state(apron_sys::ap_abstract0_remove_dimensions(
-                    Self::get_manager().as_ptr(),
-                    false,
-                    self.abstract_state.as_ptr(),
-                    dim_change,
-                ));
-                apron_sys::ap_dimchange_free_wrapper(dim_change);
-            }
-        }
-    }
-
-    fn get_variable(&self, i: apron_sys::ap_dim_t) -> Rc<Path> {
-        for (k, v) in &self.var_map {
-            if *v == i {
-                return k.clone();
-            }
-        }
-        panic!("Demension {} is not used! var_map: {:?}", i, self.var_map);
-    }
-
-    fn do_bin_op_expr(
-        &mut self,
-        op: ApronOperation,
-        lhs_expr: *mut apron_sys::ap_texpr0_t,
-        rhs_expr: *mut apron_sys::ap_texpr0_t,
-        res: &Rc<Path>,
-    ) {
-        let res_expr = match op {
-            ApronOperation::Add => Self::add(lhs_expr, rhs_expr),
-            ApronOperation::Sub => Self::sub(lhs_expr, rhs_expr),
-            ApronOperation::Mul => Self::mul(lhs_expr, rhs_expr),
-            ApronOperation::Div => Self::div(lhs_expr, rhs_expr),
-            ApronOperation::Rem => Self::rem(lhs_expr, rhs_expr),
-            _ => unreachable!(),
-        };
-        let dim_res = self.get_var_dim_insert(res.clone());
-        unsafe {
-            self.abstract_state = Self::wrap_state(apron_sys::ap_abstract0_assign_texpr(
-                Self::get_manager().as_ptr(),
-                false,
-                self.abstract_state.as_ptr(),
-                dim_res,
-                res_expr,
-                std::ptr::null_mut(),
-            ));
-            apron_sys::ap_texpr0_free(res_expr);
-        }
-    }
-
-    fn do_bin_op_itv(
-        &mut self,
-        op: ApronOperation,
-        lhs_itv: Interval,
-        rhs_itv: Interval,
-        res: &Rc<Path>,
-    ) {
-        let res_itv = match op {
-            ApronOperation::And => lhs_itv & rhs_itv,
-            ApronOperation::Or => lhs_itv | rhs_itv,
-            ApronOperation::Xor => lhs_itv ^ rhs_itv,
-            ApronOperation::Shl => lhs_itv << rhs_itv,
-            ApronOperation::Shr => lhs_itv >> rhs_itv,
-            _ => unreachable!(),
-        };
-        self.set_interval(res, res_itv);
-    }
-
-    fn const2tconst(&mut self, cst: &LinearConstraint) -> apron_sys::ap_tcons0_t {
         match cst {
-            LinearConstraint::Equality(expr) => unsafe {
-                apron_sys::ap_tcons0_make_wrapper(
-                    apron_sys::ap_constyp_t_AP_CONS_EQ,
-                    self.expr2texpr(expr),
-                    std::ptr::null_mut(),
-                )
-            },
-            LinearConstraint::Inequality(expr) => unsafe {
-                apron_sys::ap_tcons0_make_wrapper(
-                    apron_sys::ap_constyp_t_AP_CONS_DISEQ,
-                    self.expr2texpr(expr),
-                    std::ptr::null_mut(),
-                )
-            },
-            LinearConstraint::LessEq(expr) => unsafe {
-                apron_sys::ap_tcons0_make_wrapper(
-                    apron_sys::ap_constyp_t_AP_CONS_SUPEQ,
-                    self.expr2texpr(&-expr.clone()),
-                    std::ptr::null_mut(),
-                )
-            },
-            LinearConstraint::LessThan(expr) => unsafe {
-                apron_sys::ap_tcons0_make_wrapper(
-                    apron_sys::ap_constyp_t_AP_CONS_SUP,
-                    self.expr2texpr(&-expr.clone()),
-                    std::ptr::null_mut(),
-                )
-            },
+            LinearConstraint::Equality(expr) => self.refine_equality(expr),
+            LinearConstraint::LessEq(expr) => self.refine_less_equal(expr),
+            LinearConstraint::LessThan(_) => {
+                let non_strict = cst.strict_to_non_strict();
+                if let LinearConstraint::LessEq(expr) = non_strict {
+                    self.refine_less_equal(&expr);
+                }
+            }
+            LinearConstraint::Inequality(_) => {}
+        }
+    }
+
+    fn refine_equality(&mut self, expr: &LinearExpression) {
+        if let Some((path, low, high)) = interval_from_unary_expr(expr) {
+            self.refine_path_interval(&path, Interval::new(low, high));
+        }
+    }
+
+    fn refine_less_equal(&mut self, expr: &LinearExpression) {
+        let Some((path, coeff, cst)) = unary_linear_expr(expr) else {
+            return;
+        };
+        if coeff == 1 {
+            self.refine_upper_bound(&path, -cst);
+        } else if coeff == -1 {
+            self.refine_lower_bound(&path, cst);
+        }
+    }
+
+    fn refine_lower_bound(&mut self, path: &Rc<Path>, lower: Integer) {
+        let old = self.var2itv(path);
+        self.refine_path_interval(path, Interval::new(Bound::Int(lower), old.high.clone()));
+    }
+
+    fn refine_upper_bound(&mut self, path: &Rc<Path>, upper: Integer) {
+        let old = self.var2itv(path);
+        self.refine_path_interval(path, Interval::new(old.low.clone(), Bound::Int(upper)));
+    }
+
+    fn refine_path_interval(&mut self, path: &Rc<Path>, itv: Interval) {
+        let met = meet_interval(&self.var2itv(path), &itv);
+        if met.is_bottom() {
+            self.set_to_bottom();
+        } else {
+            self.set_interval(path, met);
         }
     }
 
     fn var2itv(&self, var: &Rc<Path>) -> Interval {
         if self.is_bottom() {
             Interval::bottom()
-        } else if let Some(dim) = self.get_var_dim(var) {
-            unsafe {
-                let itv = apron_sys::ap_abstract0_bound_dimension(
-                    Self::get_manager().as_ptr(),
-                    self.abstract_state.as_ptr(),
-                    dim,
-                );
-                if apron_sys::ap_interval_is_top(itv) {
-                    apron_sys::ap_interval_free(itv);
-                    Interval::bottom()
-                } else {
-                    let lb = (*itv).inf;
-                    let ub = (*itv).sup;
-                    let res = if apron_sys::ap_scalar_infty(lb) == -1 {
-                        // [-∞, k]
-                        let sup = Self::mpqptr2num((*ub).val.mpq);
-                        // apron_sys::ap_interval_free(itv);
-                        Interval::new(Bound::NINF, Bound::Int(sup))
-                    } else if apron_sys::ap_scalar_infty(ub) == 1 {
-                        // [k, ∞]
-                        let inf = Self::mpqptr2num((*lb).val.mpq);
-                        // apron_sys::ap_interval_free(itv);
-                        Interval::new(Bound::Int(inf), Bound::INF)
-                    } else {
-                        let inf = Self::mpqptr2num((*lb).val.mpq);
-                        let sup = Self::mpqptr2num((*ub).val.mpq);
-                        // apron_sys::ap_interval_free(itv);
-                        Interval::new(Bound::Int(inf), Bound::Int(sup))
-                    };
-                    apron_sys::ap_interval_free(itv);
-                    res
-                }
-            }
         } else {
-            // For unknown variable, return top
-            Interval::top()
+            self.intervals
+                .get(var)
+                .cloned()
+                .unwrap_or_else(Interval::top)
         }
     }
 
-    fn expr2texpr(&mut self, expr: &LinearExpression) -> *mut apron_sys::ap_texpr0_t {
-        let cst = expr.constant();
-        let mut res = Self::num2texpr(&cst);
-        for (v, n) in expr {
-            let term = Self::mul(Self::num2texpr(n), self.var2texpr(v));
-            res = Self::add(res, term);
+    fn set_interval(&mut self, var: &Rc<Path>, itv: Interval) {
+        if self.is_bottom() {
+            return;
         }
-        res
-    }
-
-    fn var2texpr(&mut self, var: &Rc<Path>) -> *mut apron_sys::ap_texpr0_t {
-        unsafe { apron_sys::ap_texpr0_dim(self.get_var_dim_insert(var.clone())) }
-    }
-
-    fn num2texpr(num: &Integer) -> *mut apron_sys::ap_texpr0_t {
-        use gmp_mpfr_sys::gmp;
-        use std::mem::MaybeUninit;
-        let mut mpq_uninit = MaybeUninit::uninit();
-        unsafe {
-            gmp::mpq_init(mpq_uninit.as_mut_ptr());
-            let mut mpq = mpq_uninit.assume_init();
-            gmp::mpq_set_z(&mut mpq, num.as_raw());
-
-            let v = apron_sys::ap_texpr0_cst_scalar_mpq(&mpq);
-            gmp::mpq_clear(&mut mpq);
-            v
-        }
-    }
-
-    fn coeff2num(coeff: *mut apron_sys::ap_coeff_t) -> Integer {
-        let mpq = unsafe { (*(*coeff).val.scalar).val.mpq };
-        Self::mpqptr2num(mpq)
-    }
-
-    fn mpqptr2num(mpq: apron_sys::mpq_ptr) -> Integer {
-        let mpq_t = unsafe { *(mpq as *mut gmp_mpfr_sys::gmp::mpq_t) };
-        let rational = unsafe { Rational::from_raw(mpq_t) };
-        let mut res = Integer::new();
-        res.assign(rational.floor_ref());
-
-        // This is to prevent `mpq_t` from being freed when `rational` goes out of scope
-        // Because this `mpq_t` is like a pointer, and another copy of it is maintained inside `ap_coeff_t`,
-        // which will be freed in `ap_lincons0_array_clear`, so omitting the next line will cause a double free
-        // See https://docs.rs/rug/1.11.0/rug/struct.Rational.html#method.into_raw
-        // And https://docs.rs/rug/1.11.0/rug/struct.Rational.html#method.from_raw
-        let _mpq_t2 = rational.into_raw();
-
-        res
-    }
-
-    fn add(
-        a: *mut apron_sys::ap_texpr0_t,
-        b: *mut apron_sys::ap_texpr0_t,
-    ) -> *mut apron_sys::ap_texpr0_t {
-        unsafe {
-            apron_sys::ap_texpr0_binop(
-                apron_sys::ap_texpr_op_t_AP_TEXPR_ADD,
-                a,
-                b,
-                apron_sys::ap_texpr_rtype_t_AP_RTYPE_INT,
-                apron_sys::ap_texpr_rdir_t_AP_RDIR_NEAREST,
-            )
-        }
-    }
-
-    fn sub(
-        a: *mut apron_sys::ap_texpr0_t,
-        b: *mut apron_sys::ap_texpr0_t,
-    ) -> *mut apron_sys::ap_texpr0_t {
-        unsafe {
-            apron_sys::ap_texpr0_binop(
-                apron_sys::ap_texpr_op_t_AP_TEXPR_SUB,
-                a,
-                b,
-                apron_sys::ap_texpr_rtype_t_AP_RTYPE_INT,
-                apron_sys::ap_texpr_rdir_t_AP_RDIR_NEAREST,
-            )
-        }
-    }
-
-    fn mul(
-        a: *mut apron_sys::ap_texpr0_t,
-        b: *mut apron_sys::ap_texpr0_t,
-    ) -> *mut apron_sys::ap_texpr0_t {
-        unsafe {
-            apron_sys::ap_texpr0_binop(
-                apron_sys::ap_texpr_op_t_AP_TEXPR_MUL,
-                a,
-                b,
-                apron_sys::ap_texpr_rtype_t_AP_RTYPE_INT,
-                apron_sys::ap_texpr_rdir_t_AP_RDIR_NEAREST,
-            )
-        }
-    }
-
-    fn div(
-        a: *mut apron_sys::ap_texpr0_t,
-        b: *mut apron_sys::ap_texpr0_t,
-    ) -> *mut apron_sys::ap_texpr0_t {
-        unsafe {
-            apron_sys::ap_texpr0_binop(
-                apron_sys::ap_texpr_op_t_AP_TEXPR_DIV,
-                a,
-                b,
-                apron_sys::ap_texpr_rtype_t_AP_RTYPE_INT,
-                apron_sys::ap_texpr_rdir_t_AP_RDIR_NEAREST,
-            )
-        }
-    }
-
-    fn rem(
-        a: *mut apron_sys::ap_texpr0_t,
-        b: *mut apron_sys::ap_texpr0_t,
-    ) -> *mut apron_sys::ap_texpr0_t {
-        unsafe {
-            apron_sys::ap_texpr0_binop(
-                apron_sys::ap_texpr_op_t_AP_TEXPR_MOD,
-                a,
-                b,
-                apron_sys::ap_texpr_rtype_t_AP_RTYPE_INT,
-                apron_sys::ap_texpr_rdir_t_AP_RDIR_NEAREST,
-            )
-        }
-    }
-
-    fn neg(a: *mut apron_sys::ap_texpr0_t) -> *mut apron_sys::ap_texpr0_t {
-        unsafe {
-            apron_sys::ap_texpr0_unop(
-                apron_sys::ap_texpr_op_t_AP_TEXPR_NEG,
-                a,
-                apron_sys::ap_texpr_rtype_t_AP_RTYPE_INT,
-                apron_sys::ap_texpr_rdir_t_AP_RDIR_NEAREST,
-            )
-        }
-    }
-
-    fn set_interval(&mut self, v: &Rc<Path>, itv: Interval) {
-        // Remove variable from abstract domain
-        self.forget(v);
-
-        let mut csts = LinearConstraintSystem::default();
-        let low = itv.low;
-        if low.is_finite() {
-            if let Bound::Int(l) = low {
-                let mut expr = LinearExpression::from(l);
-                expr = expr - v.clone();
-                let cst = LinearConstraint::LessEq(expr);
-                csts.add(cst);
-            }
-        }
-
-        let high = itv.high;
-        if high.is_finite() {
-            if let Bound::Int(h) = high {
-                let mut expr = LinearExpression::from(-h);
-                expr = expr + v.clone();
-                let cst = LinearConstraint::LessEq(expr);
-                csts.add(cst);
-            }
-        }
-
-        if csts.size() > 0 {
-            self.add_constraints(csts);
+        if itv.is_bottom() {
+            self.set_to_bottom();
+        } else if itv.is_top() {
+            self.intervals.remove(var);
+        } else {
+            self.intervals.insert(var.clone(), itv);
         }
     }
 }
@@ -1265,132 +459,141 @@ where
     ApronAbstractDomain<Type>: GetManagerTrait,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut res = String::new();
-        if self.is_bottom() {
-            res.push_str("⊥");
-        } else if self.is_top() {
-            res.push_str("⊤");
-        } else {
-            let constraint_system = LinearConstraintSystem::from(self);
-            res.push_str(format!("{:?}", constraint_system).as_str());
-        }
-        write!(f, "{}", res)
+        let constraints = LinearConstraintSystem::from(self);
+        write!(f, "{:?}", constraints)
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+fn singleton(n: Integer) -> Interval {
+    Interval::new(Bound::Int(n.clone()), Bound::Int(n))
+}
 
-    #[test]
-    fn test_apron_domain() {
-        let mut domain1 = ApronAbstractDomain::<ApronInterval>::default();
-        assert_eq!(domain1.is_top(), true);
-        assert_eq!(domain1.is_bottom(), false);
-        domain1.set_to_bottom();
-        assert_eq!(domain1.is_bottom(), true);
-        assert_eq!(domain1.get_dims(), 0);
-        domain1.add_dimensions(1);
-        assert_eq!(domain1.get_dims(), 1);
-        domain1.add_dimensions(5);
-        assert_eq!(domain1.get_dims(), 6);
-        domain1.remove_dimensions(vec![3, 4, 1, 5]);
-        assert_eq!(domain1.get_dims(), 2);
+fn union_paths<Type>(
+    lhs: &ApronAbstractDomain<Type>,
+    rhs: &ApronAbstractDomain<Type>,
+) -> Vec<Rc<Path>>
+where
+    Type: ApronDomainType,
+    ApronAbstractDomain<Type>: GetManagerTrait,
+{
+    let mut paths: Vec<Rc<Path>> = lhs.intervals.keys().cloned().collect();
+    for path in rhs.intervals.keys() {
+        if !paths.contains(path) {
+            paths.push(path.clone());
+        }
     }
+    paths
+}
 
-    #[test]
-    fn test_apron_interval_domain() {
-        let mut inv1 = ApronAbstractDomain::<ApronInterval>::default();
-        let mut inv2 = ApronAbstractDomain::<ApronInterval>::default();
+fn interval_leq(lhs: &Interval, rhs: &Interval) -> bool {
+    lhs.is_bottom()
+        || rhs.is_top()
+        || (!rhs.is_bottom() && rhs.low <= lhs.low && lhs.high <= rhs.high)
+}
 
-        let local_x = Path::new_local(1, 0);
-        let local_y = Path::new_local(2, 0);
-        let local_z = Path::new_local(3, 0);
-        inv1.assign_linexpr(local_x.clone(), &LinearExpression::from(5));
-        inv1.assign_linexpr(local_x.clone(), &LinearExpression::from(6));
-        inv1.assign_linexpr(local_y.clone(), &LinearExpression::from(10));
-        println!("inv1: {:?}", inv1);
-
-        inv2.assign_linexpr(local_x.clone(), &LinearExpression::from(10));
-        inv2.assign_linexpr(local_y.clone(), &LinearExpression::from(20));
-        println!("inv2: {:?}", inv2);
-
-        let mut inv3 = inv1.join(&inv2);
-        println!("inv1 | inv2: {:?}", inv3);
-        inv3.apply_bin_op_place_place(ApronOperation::Add, &local_x, &local_y, &local_z);
-
-        println!("z=x+y: {:?}", inv3);
+fn join_interval(lhs: &Interval, rhs: &Interval) -> Interval {
+    if lhs.is_bottom() {
+        rhs.clone()
+    } else if rhs.is_bottom() {
+        lhs.clone()
+    } else {
+        Interval::new(
+            lhs.low.clone().min(rhs.low.clone()),
+            lhs.high.clone().max(rhs.high.clone()),
+        )
     }
+}
 
-    #[test]
-    fn test_apron_octagon_domain() {
-        let mut inv1 = ApronAbstractDomain::<ApronOctagon>::default();
-        let mut inv2 = ApronAbstractDomain::<ApronOctagon>::default();
-
-        let local_x = Path::new_local(1, 0);
-        let local_y = Path::new_local(2, 0);
-        let local_z = Path::new_local(3, 0);
-        inv1.assign_linexpr(local_x.clone(), &LinearExpression::from(5));
-        inv1.assign_linexpr(local_y.clone(), &LinearExpression::from(10));
-        println!("inv1: {:?}", inv1);
-
-        inv2.assign_linexpr(local_x.clone(), &LinearExpression::from(10));
-        inv2.assign_linexpr(local_y.clone(), &LinearExpression::from(20));
-        println!("inv2: {:?}", inv2);
-
-        let mut inv3 = inv1.join(&inv2);
-        println!("inv1 | inv2: {:?}", inv3);
-        inv3.apply_bin_op_place_place(ApronOperation::Add, &local_x, &local_y, &local_z);
-
-        println!("inv1: {:?}", inv3);
+fn meet_interval(lhs: &Interval, rhs: &Interval) -> Interval {
+    if lhs.is_bottom() || rhs.is_bottom() {
+        Interval::bottom()
+    } else {
+        Interval::new(
+            lhs.low.clone().max(rhs.low.clone()),
+            lhs.high.clone().min(rhs.high.clone()),
+        )
     }
+}
 
-    #[test]
-    fn test_apron_polyhedra_domain() {
-        let mut inv1 = ApronAbstractDomain::<ApronPolyhedra>::default();
-        let mut inv2 = ApronAbstractDomain::<ApronPolyhedra>::default();
-
-        let local_x = Path::new_local(1, 0);
-        let local_y = Path::new_local(2, 0);
-        let local_z = Path::new_local(3, 0);
-        inv1.assign_linexpr(local_x.clone(), &LinearExpression::from(5));
-        inv1.assign_linexpr(local_y.clone(), &LinearExpression::from(10));
-        println!("inv1: {:?}", inv1);
-
-        inv2.assign_linexpr(local_x.clone(), &LinearExpression::from(10));
-        inv2.assign_linexpr(local_y.clone(), &LinearExpression::from(20));
-        println!("inv2: {:?}", inv2);
-
-        let mut inv3 = inv1.join(&inv2);
-        println!("inv1 | inv2: {:?}", inv3);
-        inv3.apply_bin_op_place_place(ApronOperation::Add, &local_x, &local_y, &local_z);
-
-        println!("z=x+y: {:?}", inv3);
+fn widen_interval(old: &Interval, new: &Interval) -> Interval {
+    if old.is_bottom() {
+        return new.clone();
     }
+    if new.is_bottom() {
+        return old.clone();
+    }
+    let low = if new.low < old.low {
+        Bound::NINF
+    } else {
+        old.low.clone()
+    };
+    let high = if new.high > old.high {
+        Bound::INF
+    } else {
+        old.high.clone()
+    };
+    Interval::new(low, high)
+}
 
-    #[test]
-    fn test_apron_interval_domain_comparison() {
-        let mut inv1 = ApronAbstractDomain::<ApronInterval>::default();
-        let mut inv2 = ApronAbstractDomain::<ApronInterval>::default();
-        let mut inv3 = ApronAbstractDomain::<ApronInterval>::default();
+fn eval_bin_op(op: ApronOperation, lhs: Interval, rhs: Interval) -> Interval {
+    if lhs.is_bottom() || rhs.is_bottom() {
+        return Interval::bottom();
+    }
+    match op {
+        ApronOperation::Add => lhs + rhs,
+        ApronOperation::Sub => lhs - rhs,
+        ApronOperation::Mul => lhs * rhs,
+        ApronOperation::Div => {
+            if interval_contains_zero(&rhs) {
+                Interval::top()
+            } else {
+                lhs / rhs
+            }
+        }
+        ApronOperation::Rem => Interval::top(),
+        ApronOperation::Shl => lhs << rhs,
+        ApronOperation::Shr => lhs >> rhs,
+        ApronOperation::And => lhs & rhs,
+        ApronOperation::Or => lhs | rhs,
+        ApronOperation::Xor => lhs ^ rhs,
+        ApronOperation::Not | ApronOperation::Neg => unreachable!("Undefined BinOp"),
+    }
+}
 
-        let local_x = Path::new_local(1, 0);
-        let local_y = Path::new_local(2, 0);
-        inv1.assign_linexpr(local_x.clone(), &LinearExpression::from(5));
-        inv1.assign_linexpr(local_y.clone(), &LinearExpression::from(10));
-        println!("inv1: {:?}", inv1);
+fn interval_contains_zero(itv: &Interval) -> bool {
+    !itv.is_bottom()
+        && itv.low <= Bound::Int(Integer::from(0))
+        && Bound::Int(Integer::from(0)) <= itv.high
+}
 
-        inv2.assign_linexpr(local_x.clone(), &LinearExpression::from(5));
-        inv2.assign_linexpr(local_y.clone(), &LinearExpression::from(10));
-        println!("inv2: {:?}", inv2);
+fn negate_interval(itv: Interval) -> Interval {
+    Interval::new(negate_bound(itv.high), negate_bound(itv.low))
+}
 
-        inv3.assign_linexpr(local_x.clone(), &LinearExpression::from(10));
-        inv3.assign_linexpr(local_y.clone(), &LinearExpression::from(20));
-        println!("inv3: {:?}", inv3);
+fn negate_bound(bound: Bound) -> Bound {
+    match bound {
+        Bound::INF => Bound::NINF,
+        Bound::NINF => Bound::INF,
+        Bound::Int(n) => Bound::Int(-n),
+    }
+}
 
-        let inv4 = inv1.join(&inv3);
-        println!("inv4 = inv1 | inv3: {:?}", inv4);
+fn unary_linear_expr(expr: &LinearExpression) -> Option<(Rc<Path>, Integer, Integer)> {
+    if expr.term_count() != 1 {
+        return None;
+    }
+    let (path, coeff) = expr.terms().next()?;
+    Some((path.clone(), coeff.clone(), expr.constant()))
+}
 
-        assert!(inv1.leq(&inv4));
+fn interval_from_unary_expr(expr: &LinearExpression) -> Option<(Rc<Path>, Bound, Bound)> {
+    let (path, coeff, cst) = unary_linear_expr(expr)?;
+    if coeff == 1 {
+        let value = -cst;
+        Some((path, Bound::Int(value.clone()), Bound::Int(value)))
+    } else if coeff == -1 {
+        Some((path, Bound::Int(cst.clone()), Bound::Int(cst)))
+    } else {
+        None
     }
 }
