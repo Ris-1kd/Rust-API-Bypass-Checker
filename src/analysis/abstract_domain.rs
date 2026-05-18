@@ -4,7 +4,7 @@ use crate::analysis::memory::nullness_domain::{NullnessDomain, PointerNullness};
 use crate::analysis::memory::path::{Path, PathEnum};
 use crate::analysis::memory::symbolic_value::{SymbolicValue, SymbolicValueTrait};
 use crate::analysis::numerical::apron_domain::{
-    ApronAbstractDomain, ApronDomainType, GetManagerTrait,
+    ApronAbstractDomain, ApronDomainType, ApronOperation, GetManagerTrait,
 };
 use crate::analysis::numerical::lattice::LatticeTrait;
 use rug::Integer;
@@ -88,12 +88,14 @@ where
     ///
     /// This is critical to avoid unbounded growth of the symbolic/numerical domains when calls
     /// occur inside loops (each call uses a new fresh offset, creating a new namespace).
-    /// 
+    ///
     /// 该函数是gpt生成用来进行清理symbolic domain中的重复参数调用的
     pub fn drop_call_frame_vars_from(&mut self, cutoff_ordinal: usize) {
         fn root_ordinal_if_local_or_param(path: &Rc<Path>) -> Option<usize> {
             match &path.value {
-                PathEnum::QualifiedPath { qualifier, .. } => root_ordinal_if_local_or_param(qualifier),
+                PathEnum::QualifiedPath { qualifier, .. } => {
+                    root_ordinal_if_local_or_param(qualifier)
+                }
                 PathEnum::LocalVariable { ordinal } => Some(*ordinal),
                 PathEnum::Parameter { ordinal } => Some(*ordinal),
                 _ => None,
@@ -114,7 +116,6 @@ where
         // Exit conditions from the callee must not leak into the caller.
         self.exit_conditions.clear();
     }
-
 
     pub fn remove(&mut self, path: &Rc<Path>) {
         self.numerical_domain.forget(path);
@@ -158,12 +159,15 @@ where
     fn infer_reference_nullness(&self, value: &Rc<SymbolicValue>) -> Option<PointerNullness> {
         match &value.expression {
             Expression::Reference(..) => Some(PointerNullness::NonNull),
-            Expression::Variable { path, var_type } if *var_type == crate::analysis::memory::expression::ExpressionType::Reference => {
+            Expression::Variable { path, var_type }
+                if *var_type == crate::analysis::memory::expression::ExpressionType::Reference =>
+            {
                 self.nullness_domain.get(path)
             }
-            Expression::Cast { operand, target_type }
-                if *target_type == crate::analysis::memory::expression::ExpressionType::Reference =>
-            {
+            Expression::Cast {
+                operand,
+                target_type,
+            } if *target_type == crate::analysis::memory::expression::ExpressionType::Reference => {
                 if operand.expression.is_zero() {
                     Some(PointerNullness::Null)
                 } else {
@@ -175,6 +179,41 @@ where
             }
             _ => None,
         }
+    }
+
+    fn get_integer_operand_path(&mut self, value: &Rc<SymbolicValue>) -> Option<Rc<Path>> {
+        match &value.expression {
+            Expression::Numerical(path) => Some(path.clone()),
+            Expression::Variable { path, var_type } if var_type.is_integer() => Some(path.clone()),
+            Expression::CompileTimeConstant(constant) => {
+                if constant.try_get_integer().is_some() {
+                    let path = Path::new_alias(value.clone());
+                    self.update_value_at(path.clone(), value.clone());
+                    Some(path)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn assign_integer_binary_expression(
+        &mut self,
+        path: Rc<Path>,
+        op: ApronOperation,
+        left: &Rc<SymbolicValue>,
+        right: &Rc<SymbolicValue>,
+    ) -> bool {
+        let Some(left_path) = self.get_integer_operand_path(left) else {
+            return false;
+        };
+        let Some(right_path) = self.get_integer_operand_path(right) else {
+            return false;
+        };
+        self.numerical_domain
+            .apply_bin_op_place_place(op, &left_path, &right_path, &path);
+        true
     }
 
     /// Returns a reference to the value associated with the given path, if there is one.
@@ -218,7 +257,8 @@ where
 
         match &value.expression {
             Expression::Numerical(rpath) => {
-                self.numerical_domain.assign_var(path.clone(), rpath.clone());
+                self.numerical_domain
+                    .assign_var(path.clone(), rpath.clone());
             }
             Expression::CompileTimeConstant(c) => {
                 if let Some(i) = c.try_get_integer() {
@@ -227,8 +267,42 @@ where
                     self.numerical_domain.forget(&path);
                 }
             }
-            Expression::Variable { path: rpath, var_type } if var_type.is_integer() => {
-                self.numerical_domain.assign_var(path.clone(), rpath.clone());
+            Expression::Variable {
+                path: rpath,
+                var_type,
+            } if var_type.is_integer() => {
+                self.numerical_domain
+                    .assign_var(path.clone(), rpath.clone());
+            }
+            Expression::Add { left, right } => {
+                if !self.assign_integer_binary_expression(
+                    path.clone(),
+                    ApronOperation::Add,
+                    left,
+                    right,
+                ) {
+                    self.numerical_domain.forget(&path);
+                }
+            }
+            Expression::Sub { left, right } => {
+                if !self.assign_integer_binary_expression(
+                    path.clone(),
+                    ApronOperation::Sub,
+                    left,
+                    right,
+                ) {
+                    self.numerical_domain.forget(&path);
+                }
+            }
+            Expression::Mul { left, right } => {
+                if !self.assign_integer_binary_expression(
+                    path.clone(),
+                    ApronOperation::Mul,
+                    left,
+                    right,
+                ) {
+                    self.numerical_domain.forget(&path);
+                }
             }
             _ => {
                 self.numerical_domain.forget(&path);
