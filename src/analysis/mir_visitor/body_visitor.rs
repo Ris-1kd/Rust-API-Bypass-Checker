@@ -18,7 +18,7 @@ use crate::analysis::z3_solver::Z3Solver;
 use crate::checker::assertion_checker::AssertionChecker;
 use crate::checker::checker_trait::CheckerTrait;
 //use crate::checker::unsafe_func_checker::UnsafeFuncChecker;
-use crate::analysis::mir_visitor::func_handler::{FuncHandler};
+use crate::analysis::mir_visitor::func_handler::FuncHandler;
 use log::{debug, error, warn};
 use rug::Integer;
 use rustc_errors::Diag;
@@ -79,6 +79,11 @@ where
     // `Place` to `SymbolicValue` Cache, used to extract conditions when analyzing assertions
     pub place_to_abstract_value: HashMap<mir::Place<'tcx>, Rc<SymbolicValue>>,
 
+    // Path-keyed companion cache for transient boolean expressions. Some MIR operands do not
+    // reliably hit the Place-keyed cache after moves, but their normalized Path is still stable
+    // inside the local block.
+    pub path_to_abstract_value: HashMap<Rc<Path>, Rc<SymbolicValue>>,
+
     // 使用Span映射到Path的方式，存储各个参数的Path, 尝试过Terminator, TerminatorKind等作key, 由于当时的版本这些数据结构还没有实现Eq, Hash，所以都放弃了。
     pub terminator_to_place: HashMap<Span, Vec<(Rc<Path>, Rc<SymbolicValue>)>>,
 
@@ -135,6 +140,7 @@ where
             crate_context: CrateContext::default(),
             // tainted_variables: HashSet::new(),
             place_to_abstract_value: HashMap::new(),
+            path_to_abstract_value: HashMap::new(),
             fresh_variable_offset,
             next_fresh_variable_offset: fresh_variable_offset + Self::FRESH_VARIABLE_OFFSET,
             call_stack,
@@ -188,8 +194,6 @@ where
             .diagnostics_for
             .insert(self.def_id, buffered_diagnostics);
     }
-
-
 
     pub fn get_exit_state(&self) -> Option<AbstractDomain<DomainType>> {
         self.post
@@ -551,7 +555,10 @@ where
             debug!("The precondition is bottom, ignore the analysis for this block");
             post = &pre;
         }
-        debug!("Finish analyzing basic block: {:?} of Func: {:?}", bb, self.def_id);
+        debug!(
+            "Finish analyzing basic block: {:?} of Func: {:?}",
+            bb, self.def_id
+        );
         debug!("Post-Condition for {:?}: {:?}", bb, post);
         debug!("Exit condition {:?}: {:?}", bb, post.exit_conditions);
         self.post.insert(bb, post.clone());
@@ -754,9 +761,7 @@ where
                 .map(|d| d.take())
                 .collect();
 
-            self.context
-                .diagnostics_for
-                .insert(self.def_id, drained);
+            self.context.diagnostics_for.insert(self.def_id, drained);
         }
     }
 }

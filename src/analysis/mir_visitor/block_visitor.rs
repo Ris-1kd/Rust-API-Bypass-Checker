@@ -26,17 +26,17 @@ use crate::analysis::numerical::apron_domain::{
 use crate::analysis::numerical::linear_constraint::LinearConstraintSystem;
 use crate::analysis::z3_solver::SmtResult;
 use rug::Integer;
-use rustc_infer::infer::TyCtxtInferExt;
-use rustc_span::source_map::Spanned;
-use rustc_target::abi::{FieldIdx, Primitive, TagEncoding, VariantIdx, Variants};
 use rustc_hir::def_id::DefId;
 use rustc_index::{Idx, IndexVec};
-use rustc_middle::mir::{self, ConstValue};
+use rustc_infer::infer::TyCtxtInferExt;
 use rustc_middle::mir::interpret::{alloc_range, GlobalAlloc, Scalar};
 use rustc_middle::mir::UnwindTerminateReason;
+use rustc_middle::mir::{self, ConstValue};
 use rustc_middle::ty::{
-    Const, CoroutineArgsExt, IntTy, ParamConst, ScalarInt, Ty, TyKind, TypingMode, UintTy, ValTree
+    Const, CoroutineArgsExt, IntTy, ParamConst, ScalarInt, Ty, TyKind, TypingMode, UintTy, ValTree,
 };
+use rustc_span::source_map::Spanned;
+use rustc_target::abi::{FieldIdx, Primitive, TagEncoding, VariantIdx, Variants};
 
 use rustc_middle::ty::GenericArgsRef;
 use rustc_span::Span;
@@ -143,8 +143,7 @@ where
 
         if matches!(
             kind,
-            mir::StatementKind::Assign(..)
-                | mir::StatementKind::SetDiscriminant { .. }
+            mir::StatementKind::Assign(..) | mir::StatementKind::SetDiscriminant { .. }
         ) {
             self.body_visitor.current_span = source_info.span;
         }
@@ -158,7 +157,6 @@ where
             mir::StatementKind::StorageDead(local) => self.visit_storage_dead(*local),
             mir::StatementKind::Nop => (),
             mir::StatementKind::ConstEvalCounter => (),
-
 
             // mir::StatementKind::FakeRead(..) => panic!(),
             // mir::StatementKind::PlaceMention(_) => (),// mir::StatementKind::Retag(retag_kind, place) => self.visit_retag(*retag_kind, place),
@@ -289,11 +287,10 @@ where
             .get_rustc_place_type(place, self.body_visitor.current_span);
 
         // let param_env = self.body_visitor.type_visitor.get_param_env();
-        
+
         match ty.kind() {
             TyKind::Adt(..) | TyKind::Coroutine(..) => {
-                let discr_ty = ty
-                    .discriminant_ty(self.body_visitor.context.tcx);
+                let discr_ty = ty.discriminant_ty(self.body_visitor.context.tcx);
                 let discr_bits = match ty
                     .discriminant_for_variant(self.body_visitor.context.tcx, variant_index)
                 {
@@ -302,7 +299,7 @@ where
                 };
                 let val = self.get_int_const_val(discr_bits, discr_ty);
                 self.body_visitor.state.update_value_at(target_path, val);
-                
+
                 return;
             }
             _ => panic!("rustc should ensure this"),
@@ -344,11 +341,8 @@ where
             Use(operand) | Repeat(operand, _) | Cast(_, operand, _) | UnaryOp(_, operand) => {
                 self.extract_local_from_operand(operand)
             }
-            Ref(_, _, place) | Discriminant(place) => {
-                Some(vec![place.local])
-            }
-            BinaryOp(_, box (operand1, operand2))
-             => {
+            Ref(_, _, place) | Discriminant(place) => Some(vec![place.local]),
+            BinaryOp(_, box (operand1, operand2)) => {
                 let res1 = self.extract_local_from_operand(operand1);
                 let res2 = self.extract_local_from_operand(operand2);
                 match (res1, res2) {
@@ -385,13 +379,23 @@ where
         let cached_value = self.try_symbolic_rvalue(rvalue);
         let path = self.visit_place(place);
         debug!("Get LHS Path: {:?}", path);
-        self.visit_rvalue(path, rvalue);
+        if let Some(value) = &cached_value {
+            self.body_visitor
+                .place_to_abstract_value
+                .insert(*place, value.clone());
+            self.body_visitor
+                .path_to_abstract_value
+                .insert(path.clone(), value.clone());
+        }
+        self.visit_rvalue(path.clone(), rvalue);
         if let Some(value) = cached_value {
             self.body_visitor
                 .place_to_abstract_value
-                .insert(*place, value);
+                .insert(*place, value.clone());
+            self.body_visitor.path_to_abstract_value.insert(path, value);
         } else {
             self.body_visitor.place_to_abstract_value.remove(place);
+            self.body_visitor.path_to_abstract_value.remove(&path);
         }
     }
 
@@ -606,7 +610,7 @@ where
         if let Ok(ty_and_layout) = self.body_visitor.type_visitor.layout_of(ty) {
             is_signed = ty_and_layout.backend_repr.is_signed();
             let size = ty_and_layout.size;
-            if is_signed {  
+            if is_signed {
                 val = size.sign_extend(val) as u128;
             } else {
                 val = size.truncate(val);
@@ -620,7 +624,7 @@ where
             self.body_visitor.get_u128_const_val(val)
         }
     }
-    
+
     /// Use for deconstructing `ConstValue::Slice` (i.e., `&[u8]` and `&str`) and `ConstValue::ByRef`
     #[allow(dead_code)]
     fn deconstruct_constant_array(
@@ -1132,7 +1136,7 @@ where
             mir::ProjectionElem::Subslice { .. } => None,
             mir::ProjectionElem::Downcast(..) => None,
             mir::ProjectionElem::Subtype(..) => None,
-            mir::ProjectionElem::OpaqueCast(..) => None, 
+            mir::ProjectionElem::OpaqueCast(..) => None,
         }
     }
 
@@ -1143,10 +1147,32 @@ where
         targets: &mir::SwitchTargets,
     ) {
         let mut default_exit_condition = Rc::new(SymbolicValue::new_true());
-        let discr = self.visit_operand(discr);
+        let discr_place = match discr {
+            mir::Operand::Copy(place) | mir::Operand::Move(place) => Some(*place),
+            _ => None,
+        };
+        let discr = if let Some(place) = discr_place {
+            let path = self.get_path_for_place(&place);
+            self.body_visitor
+                .place_to_abstract_value
+                .get(&place)
+                .cloned()
+                .or_else(|| self.body_visitor.path_to_abstract_value.get(&path).cloned())
+                .unwrap_or_else(|| self.visit_operand(discr))
+        } else {
+            self.visit_operand(discr)
+        };
         for (v, target) in targets.iter() {
-            let val: Rc<SymbolicValue> = Rc::new(ConstantValue::Int(Integer::from(v)).into());
-            let cond = discr.equals(val);
+            let cond = if discr.expression.infer_type() == ExpressionType::Bool {
+                if v == 0 {
+                    discr.logical_not()
+                } else {
+                    discr.clone()
+                }
+            } else {
+                let val: Rc<SymbolicValue> = Rc::new(ConstantValue::Int(Integer::from(v)).into());
+                discr.equals(val)
+            };
             let not_cond = cond.logical_not();
             default_exit_condition = default_exit_condition.and(not_cond);
             self.body_visitor.state.exit_conditions.insert(target, cond);
@@ -1272,7 +1298,12 @@ where
         info!("func_to_call is {:?}", func_to_call);
         let actual_args: Vec<(Rc<Path>, Rc<SymbolicValue>)> = args
             .iter()
-            .map(|arg| (self.get_operand_path(&arg.node), self.visit_operand(&arg.node)))
+            .map(|arg| {
+                (
+                    self.get_operand_path(&arg.node),
+                    self.visit_operand(&arg.node),
+                )
+            })
             .collect();
         let actual_argument_types: Vec<Ty<'tcx>> = args
             .iter()
@@ -1536,7 +1567,7 @@ where
             .exit_conditions
             .insert(target, exit_condition);
     }
-    
+
     // fn visit_inline_asm(&mut self) {
     //     let span = self.body_visitor.current_span;
     //     let err = self
@@ -1553,66 +1584,65 @@ where
         // println!("visit_rvalue: {:?}", rvalue);
         match rvalue {
             mir::Rvalue::Use(operand) => {
-                        debug!("Get RHS Rvalue: Use({:?})", operand);
-                        self.visit_use(path, operand);
-                    }
+                debug!("Get RHS Rvalue: Use({:?})", operand);
+                self.visit_use(path, operand);
+            }
             mir::Rvalue::Repeat(operand, count) => {
-                        debug!("Get RHS Rvalue: Repeat({:?}, {:?})", operand, count);
-                        self.visit_repeat(path, operand, count);
-                    }
+                debug!("Get RHS Rvalue: Repeat({:?}, {:?})", operand, count);
+                self.visit_repeat(path, operand, count);
+            }
             mir::Rvalue::Ref(_, _, place) | mir::Rvalue::RawPtr(_, place) => {
-                        debug!("Get RHS Rvalue: Ref/AddressOf({:?})", place);
-                        self.visit_address_of(path, place);
-                    }
+                debug!("Get RHS Rvalue: Ref/AddressOf({:?})", place);
+                self.visit_address_of(path, place);
+            }
             mir::Rvalue::Cast(cast_kind, operand, ty) => {
-                        debug!(
-                            "Get RHS Rvalue: Cast({:?}, {:?}, {:?})",
-                            cast_kind, operand, ty
-                        );
-                        self.visit_cast(path, *cast_kind, operand, *ty);
-                    }
+                debug!(
+                    "Get RHS Rvalue: Cast({:?}, {:?}, {:?})",
+                    cast_kind, operand, ty
+                );
+                self.visit_cast(path, *cast_kind, operand, *ty);
+            }
             mir::Rvalue::BinaryOp(bin_op, box (left_operand, right_operand)) => {
-                        debug!(
-                            "Get RHS Rvalue: BinaryOp({:?}, {:?}, {:?})",
-                            bin_op, left_operand, right_operand
-                        );
-                        self.visit_binary_op(path, *bin_op, left_operand, right_operand);
-                    }
+                debug!(
+                    "Get RHS Rvalue: BinaryOp({:?}, {:?}, {:?})",
+                    bin_op, left_operand, right_operand
+                );
+                self.visit_binary_op(path, *bin_op, left_operand, right_operand);
+            }
             mir::Rvalue::NullaryOp(null_op, ty) => {
-                        debug!("Get RHS Rvalue: NullaryOp({:?}, {:?})", null_op, ty);
-                        self.visit_nullary_op(path, *null_op, *ty);
-                    }
+                debug!("Get RHS Rvalue: NullaryOp({:?}, {:?})", null_op, ty);
+                self.visit_nullary_op(path, *null_op, *ty);
+            }
             mir::Rvalue::UnaryOp(unary_op, operand) => {
-                        debug!("Get RHS Rvalue: UnaryOp({:?}, {:?})", unary_op, operand);
-                        self.visit_unary_op(path, *unary_op, operand);
-                    }
+                debug!("Get RHS Rvalue: UnaryOp({:?}, {:?})", unary_op, operand);
+                self.visit_unary_op(path, *unary_op, operand);
+            }
             mir::Rvalue::Discriminant(place) => {
-                        debug!("Get RHS Rvalue: Discriminant({:?})", place);
-                        self.visit_discriminant(path, place);
-                    }
+                debug!("Get RHS Rvalue: Discriminant({:?})", place);
+                self.visit_discriminant(path, place);
+            }
             mir::Rvalue::Aggregate(aggregate_kinds, operands) => {
-                        debug!(
-                            "Get RHS Rvalue: Aggregate({:?}, {:?})",
-                            aggregate_kinds, operands
-                        );
-                        self.visit_aggregate(path, aggregate_kinds, operands);
-                    }
+                debug!(
+                    "Get RHS Rvalue: Aggregate({:?}, {:?})",
+                    aggregate_kinds, operands
+                );
+                self.visit_aggregate(path, aggregate_kinds, operands);
+            }
             mir::Rvalue::ThreadLocalRef(def_id) => {
-                        self.visit_thread_local_ref(*def_id);
-                    }
-            mir::Rvalue::ShallowInitBox(operand,_ty) => {
+                self.visit_thread_local_ref(*def_id);
+            }
+            mir::Rvalue::ShallowInitBox(operand, _ty) => {
                 let v = self.visit_operand(operand);
                 self.body_visitor.state.update_value_at(path, v);
                 // 原有的分析器在此处并没有给出实现, 以上的实现是GPT给出的实现
                 // todo!()
-            },
-            mir::Rvalue::CopyForDeref(place) => 
-            {
+            }
+            mir::Rvalue::CopyForDeref(place) => {
                 let op = mir::Operand::Copy(*place);
                 self.visit_use(path, &op);
                 // 原有的分析器在此处并没有给出实现, 以上的实现是GPT将CopyForDeref视作了一次普通的Use语句;
                 // todo!()
-            },
+            }
         }
     }
 
@@ -1731,12 +1761,14 @@ where
                 }
             }
             mir::AggregateKind::Closure(def_id, args)
-            | mir::AggregateKind::Coroutine(def_id, args) 
-            | mir::AggregateKind::CoroutineClosure(def_id, args)=> {
+            | mir::AggregateKind::Coroutine(def_id, args)
+            | mir::AggregateKind::CoroutineClosure(def_id, args) => {
                 let ty = self.body_visitor.context.tcx.type_of(*def_id).skip_binder();
                 let func_const = self.visit_function_reference(*def_id, ty, Some(args));
                 let func_val = Rc::new(func_const.clone().into());
-                self.body_visitor.state.update_value_at(path.clone(), func_val);
+                self.body_visitor
+                    .state
+                    .update_value_at(path.clone(), func_val);
                 for (i, operand) in operands.iter().enumerate() {
                     let field_path = Path::new_field(path.clone(), i);
                     self.visit_use(field_path, operand);
@@ -1745,7 +1777,8 @@ where
             mir::AggregateKind::RawPtr(ty, mutbl) => {
                 let thin_pointer_path = Path::new_field(path.clone(), 0);
                 let pointer_type = Ty::new_ptr(self.body_visitor.context.tcx, *ty, *mutbl);
-                self.body_visitor.type_visitor
+                self.body_visitor
+                    .type_visitor
                     .set_path_rustc_type(thin_pointer_path.clone(), pointer_type);
                 self.visit_use(thin_pointer_path, &operands[0usize.into()]);
                 let metadata_path = Path::new_field(path, 1);
@@ -1794,9 +1827,15 @@ where
             mir::NullOp::SizeOf => len,
             mir::NullOp::OffsetOf(fields) => {
                 if let Ok(ty_and_layout) = self.body_visitor.type_visitor.layout_of(ty) {
-
-                    let offset_in_bytes = self.body_visitor.context.tcx
-                        .offset_of_subfield(self.body_visitor.type_visitor.get_typing_env(), ty_and_layout, fields.iter())
+                    let offset_in_bytes = self
+                        .body_visitor
+                        .context
+                        .tcx
+                        .offset_of_subfield(
+                            self.body_visitor.type_visitor.get_typing_env(),
+                            ty_and_layout,
+                            fields.iter(),
+                        )
                         .bytes();
                     Rc::new((offset_in_bytes as u128).into())
                 } else {
@@ -1878,7 +1917,7 @@ where
         };
         match cast_kind {
             // TODO: do we need to check overflow while casting?
-            mir::CastKind::Transmute 
+            mir::CastKind::Transmute
             | mir::CastKind::IntToInt
             | mir::CastKind::FloatToFloat
             | mir::CastKind::FloatToInt
@@ -1910,7 +1949,8 @@ where
                 let target_type = ExpressionType::from(ty.kind());
                 if target_type == ExpressionType::Reference {
                     let result = pointer_cast_result(operand_val);
-                    self.body_visitor.state.update_value_at(path, result);
+                    self.body_visitor.state.update_value_at(path.clone(), result);
+                    self.propagate_slice_len_after_pointer_coercion(path, operand, ty);
                 } else {
                     self.visit_use(path, operand);
                 }
@@ -1918,11 +1958,54 @@ where
         }
     }
 
+    fn propagate_slice_len_after_pointer_coercion(
+        &mut self,
+        target_path: Rc<Path>,
+        operand: &mir::Operand<'tcx>,
+        target_ty: Ty<'tcx>,
+    ) {
+        let target_is_slice_ref = match target_ty.kind() {
+            TyKind::Ref(_, inner, _) => matches!(inner.kind(), TyKind::Slice(_)),
+            _ => false,
+        };
+        if !target_is_slice_ref {
+            return;
+        }
+
+        let source_ty = self.get_operand_rustc_type(operand);
+        let len_value = match source_ty.kind() {
+            TyKind::Ref(_, inner, _) => match inner.kind() {
+                TyKind::Array(_, len) => self.visit_constant(len),
+                TyKind::Slice(_) => {
+                    let operand_path = self.get_operand_path(operand);
+                    let len_path = Path::new_length(operand_path).refine_paths(&self.state());
+                    self.body_visitor.lookup_path_and_refine_result(
+                        len_path,
+                        self.body_visitor.context.tcx.types.usize,
+                    )
+                }
+                _ => return,
+            },
+            _ => return,
+        };
+
+        let target_len = Path::new_length(target_path).refine_paths(&self.state());
+        self.body_visitor
+            .state
+            .update_value_at(target_len, len_value);
+    }
+
     fn bin_op_to_apron_bin_op(&mut self, bin_op: mir::BinOp) -> Option<ApronOperation> {
         let res = match bin_op {
-            mir::BinOp::Add | mir::BinOp::AddUnchecked | mir::BinOp::AddWithOverflow => ApronOperation::Add,
-            mir::BinOp::Sub | mir::BinOp::SubUnchecked | mir::BinOp::SubWithOverflow => ApronOperation::Sub,
-            mir::BinOp::Mul | mir::BinOp::MulUnchecked | mir::BinOp::MulWithOverflow => ApronOperation::Mul,
+            mir::BinOp::Add | mir::BinOp::AddUnchecked | mir::BinOp::AddWithOverflow => {
+                ApronOperation::Add
+            }
+            mir::BinOp::Sub | mir::BinOp::SubUnchecked | mir::BinOp::SubWithOverflow => {
+                ApronOperation::Sub
+            }
+            mir::BinOp::Mul | mir::BinOp::MulUnchecked | mir::BinOp::MulWithOverflow => {
+                ApronOperation::Mul
+            }
             mir::BinOp::Div => ApronOperation::Div,
             mir::BinOp::Rem => ApronOperation::Rem,
             mir::BinOp::BitXor => ApronOperation::Xor,
@@ -2064,11 +2147,9 @@ where
             // // This constant contains something the type system cannot handle (e.g. pointers).
             mir::Const::Val(v, ty) => self.visit_const_value(*v, *ty),
             // mir::Const::Val(v, ty) => self.
-            _ => symbolic_value::BOTTOM.into()
+            _ => symbolic_value::BOTTOM.into(),
         }
     }
-
-    
 
     fn visit_const_value(&mut self, val: ConstValue<'tcx>, lty: Ty<'tcx>) -> Rc<SymbolicValue> {
         match val {
@@ -2086,7 +2167,12 @@ where
             // The size is always the pointer size of the current target, but this is not information
             // that we always have readily available.
             ConstValue::Scalar(Scalar::Ptr(ptr, _size)) => {
-                match self.body_visitor.context.tcx.try_get_global_alloc(ptr.provenance.alloc_id()) {
+                match self
+                    .body_visitor
+                    .context
+                    .tcx
+                    .try_get_global_alloc(ptr.provenance.alloc_id())
+                {
                     Some(GlobalAlloc::Memory(alloc)) => {
                         let alloc_len = alloc.inner().len() as u64;
                         let offset_bytes = ptr.into_parts().1.bytes();
@@ -2098,7 +2184,10 @@ where
                             rustc_target::abi::Size::from_bytes(size),
                         );
                         let bytes = if size > 0
-                            && alloc.inner().provenance().range_empty(range, &self.body_visitor.context.tcx)
+                            && alloc
+                                .inner()
+                                .provenance()
+                                .range_empty(range, &self.body_visitor.context.tcx)
                         {
                             alloc
                                 .inner()
@@ -2107,7 +2196,12 @@ where
                         } else {
                             let mut bytes = alloc.inner().get_bytes_unchecked(range);
                             if let Some(p) = alloc.inner().provenance().provenances().next() {
-                                match self.body_visitor.context.tcx.try_get_global_alloc(p.alloc_id()) {
+                                match self
+                                    .body_visitor
+                                    .context
+                                    .tcx
+                                    .try_get_global_alloc(p.alloc_id())
+                                {
                                     Some(GlobalAlloc::Memory(alloc)) => {
                                         let size = alloc.inner().len() as u64;
                                         let range = alloc_range(
@@ -2116,13 +2210,13 @@ where
                                         );
                                         bytes = alloc
                                             .inner()
-                                            .get_bytes_strip_provenance(&self.body_visitor.context.tcx, range)
+                                            .get_bytes_strip_provenance(
+                                                &self.body_visitor.context.tcx,
+                                                range,
+                                            )
                                             .unwrap();
                                     }
-                                    _ => panic!(
-                                        "ConstValue::Scalar with type {:?}",
-                                        lty
-                                    ),
+                                    _ => panic!("ConstValue::Scalar with type {:?}", lty),
                                 }
                             }
                             bytes
@@ -2130,9 +2224,13 @@ where
                         match lty.kind() {
                             TyKind::Array(elem_type, length) => {
                                 let length = self.body_visitor.get_array_length(length);
-                                let array_value =
-                                    self.get_heap_array_and_path(lty, size as usize);
-                                let array_path = Rc::new(PathEnum::HeapBlock { value: array_value.clone() }.into());
+                                let array_value = self.get_heap_array_and_path(lty, size as usize);
+                                let array_path = Rc::new(
+                                    PathEnum::HeapBlock {
+                                        value: array_value.clone(),
+                                    }
+                                    .into(),
+                                );
                                 self.deserialize_constant_array(
                                     array_path, bytes, length, *elem_type,
                                 );
@@ -2142,8 +2240,9 @@ where
                                 TyKind::Array(elem_type, length) => {
                                     let length = self.body_visitor.get_array_length(length);
                                     let array_value =
-                                    self.get_heap_array_and_path(lty, size as usize);
-                                    let array_path: Rc<Path> = Rc::new(PathEnum::HeapBlock { value: array_value }.into());
+                                        self.get_heap_array_and_path(lty, size as usize);
+                                    let array_path: Rc<Path> =
+                                        Rc::new(PathEnum::HeapBlock { value: array_value }.into());
                                     self.deserialize_constant_array(
                                         array_path.clone(),
                                         bytes,
@@ -2159,7 +2258,8 @@ where
                                         lty,
                                     );
 
-                                    let heap_path: Rc<Path> = Rc::new(PathEnum::HeapBlock { value: heap_val }.into());
+                                    let heap_path: Rc<Path> =
+                                        Rc::new(PathEnum::HeapBlock { value: heap_val }.into());
 
                                     let bytes_left_to_deserialize = self
                                         .deserialize_constant_bytes(heap_path.clone(), bytes, *t);
@@ -2174,11 +2274,7 @@ where
                                     SymbolicValue::make_reference(heap_path)
                                 }
                                 _ => {
-                                    panic!(
-                                        "ConstValue::Ptr with type {:?} {:?}",
-                                        lty,
-                                        t.kind()
-                                    );
+                                    panic!("ConstValue::Ptr with type {:?} {:?}", lty, t.kind());
                                 }
                             },
                             _ => {
@@ -2186,14 +2282,17 @@ where
                             }
                         }
                     }
-                    Some(GlobalAlloc::Function{ instance }) => {
+                    Some(GlobalAlloc::Function { instance }) => {
                         let def_id = instance.def.def_id();
                         let args = self.body_visitor.type_visitor.specialize_generic_args(
                             instance.args,
                             &self.body_visitor.type_visitor.generic_argument_map,
                         );
                         let fn_ty = self.body_visitor.context.tcx.type_of(def_id).skip_binder();
-                        self.body_visitor.crate_context.generic_args_cache.insert(def_id, args);
+                        self.body_visitor
+                            .crate_context
+                            .generic_args_cache
+                            .insert(def_id, args);
                         let fun_val = Rc::new(
                             self.body_visitor
                                 .crate_context
@@ -2213,30 +2312,30 @@ where
                             Rc::new(1u128.into()),
                             lty,
                         );
-                        let heap_path: Rc<Path> = Rc::new(PathEnum::HeapBlock { value: heap_val.clone() }.into());
+                        let heap_path: Rc<Path> = Rc::new(
+                            PathEnum::HeapBlock {
+                                value: heap_val.clone(),
+                            }
+                            .into(),
+                        );
                         let field_0 = Path::new_field(heap_path, 0);
-                        self.body_visitor
-                            .state
-                            .update_value_at(field_0, fun_val);
+                        self.body_visitor.state.update_value_at(field_0, fun_val);
                         heap_val
                     }
                     Some(GlobalAlloc::Static(def_id)) => SymbolicValue::make_reference(
-                        self.body_visitor.import_static(Path::new_static(self.body_visitor.context.tcx, def_id)),
-                    ),
-                    Some(GlobalAlloc::VTable(_, _)) => {
                         self.body_visitor
-                            .get_new_heap_block(
-                                Rc::new(0u128.into()),
-                                Rc::new(8u128.into()),
-                                lty,
-                            )
-                    }
+                            .import_static(Path::new_static(self.body_visitor.context.tcx, def_id)),
+                    ),
+                    Some(GlobalAlloc::VTable(_, _)) => self.body_visitor.get_new_heap_block(
+                        Rc::new(0u128.into()),
+                        Rc::new(8u128.into()),
+                        lty,
+                    ),
                     None => unreachable!("missing allocation {:?}", ptr.provenance),
                 }
             }
 
             // Only used when lty is a Zero Sized type.
-            
             ConstValue::ZeroSized => Rc::new(self.get_constant_from_scalar(lty, 0, 0).into()),
 
             // Used only for `&[u8]` and `&str`
@@ -2254,18 +2353,24 @@ where
                     // todo: is this case possible? The comment suggests not.
                     TyKind::Array(elem_type, length) => {
                         let length = self.body_visitor.get_array_length(length);
-                        let array_value =
-                        self.get_heap_array_and_path(lty, size.bytes() as usize);
-                        let array_path: Rc<Path> = Rc::new(PathEnum::HeapBlock { value: array_value.clone() }.into());
+                        let array_value = self.get_heap_array_and_path(lty, size.bytes() as usize);
+                        let array_path: Rc<Path> = Rc::new(
+                            PathEnum::HeapBlock {
+                                value: array_value.clone(),
+                            }
+                            .into(),
+                        );
                         self.deserialize_constant_array(array_path, bytes, length, *elem_type);
                         array_value
                     }
                     TyKind::Ref(_, t, _) if matches!(t.kind(), TyKind::Slice(..)) => {
                         let elem_type = get_element_type(*t);
-                        let bytes_per_elem = self.body_visitor.type_visitor.get_type_size(elem_type);
+                        let bytes_per_elem =
+                            self.body_visitor.type_visitor.get_type_size(elem_type);
                         let length = size.bytes() / bytes_per_elem;
                         let array_value = self.get_heap_array_and_path(lty, size.bytes() as usize);
-                        let array_path: Rc<Path> = Rc::new(PathEnum::HeapBlock { value: array_value }.into());
+                        let array_path: Rc<Path> =
+                            Rc::new(PathEnum::HeapBlock { value: array_value }.into());
                         self.deserialize_constant_array(
                             array_path.clone(),
                             bytes,
@@ -2292,7 +2397,12 @@ where
                 // Offset into `alloc`
                 offset,
             } => {
-                let alloc = self.body_visitor.context.tcx.global_alloc(alloc_id).unwrap_memory();
+                let alloc = self
+                    .body_visitor
+                    .context
+                    .tcx
+                    .global_alloc(alloc_id)
+                    .unwrap_memory();
                 let alloc_len = alloc.inner().len();
                 let offset_bytes = offset.bytes() as usize;
                 // The Rust compiler should ensure this.
@@ -2307,7 +2417,12 @@ where
                     lty,
                 );
 
-                let target_path = Rc::new(PathEnum::HeapBlock { value: heap_val.clone() }.into());
+                let target_path = Rc::new(
+                    PathEnum::HeapBlock {
+                        value: heap_val.clone(),
+                    }
+                    .into(),
+                );
 
                 let bytes_left_to_deserialize =
                     self.deserialize_constant_bytes(target_path, bytes, lty);
@@ -2343,14 +2458,18 @@ where
     ) -> &'c [u8] {
         let mut bytes_left_deserialize = bytes;
         for i in 0..len {
-            let elem_path =
-                Path::new_index(target_path.clone(), self.body_visitor.get_u128_const_val(i as u128));
+            let elem_path = Path::new_index(
+                target_path.clone(),
+                self.body_visitor.get_u128_const_val(i as u128),
+            );
             bytes_left_deserialize =
                 self.deserialize_constant_bytes(elem_path, bytes_left_deserialize, elem_ty);
         }
         let length_path = Path::new_length(target_path);
         let length_value = self.body_visitor.get_u128_const_val(len as u128);
-        self.body_visitor.state.update_value_at(length_path, length_value);
+        self.body_visitor
+            .state
+            .update_value_at(length_path, length_value);
         bytes_left_deserialize
     }
 
@@ -2363,7 +2482,8 @@ where
         bytes: &'c [u8],
         ty: Ty<'tcx>,
     ) -> &'c [u8] {
-        self.body_visitor.type_visitor
+        self.body_visitor
+            .type_visitor
             .set_path_rustc_type(target_path.clone(), ty);
         match ty.kind() {
             TyKind::Adt(def, args) if def.is_enum() => {
@@ -2404,7 +2524,9 @@ where
                     } else {
                         self.body_visitor.get_u128_const_val(discr_bits)
                     };
-                    self.body_visitor.state.update_value_at(discr_path, discr_data);
+                    self.body_visitor
+                        .state
+                        .update_value_at(discr_path, discr_data);
                     if discr_has_data {
                         let variant = &def.variants()[discr_index];
                         trace!("deserializing variant {:?}", variant);
@@ -2459,10 +2581,12 @@ where
                 let val = if bytes[0] == 0 {
                     SymbolicValue::new_true()
                     // abstract_value::FALSE
-                } else {                    
+                } else {
                     SymbolicValue::new_false()
                 };
-                self.body_visitor.state.update_value_at(target_path, Rc::new(val));
+                self.body_visitor
+                    .state
+                    .update_value_at(target_path, Rc::new(val));
                 &bytes[1..]
             }
             // TyKind::Char => unsafe {
@@ -2565,7 +2689,7 @@ where
             //     let uint_ptr = bytes.as_ptr() as *const u64;
             //     let f = self
             //         .body_visitor
-                    
+
             //         .constant_value_cache
             //         .get_f64_for(*uint_ptr)
             //         .clone();
@@ -2593,7 +2717,11 @@ where
                 // serialized pointers are not the values pointed to, just some number.
                 // todo: figure out how to deference that number and deserialize the
                 // value to which this pointer refers.
-                self.deserialize_constant_bytes(target_path, bytes, self.body_visitor.context.tcx.types.usize)
+                self.deserialize_constant_bytes(
+                    target_path,
+                    bytes,
+                    self.body_visitor.context.tcx.types.usize,
+                )
             }
             TyKind::Slice(elem_type) => {
                 let elem_size = self.body_visitor.type_visitor.get_type_size(*elem_type) as usize;
@@ -2639,19 +2767,25 @@ where
                 rustc_middle::ty::Opaque,
                 rustc_middle::ty::AliasTy { def_id, args, .. },
             ) => {
-                let specialized_ty = self.body_visitor.type_visitor.specialize_generic_argument_type(
-                    ty,
+                let specialized_ty = self
+                    .body_visitor
+                    .type_visitor
+                    .specialize_generic_argument_type(
+                        ty,
+                        &self.body_visitor.type_visitor.generic_argument_map,
+                    );
+                let specialized_args = self.body_visitor.type_visitor.specialize_generic_args(
+                    args,
                     &self.body_visitor.type_visitor.generic_argument_map,
                 );
-                let specialized_args = self
-                    .body_visitor.type_visitor
-                    .specialize_generic_args(args, &self.body_visitor.type_visitor.generic_argument_map);
                 let func_val = Rc::new(
                     self.visit_function_reference(*def_id, specialized_ty, Some(specialized_args))
                         .clone()
                         .into(),
                 );
-                self.body_visitor.state.update_value_at(target_path, func_val);
+                self.body_visitor
+                    .state
+                    .update_value_at(target_path, func_val);
                 &[]
             }
             _ => {
@@ -2675,7 +2809,9 @@ where
         let discr_has_data; // A flag indicating if the enum constant has a sub-component
 
         trace!("enum_ty_layout.ty {:?}", enum_ty_layout.ty);
-        let discr_ty = enum_ty_layout.ty.discriminant_ty(self.body_visitor.context.tcx);
+        let discr_ty = enum_ty_layout
+            .ty
+            .discriminant_ty(self.body_visitor.context.tcx);
         trace!("discr_ty {:?}", discr_ty);
         let discr_ty_layout = self.body_visitor.type_visitor.layout_of(discr_ty).unwrap();
         trace!("discr_ty_layout {:?}", discr_ty_layout);
@@ -2721,7 +2857,9 @@ where
                 match *tag_encoding {
                     TagEncoding::Direct => {
                         discr_bits = if discr_signed {
-                            tag_primitive.size(&self.body_visitor.context.tcx).sign_extend(data) as u128
+                            tag_primitive
+                                .size(&self.body_visitor.context.tcx)
+                                .sign_extend(data) as u128
                         } else {
                             data
                         };
@@ -2794,7 +2932,6 @@ where
         (discr_signed, discr_bits, discr_index, discr_has_data)
     }
 
-
     /// Allocates a new heap block with length and alignment obtained from the given array
     /// or array slice type.
     fn get_heap_array_and_path(
@@ -2803,7 +2940,9 @@ where
         size_in_bytes: usize,
     ) -> Rc<SymbolicValue> {
         let element_type = get_element_type(array_type);
-        let (_, elem_alignment) = self.body_visitor.type_visitor
+        let (_, elem_alignment) = self
+            .body_visitor
+            .type_visitor
             .get_type_size_and_alignment(element_type);
         let alignment = self.body_visitor.get_u128_const_val(elem_alignment);
         let byte_len_value = self.body_visitor.get_u128_const_val(size_in_bytes as u128);
@@ -3089,6 +3228,7 @@ where
         let target_type: ExpressionType = (target_rustc_type.kind()).into();
         // If target is not a NonPrimitive, i.e., it is a normal integer or reference
         if target_type != ExpressionType::NonPrimitive || no_children {
+            self.copy_or_move_rooted_facts(&source_path, &target_path, is_move);
             let value = self
                 .body_visitor
                 .lookup_path_and_refine_result(source_path.clone(), target_rustc_type);
@@ -3102,6 +3242,31 @@ where
                 self.body_visitor.state.update_value_at(target_path, value);
             }
             return;
+        }
+    }
+
+    fn copy_or_move_rooted_facts(
+        &mut self,
+        source_path: &Rc<Path>,
+        target_path: &Rc<Path>,
+        is_move: bool,
+    ) {
+        let rooted_paths: Vec<Rc<Path>> = self
+            .state()
+            .get_paths_iter()
+            .into_iter()
+            .filter(|path| path.is_rooted_by(source_path))
+            .collect();
+
+        for path in rooted_paths {
+            let rewritten_path = path.replace_root(source_path, target_path.clone());
+            if is_move {
+                debug!("Moving rooted fact {:?} to {:?}", path, rewritten_path);
+                self.body_visitor.state.rename(&path, &rewritten_path);
+            } else {
+                debug!("Copying rooted fact {:?} to {:?}", path, rewritten_path);
+                self.body_visitor.state.duplicate(&path, &rewritten_path);
+            }
         }
     }
 
