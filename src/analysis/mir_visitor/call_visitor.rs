@@ -25,8 +25,8 @@ use crate::analysis::numerical::linear_constraint::LinearConstraintSystem;
 use crate::checker::assertion_checker::{AssertionChecker, CheckerResult};
 use crate::checker::checker_trait::CheckerTrait;
 use rustc_hir::def::DefKind;
-use rustc_hir::Mutability;
 use rustc_hir::def_id::DefId;
+use rustc_hir::Mutability;
 // use rustc_middle::mir;
 // use rustc_middle::ty::subst::GenericArgsRef;
 // use rustc_middle::ty::{Ty, TyKind};
@@ -215,7 +215,7 @@ where
                 .unwrap_or_else(|| AbstractDomain::<DomainType>::default()); // 提供一个默认值
             return joined_state;
         }
-        // If MIR is NOT available, return default abstract domain  
+        // If MIR is NOT available, return default abstract domain
         // AbstractDomain::default()
         self.block_visitor.state().clone()
     }
@@ -330,11 +330,17 @@ where
     }
 
     fn record_supported_special_call(&mut self) {
-        self.block_visitor.body_visitor.context.supported_special_calls += 1;
+        self.block_visitor
+            .body_visitor
+            .context
+            .supported_special_calls += 1;
     }
 
     fn record_call_boundary(&mut self) {
-        self.block_visitor.body_visitor.context.opaque_call_boundaries += 1;
+        self.block_visitor
+            .body_visitor
+            .context
+            .opaque_call_boundaries += 1;
     }
 
     fn forget_destination_value(&mut self) {
@@ -353,7 +359,10 @@ where
     }
 
     fn emit_unsupported_special_call(&mut self, api_name: &str, reason: &str) -> bool {
-        self.block_visitor.body_visitor.context.unsupported_special_calls += 1;
+        self.block_visitor
+            .body_visitor
+            .context
+            .unsupported_special_calls += 1;
         self.forget_destination_value();
         let warning = self
             .block_visitor
@@ -435,13 +444,10 @@ where
             return false;
         }
         matches!(
-            self.block_visitor
-                .body_visitor
-                .type_visitor
-                .get_place_type(
-                    &self.destination,
-                    self.block_visitor.body_visitor.current_span,
-                ),
+            self.block_visitor.body_visitor.type_visitor.get_place_type(
+                &self.destination,
+                self.block_visitor.body_visitor.current_span,
+            ),
             ExpressionType::Usize
         )
     }
@@ -471,15 +477,10 @@ where
             TyKind::Bool
         );
         if !destination_is_bool
-            && self
-            .block_visitor
-            .body_visitor
-            .type_visitor
-            .get_place_type(
+            && self.block_visitor.body_visitor.type_visitor.get_place_type(
                 &self.destination,
                 self.block_visitor.body_visitor.current_span,
-            )
-            != ExpressionType::Bool
+            ) != ExpressionType::Bool
         {
             return false;
         }
@@ -510,7 +511,10 @@ where
     }
 
     fn forget_argument_related_state(&mut self, path: &Rc<Path>, value: &Rc<SymbolicValue>) {
-        self.block_visitor.body_visitor.state.forget_paths_rooted_by(path);
+        self.block_visitor
+            .body_visitor
+            .state
+            .forget_paths_rooted_by(path);
         match &value.expression {
             Expression::Reference(inner)
             | Expression::Variable { path: inner, .. }
@@ -526,7 +530,11 @@ where
     }
 
     fn forget_possible_callee_side_effects(&mut self) {
-        for ((path, value), ty) in self.actual_args.iter().zip(self.actual_argument_types.iter()) {
+        for ((path, value), ty) in self
+            .actual_args
+            .iter()
+            .zip(self.actual_argument_types.iter())
+        {
             if Self::type_allows_callee_side_effects(*ty) {
                 self.forget_argument_related_state(path, value);
             }
@@ -573,7 +581,12 @@ where
             let Some(place) = self.local_place_for_path(&path) else {
                 break;
             };
-            let Some(next) = self.block_visitor.body_visitor.place_to_abstract_value.get(&place) else {
+            let Some(next) = self
+                .block_visitor
+                .body_visitor
+                .place_to_abstract_value
+                .get(&place)
+            else {
                 break;
             };
             if **next == *current {
@@ -611,14 +624,12 @@ where
     }
 
     fn pointer_nullness_of_argument(&self, index: usize) -> Option<PointerNullness> {
-        self.actual_args
-            .get(index)
-            .and_then(|(path, value)| {
-                self.block_visitor
-                    .state()
-                    .get_nullness(path)
-                    .or_else(|| self.pointer_nullness_of(value))
-            })
+        self.actual_args.get(index).and_then(|(path, value)| {
+            self.block_visitor
+                .state()
+                .get_nullness(path)
+                .or_else(|| self.pointer_nullness_of(value))
+        })
     }
 
     fn check_pointer_argument_non_null(&self, index: usize) -> CheckerResult {
@@ -663,10 +674,12 @@ where
                 .cloned()
                 .unwrap_or_else(|| {
                     let path = self.block_visitor.get_path_for_place(&place);
-                    self.block_visitor.body_visitor.lookup_path_and_refine_result(
-                        path,
-                        self.block_visitor.body_visitor.context.tcx.types.bool,
-                    )
+                    self.block_visitor
+                        .body_visitor
+                        .lookup_path_and_refine_result(
+                            path,
+                            self.block_visitor.body_visitor.context.tcx.types.bool,
+                        )
                 })
         } else {
             symbolic_value::TOP.into()
@@ -1121,12 +1134,7 @@ where
         //     .context
         //     .tcx
         //     .param_env(self.callee_def_id);
-        if let Ok(ty_and_layout) = self
-            .block_visitor
-            .body_visitor
-            .type_visitor
-            .layout_of(*t)
-        {
+        if let Ok(ty_and_layout) = self.block_visitor.body_visitor.type_visitor.layout_of(*t) {
             Rc::new((ty_and_layout.layout.size.bytes() as u128).into())
         } else {
             // SymbolicValue::make_typed_unknown(ExpressionType::U128)
@@ -1148,8 +1156,7 @@ where
         }
     }
 
-
-    fn handle_get_checked(&mut self) -> bool{
+    fn handle_get_checked(&mut self) -> bool {
         assert!(self.actual_args.len() == 2);
         #[allow(irrefutable_let_patterns)]
         let destination_path = if let dest = self.destination {
@@ -1180,7 +1187,8 @@ where
             },
             1,
         );
-        let check_result = assert_checker.check_assert_condition(overflow_safe_cond.clone(), true, &state);
+        let check_result =
+            assert_checker.check_assert_condition(overflow_safe_cond.clone(), true, &state);
         // let info = body_visitor.context.session.dcx().struct_span_warn(
         //             body_visitor.current_span,
         //             format!("[Rust-API-Bypass] There's a get() call"),
@@ -1293,10 +1301,10 @@ where
     //                 // 安全情况：返回 Some(&mut element)
     //                 let array_path = &self.actual_args[0].0;
     //                 let indexed_path = Path::new_index(array_path.clone(), index_val.clone())
-    //                     .refine_paths(&self.block_visitor.body_visitor.state);                   
+    //                     .refine_paths(&self.block_visitor.body_visitor.state);
     //                 // 返回可变引用的路径
     //                 let mutable_ref_path = Path::new_deref(indexed_path)
-    //                     .refine_paths(&self.block_visitor.body_visitor.state);         
+    //                     .refine_paths(&self.block_visitor.body_visitor.state);
     //                 SymbolicValue::make_from(
     //                     Expression::Variable {
     //                         path: mutable_ref_path,
@@ -1312,18 +1320,18 @@ where
     //                     1,
     //                 )
     //             }
-    //         };       
+    //         };
     //         // 更新目标路径的值
     //         self.block_visitor
     //             .body_visitor
     //             .state
-    //             .update_value_at(target_path.clone(), result_val);               
+    //             .update_value_at(target_path.clone(), result_val);
     //         return true;
     //     }
     //     return false;
     // }
 
-    fn handle_split_at_checked(&mut self) -> bool{
+    fn handle_split_at_checked(&mut self) -> bool {
         assert!(self.actual_args.len() == 2);
         #[allow(irrefutable_let_patterns)]
         let destination_path = if let dest = self.destination {
@@ -1350,11 +1358,12 @@ where
         let overflow_safe_cond = SymbolicValue::make_from(
             Expression::LessOrEqual {
                 left: index_val.clone(),
-                right: array_len_val,
+                right: array_len_val.clone(),
             },
             1,
         );
-        let check_result = assert_checker.check_assert_condition(overflow_safe_cond.clone(), true, &state);
+        let check_result =
+            assert_checker.check_assert_condition(overflow_safe_cond.clone(), true, &state);
         // let info = body_visitor.context.session.dcx().struct_span_warn(
         //             body_visitor.current_span,
         //             format!("[Rust-API-Bypass] There's a split_at() call"),
@@ -1398,9 +1407,44 @@ where
             }
         }
 
-        // We only claim local split-index reasoning here; the returned slices are left unknown.
+        if let Some(target_path) = destination_path {
+            self.propagate_split_at_result_lengths(target_path, array_len_val, index_val.clone());
+        }
+
+        // We only model the returned slice lengths. The slice contents and aliasing relations
+        // remain unknown, which is enough for consecutive split-index checks without pretending
+        // to prove full memory safety.
         self.forget_destination_value();
         true
+    }
+
+    fn propagate_split_at_result_lengths(
+        &mut self,
+        target_path: Rc<Path>,
+        source_len: Rc<SymbolicValue>,
+        split_index: Rc<SymbolicValue>,
+    ) {
+        let left_slice = Path::new_field(target_path.clone(), 0);
+        let right_slice = Path::new_field(target_path, 1);
+
+        let left_len = Path::new_length(left_slice);
+        self.block_visitor
+            .body_visitor
+            .state
+            .update_value_at(left_len, split_index.clone());
+
+        let right_len_value = SymbolicValue::make_from(
+            Expression::Sub {
+                left: source_len,
+                right: split_index,
+            },
+            1,
+        );
+        let right_len = Path::new_length(right_slice);
+        self.block_visitor
+            .body_visitor
+            .state
+            .update_value_at(right_len, right_len_value);
     }
 
     // fn handle_split_at_mut_checked(&mut self) -> bool{
@@ -1500,13 +1544,14 @@ where
     //     return false;
     // }
 
-
     fn handle_checked_add(&mut self) -> bool {
         assert!(self.actual_args.len() == 2);
         #[allow(irrefutable_let_patterns)]
         let destination_path = if let dest = self.destination {
             Some(self.block_visitor.get_path_for_place(&dest))
-        } else { None };
+        } else {
+            None
+        };
         let state = self.block_visitor.state().clone();
         let elem_ty = self.actual_argument_types[0];
         let body_visitor = &mut self.block_visitor.body_visitor;
@@ -1517,17 +1562,17 @@ where
 
         // Create expression lhs + rhs
         let sum_val = SymbolicValue::make_from(
-            Expression::Add { left: lhs_val.clone(), right: rhs_val.clone() },
+            Expression::Add {
+                left: lhs_val.clone(),
+                right: rhs_val.clone(),
+            },
             1,
         );
 
         // Use AssertionChecker::check_within_range on the sum with element type
         let assert_checker = AssertionChecker::new(body_visitor);
-        let check_result = assert_checker.check_within_range(
-            Path::new_alias(sum_val.clone()),
-            elem_ty,
-            &state,
-        );
+        let check_result =
+            assert_checker.check_within_range(Path::new_alias(sum_val.clone()), elem_ty, &state);
         match check_result {
             CheckerResult::Safe => (),
             CheckerResult::Unsafe => {
@@ -1557,10 +1602,14 @@ where
         assert!(self.actual_args.len() == 3);
         let mut state = self.block_visitor.state().clone();
         self.enrich_state_with_dominating_asserts(self.block_visitor.current_block, &mut state);
-        let index_a_already_proved = self
-            .dominating_bounds_prove_index(self.block_visitor.current_block, &self.actual_args[1].1);
-        let index_b_already_proved = self
-            .dominating_bounds_prove_index(self.block_visitor.current_block, &self.actual_args[2].1);
+        let index_a_already_proved = self.dominating_bounds_prove_index(
+            self.block_visitor.current_block,
+            &self.actual_args[1].1,
+        );
+        let index_b_already_proved = self.dominating_bounds_prove_index(
+            self.block_visitor.current_block,
+            &self.actual_args[2].1,
+        );
         let body_visitor = &mut self.block_visitor.body_visitor;
 
         let array = &self.actual_args[0].0;
@@ -1655,7 +1704,10 @@ where
             CheckerResult::Unsafe => {
                 let error = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
-                    format!("[Bypasser] Provably error: {} in {}()", null_message, api_name),
+                    format!(
+                        "[Bypasser] Provably error: {} in {}()",
+                        null_message, api_name
+                    ),
                 );
                 body_visitor.emit_diagnostic(error, false, DiagnosticCause::Memory);
             }
@@ -2055,7 +2107,12 @@ where
             .drop_call_frame_vars_from(old_offset);
         debug!(
             "after call-frame cleanup: numerical={}",
-            self.block_visitor.body_visitor.state.numerical_domain.get_paths_iter().len(),
+            self.block_visitor
+                .body_visitor
+                .state
+                .numerical_domain
+                .get_paths_iter()
+                .len(),
         );
     }
 }

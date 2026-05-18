@@ -4,9 +4,8 @@ use crate::analysis::memory::symbolic_value::SymbolicValue;
 use crate::analysis::numerical::apron_domain::{
     ApronAbstractDomain, ApronDomainType, GetManagerTrait,
 };
+use crate::analysis::numerical::interval::Bound;
 use crate::analysis::numerical::lattice::LatticeTrait;
-use apron_sys;
-use foreign_types::ForeignType;
 use rug::Integer;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
@@ -52,6 +51,14 @@ impl LinearExpression {
         } else {
             Integer::from(0)
         }
+    }
+
+    pub fn term_count(&self) -> usize {
+        self.cof_map.len()
+    }
+
+    pub fn terms(&self) -> impl Iterator<Item = (&Rc<Path>, &Integer)> {
+        self.cof_map.iter()
     }
 
     /// Add term `n*x` to the linear expression
@@ -675,24 +682,17 @@ where
         let mut cst_system = Self::default();
         if inv.is_bottom() {
             cst_system.add(LinearConstraint::new_false());
-        } else if inv.is_top() {
-            cst_system.add(LinearConstraint::new_true());
         } else {
-            let mut cons_array = unsafe {
-                apron_sys::ap_abstract0_to_lincons_array(
-                    ApronAbstractDomain::<Type>::get_manager().as_ptr(),
-                    inv.get_state().as_ptr(),
-                )
-            };
-            for i in 0..cons_array.size {
-                unsafe {
-                    cst_system.add(inv.apcons2cons(*cons_array.p.add(i)));
+            for path in inv.get_paths_iter() {
+                let itv = inv.get_interval(&path);
+                if let Bound::Int(low) = itv.low {
+                    let expr = LinearExpression::from(low) - path.clone();
+                    cst_system.add(LinearConstraint::LessEq(expr));
                 }
-            }
-            unsafe {
-                apron_sys::ap_lincons0_array_clear(
-                    &mut cons_array as *mut apron_sys::ap_lincons0_array_t,
-                );
+                if let Bound::Int(high) = itv.high {
+                    let expr = LinearExpression::default() + path - high;
+                    cst_system.add(LinearConstraint::LessEq(expr));
+                }
             }
         }
         cst_system
