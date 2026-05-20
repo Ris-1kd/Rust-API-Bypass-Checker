@@ -38,3 +38,9 @@ reference/
 .codex
 opt-level-get-demo/
 e2e/
+ANALYZER_SUPPORTED_FRAGMENT.md
+draw.py
+hkdf.md
+limitations.md
+SESSION_HANDOFF_2026-03-30.md
+conversations/
