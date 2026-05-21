@@ -78,8 +78,8 @@ Diagnostics should be interpreted conservatively.
 ## Installation
 
 ```sh
-$ git clone https://github.com/Rust-API/Rust-API-Bypass.git
-$ cd rust-api-bypass
+$ git clone https://github.com/Rust-API/Rust-API-Bypass-Checker.git
+$ cd Rust-API-Bypass-Checker
 $ export RUSTFLAGS="-Clink-args=-fuse-ld=lld"
 $ cargo build
 ```
