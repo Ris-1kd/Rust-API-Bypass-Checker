@@ -12,6 +12,25 @@ This tool analyzes MIR-level control-flow and integer constraints around a small
 - `integer.checked_add(other)` when overflow is provably impossible
 - `ptr.as_ref()`, `ptr.as_mut()`, and `NonNull::new(ptr)` when pointer nullness is locally known
 
+## Current Demo Scope
+
+The project is currently being narrowed into a self-contained demo artifact. The intended claim is conservative:
+
+> For a known set of standard-library API pairs, the analyzer can prove selected call-site preconditions from local MIR facts and report replacement opportunities.
+
+The demo does not claim whole-program optimization, whole-application speedup, full alias analysis, full raw-pointer reasoning, or semantic preservation for arbitrary Rust programs. Unsupported calls and memory effects are downgraded to local unknown, and replacement candidates are suppressed when their preconditions depend on those unknown facts.
+
+The primary demo matrix is:
+
+| API family | Required condition | Demo case |
+|---|---|---|
+| `checked_add` | result is within the integer type range | `tests/checked_add` |
+| `slice::get` / `get_mut` | `index < slice.len()` | `tests/get` |
+| `slice::split_at` / `split_at_mut` | `mid <= slice.len()` | `tests/split_at`, `tests/ring_buffer_split` |
+| `slice::swap` | `i < slice.len() && j < slice.len()` | `tests/swap`, `case-study/kmerge_impl.rs` |
+
+See [DEMO_SCOPE.md](DEMO_SCOPE.md) for the detailed demo boundary and non-goals.
+
 ## Example
 
 ```rust
@@ -52,17 +71,15 @@ Diagnostics should be interpreted conservatively.
 * Rust nightly (`nightly-2025-01-10`)
 * Dependencies:
   ```sh
-$ rustup component add rustc-dev llvm-tools-preview
-  $ sudo apt-get install libgmp-dev libmpfr-dev libppl-dev libz3-dev llvm-15 clang-15 libclang-15-dev  # Ubuntu
-  $ export LIBCLANG_PATH=`llvm-config-15 --libdir`/libclang.so
+  $ rustup component add rustc-dev llvm-tools-preview
+  $ sudo apt-get install libgmp-dev libmpfr-dev libz3-dev  # Ubuntu
   ```
 
 ## Installation
 
 ```sh
-$ git clone --recursive https://github.com/Rust-API/Rust-API-Bypass.git
+$ git clone https://github.com/Rust-API/Rust-API-Bypass.git
 $ cd rust-api-bypass
-$ export LIBCLANG_PATH=`llvm-config-15 --libdir`/libclang.so
 $ export RUSTFLAGS="-Clink-args=-fuse-ld=lld"
 $ cargo build
 ```
@@ -86,6 +103,28 @@ $ ./target/debug/api-bypass <file> --entry_def_id_index <defid>
 - `--entry_def_id_index <function>`: Entry function DefId (acquired via `show_reachable_entries`)
 - `--show_all_entries`: Display all candidate entry functions within the current crate.
 - `--show_reachable_entries`: Display entry candidates discovered by the current front-end scan.
+
+## Demo Output Shape
+
+When a supported safe API call is proven to satisfy the corresponding unchecked precondition, the analyzer emits a replacement-candidate diagnostic:
+
+```text
+[Bypasser] Replacement candidate
+
+Safe API:
+  slice::split_at(mid)
+
+Suggested replacement:
+  unsafe { slice::split_at_unchecked(mid) }
+
+Required condition:
+  mid <= slice.len()
+
+Analysis result:
+  proven from local MIR split-index facts
+```
+
+The diagnostic is a reporting aid, not an automatic source rewrite.
 
 ## Test Cases
 
