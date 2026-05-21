@@ -5,8 +5,8 @@ use crate::analysis::memory::expression::{Expression, ExpressionType};
 use crate::analysis::memory::path::{Path, PathEnum, PathSelector};
 use crate::analysis::memory::symbolic_value::SymbolicValue;
 use crate::analysis::mir_visitor::body_visitor::WtoFixPointIterator;
-use crate::analysis::numerical::apron_domain::{
-    ApronAbstractDomain, ApronDomainType, GetManagerTrait,
+use crate::analysis::numerical::interval_domain::{
+    GetDomainType, IntervalAbstractDomain, NumericalDomainType,
 };
 use crate::analysis::numerical::linear_constraint::{
     LinearConstraint, LinearConstraintSystem, LinearExpression,
@@ -25,8 +25,8 @@ use std::rc::Rc;
 
 pub struct AssertionChecker<'tcx, 'a, 'b, 'compiler, DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     body_visitor: &'b mut WtoFixPointIterator<'tcx, 'a, 'compiler, DomainType>,
 }
@@ -34,8 +34,8 @@ where
 impl<'tcx, 'a, 'b, 'compiler, DomainType> CheckerTrait<'tcx, 'a, 'b, 'compiler, DomainType>
     for AssertionChecker<'tcx, 'a, 'b, 'compiler, DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     fn new(body_visitor: &'b mut WtoFixPointIterator<'tcx, 'a, 'compiler, DomainType>) -> Self {
         Self { body_visitor }
@@ -55,6 +55,7 @@ where
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CheckerResult {
     Safe,    // Proved to be safe
     Unsafe,  // Proved to be unsafe
@@ -63,8 +64,8 @@ pub enum CheckerResult {
 
 impl<'tcx, 'a, 'b, 'compiler, DomainType> AssertionChecker<'tcx, 'a, 'b, 'compiler, DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     fn run_terminator(
         &mut self,
@@ -279,9 +280,7 @@ where
                     }
                 }
             }
-            _ => {
-                self.check_assert_condition(value, expected, abstract_value)
-            }
+            _ => self.check_assert_condition(value, expected, abstract_value),
         }
     }
 }

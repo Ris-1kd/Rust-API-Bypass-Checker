@@ -1,8 +1,13 @@
+fn checked_add_demo(a: i32, b: i32) -> i32 {
+    assert!(a >= 0);
+    assert!(a <= 100);
+    assert!(b >= 0);
+    assert!(b <= 100);
+    let result = a.checked_add(b).unwrap();
+    result
+}
+
 fn main() {
-    
-    // test checked_add with overflow
-    let a:i128 = 34028236692093846346337460743176821144;
-    let b:i128 = 8888888888888888888888888888888888888;
-    let result:i128 = a.checked_add(b).unwrap();
+    let result = checked_add_demo(40, 2);
     println!("result: {:?}", result);
 }

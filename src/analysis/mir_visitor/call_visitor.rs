@@ -17,10 +17,10 @@ use crate::analysis::memory::path::{Path, PathEnum, PathRefinement};
 use crate::analysis::memory::symbolic_value::{self, SymbolicValue, SymbolicValueTrait};
 use crate::analysis::mir_visitor::block_visitor::BlockVisitor;
 use crate::analysis::mir_visitor::body_visitor::WtoFixPointIterator;
-use crate::analysis::numerical::apron_domain::{
-    ApronAbstractDomain, ApronDomainType, GetManagerTrait,
-};
 use crate::analysis::numerical::interval::{Bound, Interval};
+use crate::analysis::numerical::interval_domain::{
+    GetDomainType, IntervalAbstractDomain, NumericalDomainType,
+};
 use crate::analysis::numerical::linear_constraint::LinearConstraintSystem;
 use crate::checker::assertion_checker::{AssertionChecker, CheckerResult};
 use crate::checker::checker_trait::CheckerTrait;
@@ -40,8 +40,8 @@ use std::rc::Rc;
 
 pub struct CallVisitor<'call, 'block, 'analysis, 'compilation, 'tcx, DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     /// The upper layer block visitor
     pub block_visitor: &'call mut BlockVisitor<'tcx, 'analysis, 'block, 'compilation, DomainType>,
@@ -85,8 +85,8 @@ where
 impl<'call, 'block, 'analysis, 'compilation, 'tcx, DomainType> Debug
     for CallVisitor<'call, 'block, 'analysis, 'compilation, 'tcx, DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         "CallVisitor".fmt(f)
@@ -96,8 +96,8 @@ where
 impl<'call, 'block, 'analysis, 'compilation, 'tcx, DomainType>
     CallVisitor<'call, 'block, 'analysis, 'compilation, 'tcx, DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     pub(crate) fn new(
         block_visitor: &'call mut BlockVisitor<'tcx, 'analysis, 'block, 'compilation, DomainType>,
@@ -383,6 +383,23 @@ where
             DiagnosticCause::Unsupported,
         );
         true
+    }
+
+    fn emit_replacement_candidate(
+        body_visitor: &mut WtoFixPointIterator<'tcx, 'analysis, 'compilation, DomainType>,
+        safe_api: &str,
+        suggested_replacement: &str,
+        required_condition: &str,
+        analysis_result: &str,
+    ) {
+        let warning = body_visitor.context.session.dcx().struct_span_warn(
+            body_visitor.current_span,
+            format!(
+                "[Bypasser] Replacement candidate\n\nSafe API:\n  {}\n\nSuggested replacement:\n  {}\n\nRequired condition:\n  {}\n\nAnalysis result:\n  {}",
+                safe_api, suggested_replacement, required_condition, analysis_result
+            ),
+        );
+        body_visitor.emit_diagnostic(warning, false, DiagnosticCause::ReplacementCandidate);
     }
 
     fn is_supported_scalar_type(ty: Ty<'tcx>) -> bool {
@@ -1215,7 +1232,15 @@ where
         // }
 
         match check_result {
-            CheckerResult::Safe => {}
+            CheckerResult::Safe => {
+                Self::emit_replacement_candidate(
+                    body_visitor,
+                    "slice::get(index) / slice::get_mut(index)",
+                    "unsafe { slice::get_unchecked(index) } / get_unchecked_mut(index)",
+                    "index < slice.len()",
+                    "proven from local MIR bounds facts",
+                );
+            }
             CheckerResult::Unsafe => {
                 let error = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
@@ -1390,7 +1415,15 @@ where
         // }
 
         match check_result {
-            CheckerResult::Safe => {}
+            CheckerResult::Safe => {
+                Self::emit_replacement_candidate(
+                    body_visitor,
+                    "slice::split_at(mid) / slice::split_at_mut(mid)",
+                    "unsafe { slice::split_at_unchecked(mid) } / split_at_mut_unchecked(mid)",
+                    "mid <= slice.len()",
+                    "proven from local MIR split-index facts",
+                );
+            }
             CheckerResult::Unsafe => {
                 let error = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
@@ -1569,12 +1602,56 @@ where
             1,
         );
 
-        // Use AssertionChecker::check_within_range on the sum with element type
-        let assert_checker = AssertionChecker::new(body_visitor);
-        let check_result =
-            assert_checker.check_within_range(Path::new_alias(sum_val.clone()), elem_ty, &state);
+        let elem_expr_type: ExpressionType = elem_ty.kind().into();
+        let max_val = SymbolicValue::make_from(
+            Expression::CompileTimeConstant(elem_expr_type.max_value()),
+            1,
+        );
+        let min_val = SymbolicValue::make_from(
+            Expression::CompileTimeConstant(elem_expr_type.min_value()),
+            1,
+        );
+        let upper_bound_cond = SymbolicValue::make_from(
+            Expression::LessOrEqual {
+                left: sum_val.clone(),
+                right: max_val,
+            },
+            1,
+        );
+        let lower_bound_cond = SymbolicValue::make_from(
+            Expression::LessOrEqual {
+                left: min_val,
+                right: sum_val.clone(),
+            },
+            1,
+        );
+        let upper_result = {
+            let assert_checker = AssertionChecker::new(body_visitor);
+            assert_checker.check_assert_condition(upper_bound_cond, true, &state)
+        };
+        let lower_result = {
+            let assert_checker = AssertionChecker::new(body_visitor);
+            assert_checker.check_assert_condition(lower_bound_cond, true, &state)
+        };
+        let check_result = if upper_result == CheckerResult::Safe
+            && lower_result == CheckerResult::Safe
+        {
+            CheckerResult::Safe
+        } else if upper_result == CheckerResult::Unsafe || lower_result == CheckerResult::Unsafe {
+            CheckerResult::Unsafe
+        } else {
+            CheckerResult::Warning
+        };
         match check_result {
-            CheckerResult::Safe => (),
+            CheckerResult::Safe => {
+                Self::emit_replacement_candidate(
+                    body_visitor,
+                    "integer.checked_add(rhs)",
+                    "unsafe { integer.unchecked_add(rhs) }",
+                    "integer + rhs is within the target integer type range",
+                    "proven from local MIR numerical facts",
+                );
+            }
             CheckerResult::Unsafe => {
                 let error = body_visitor.context.session.dcx().struct_span_warn(
                     body_visitor.current_span,
@@ -1685,6 +1762,16 @@ where
                 );
                 body_visitor.emit_diagnostic(warning, false, DiagnosticCause::Index);
             }
+        }
+
+        if check_result_a == CheckerResult::Safe && check_result_b == CheckerResult::Safe {
+            Self::emit_replacement_candidate(
+                body_visitor,
+                "slice::swap(i, j)",
+                "unchecked swap path when available for the target Rust version",
+                "i < slice.len() && j < slice.len()",
+                "proven from local MIR bounds facts",
+            );
         }
 
         // We do not model the post-swap contents precisely; forget sequence-derived facts.

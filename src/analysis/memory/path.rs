@@ -12,18 +12,18 @@ use super::expression::{Expression, ExpressionType};
 use super::symbolic_value::{self, SymbolicValue, SymbolicValueRefinement, SymbolicValueTrait};
 use crate::analysis::abstract_domain::AbstractDomain;
 use crate::analysis::memory::utils;
-use crate::analysis::numerical::apron_domain::{
-    ApronAbstractDomain, ApronDomainType, GetManagerTrait,
+use crate::analysis::numerical::interval_domain::{
+    GetDomainType, IntervalAbstractDomain, NumericalDomainType,
 };
 use rustc_hir::def_id::DefId;
 use rustc_middle::ty::{Ty, TyCtxt, TyKind};
+use rustc_target::abi::FieldIdx;
 use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter, Result};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use rustc_target::abi::FieldIdx;
 
 /// Represent a memory location as a path
 #[derive(Clone, Eq, Ord, PartialOrd)]
@@ -148,18 +148,11 @@ impl PartialOrd for PathEnum {
         }
         use PathEnum::*;
         match (self, other) {
-            // 该分支是gpt生成的用于处理apron_domain产生"no entry found for key" bug, 不一定有用
+            // 该分支是gpt生成的用于处理interval_domain产生"no entry found for key" bug, 不一定有用
             (Alias { value: lhs }, Alias { value: rhs }) => lhs.partial_cmp(rhs),
-            
+
             (HeapBlock { value: lhs }, HeapBlock { value: rhs }) => lhs.partial_cmp(rhs),
-            (
-                LocalVariable {
-                    ordinal: l,
-                },
-                LocalVariable {
-                    ordinal: r,
-                },
-            ) => l.partial_cmp(r),
+            (LocalVariable { ordinal: l }, LocalVariable { ordinal: r }) => l.partial_cmp(r),
             // (Offset { value: lhs }, Offset { value: rhs }) => lhs.partial_cmp(rhs),
             (Parameter { ordinal: l }, Parameter { ordinal: r }) => l.partial_cmp(r),
             (Result, Result) => Some(Ordering::Equal),
@@ -222,7 +215,7 @@ impl Ord for PathEnum {
 /// Ref: <https://doc.rust-lang.org/std/mem/fn.discriminant.html#accessing-the-numeric-value-of-the-discriminant>
 fn path_order_rank(path: &PathEnum) -> u8 {
     match path {
-        PathEnum::Alias{..} => 0,
+        PathEnum::Alias { .. } => 0,
         PathEnum::Result => 1,
         PathEnum::PromotedConstant { .. } => 2,
         PathEnum::Parameter { .. } => 3,
@@ -344,7 +337,7 @@ impl Path {
                 def_id: Some(def_id),
                 summary_cache_key: name,
                 expression_type: ExpressionType::from(ty.kind()),
-            } 
+            }
             .into(),
         )
     }
@@ -490,8 +483,8 @@ impl Path {
 // Still, mainly used to handle function calls
 pub trait PathRefinement<DomainType>: Sized
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     /// Refine parameters inside embedded index values with the given arguments.
     fn refine_parameters(
@@ -513,8 +506,8 @@ where
 
 impl<DomainType> PathRefinement<DomainType> for Rc<Path>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     /// Refine parameters inside embedded index values with the given arguments.
     fn refine_parameters(
@@ -763,8 +756,8 @@ impl PathSelector {
 
 pub trait PathSelectorRefinement<DomainType>: Sized
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     /// Refine parameters inside embedded index values with the given arguments.
     fn refine_parameters(&self, arguments: &[(Rc<Path>, Rc<SymbolicValue>)]) -> Self;
@@ -778,8 +771,8 @@ where
 
 impl<DomainType> PathSelectorRefinement<DomainType> for Rc<PathSelector>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     /// Refine parameters inside embedded index values with the given arguments.
     fn refine_parameters(

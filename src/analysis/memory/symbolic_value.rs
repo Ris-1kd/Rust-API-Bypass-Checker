@@ -13,8 +13,8 @@ use super::k_limits;
 use super::path::PathRefinement;
 use super::path::{Path, PathEnum, PathSelector};
 use crate::analysis::abstract_domain::AbstractDomain;
-use crate::analysis::numerical::apron_domain::{
-    ApronAbstractDomain, ApronDomainType, GetManagerTrait,
+use crate::analysis::numerical::interval_domain::{
+    GetDomainType, IntervalAbstractDomain, NumericalDomainType,
 };
 use rug::Integer;
 use std::collections::HashSet;
@@ -242,8 +242,8 @@ pub trait SymbolicValueTrait: Sized {
 /// Define a trait in order to define these methods for type `Rc<SymbolicValue>`
 pub trait SymbolicValueRefinement<DomainType>: Sized
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     fn refine_paths(&self, environment: &AbstractDomain<DomainType>) -> Self;
     fn refine_parameters(&self, arguments: &[(Rc<Path>, Rc<SymbolicValue>)]) -> Self;
@@ -251,8 +251,8 @@ where
 
 impl<DomainType> SymbolicValueRefinement<DomainType> for Rc<SymbolicValue>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     /// Replaces occurrences of Expression::Variable(path) with the value at that path
     /// in the given environment (if there is such a value).
@@ -527,7 +527,7 @@ impl SymbolicValueTrait for Rc<SymbolicValue> {
             (&self.expression, &other.expression)
         {
             return Rc::new(v1.sub(v2).into());
-        } 
+        }
         // else if let (Expression::Offset { left, right }, Expression::Offset { left: l, right: r }) =
         //     (&self.expression, &other.expression)
         // {

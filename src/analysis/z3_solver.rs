@@ -271,7 +271,6 @@ impl Z3Solver {
                     self.convert_to_bool_sort(self.get_symbolic_as_z3_expression(right));
                 unsafe { z3_sys::Z3_mk_or(self.z3_context, 2, vec![left_ast, right_ast].as_ptr()) }
             }
-            
 
             Variable { path, var_type } => self.typed_variable(path, var_type),
 
@@ -298,7 +297,7 @@ impl Z3Solver {
     // The following are private
 
     /// Create a integer variable without type information
-    /// Because Apron does not preserve type information
+    /// Because the numerical domain does not preserve source-level type information
     fn integer_variable(&self, path: &Rc<Path>) -> Z3Expression {
         let path_str = CString::new(format!("{:?}", path)).unwrap();
         unsafe {

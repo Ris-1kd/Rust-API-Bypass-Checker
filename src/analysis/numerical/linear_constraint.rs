@@ -1,10 +1,10 @@
 use crate::analysis::memory::expression::Expression;
 use crate::analysis::memory::path::{Path, PathEnum};
 use crate::analysis::memory::symbolic_value::SymbolicValue;
-use crate::analysis::numerical::apron_domain::{
-    ApronAbstractDomain, ApronDomainType, GetManagerTrait,
-};
 use crate::analysis::numerical::interval::Bound;
+use crate::analysis::numerical::interval_domain::{
+    GetDomainType, IntervalAbstractDomain, NumericalDomainType,
+};
 use crate::analysis::numerical::lattice::LatticeTrait;
 use rug::Integer;
 use std::collections::BTreeMap;
@@ -301,6 +301,16 @@ fn symbolic_to_expression(val: Rc<SymbolicValue>) -> Result<LinearExpression, &'
                 );
             }
         }
+        Add { left, right } => {
+            let left_expr = symbolic_to_expression(left.clone())?;
+            let right_expr = symbolic_to_expression(right.clone())?;
+            expr = expr + left_expr + right_expr;
+        }
+        Sub { left, right } => {
+            let left_expr = symbolic_to_expression(left.clone())?;
+            let right_expr = symbolic_to_expression(right.clone())?;
+            expr = expr + left_expr - right_expr;
+        }
         // IntrinsicBitVectorUnary { .. } => {
         //     // TODO: implement this?
         // }
@@ -319,8 +329,6 @@ fn symbolic_to_expression(val: Rc<SymbolicValue>) -> Result<LinearExpression, &'
         | Or { .. }
         | Ne { .. }
         | Mul { .. }
-        | Add { .. }
-        | Sub { .. }
         | Reference(..)
         | LogicalNot { .. }
         // | Offset { .. }
@@ -413,7 +421,7 @@ impl From<LinearConstraint> for LinearConstraintSystem {
 
 /// Convert Expression::LessOrEqual/LessThan/GreaterOrEqual/GreaterThan/Equals/Ne/Variable/Numerical/Widen
 /// into LinearConstraint::LessEq/LessThan/Equality/Inequality
-/// Some `Expresson` cannot be converted by Apron's design, e.g. Or
+/// Some `Expression` cannot be converted by the linear interval-domain conversion, e.g. Or
 /// So we do not implement them as they should never be used
 /// for constructing `LinearConstraint`
 impl TryFrom<Rc<SymbolicValue>> for LinearConstraintSystem {
@@ -673,12 +681,12 @@ impl Debug for LinearConstraintSystem {
     }
 }
 
-impl<Type> From<&ApronAbstractDomain<Type>> for LinearConstraintSystem
+impl<Type> From<&IntervalAbstractDomain<Type>> for LinearConstraintSystem
 where
-    Type: ApronDomainType,
-    ApronAbstractDomain<Type>: GetManagerTrait,
+    Type: NumericalDomainType,
+    IntervalAbstractDomain<Type>: GetDomainType,
 {
-    fn from(inv: &ApronAbstractDomain<Type>) -> Self {
+    fn from(inv: &IntervalAbstractDomain<Type>) -> Self {
         let mut cst_system = Self::default();
         if inv.is_bottom() {
             cst_system.add(LinearConstraint::new_false());

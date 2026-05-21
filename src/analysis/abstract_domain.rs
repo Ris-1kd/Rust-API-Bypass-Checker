@@ -3,8 +3,8 @@ use crate::analysis::memory::expression::Expression;
 use crate::analysis::memory::nullness_domain::{NullnessDomain, PointerNullness};
 use crate::analysis::memory::path::{Path, PathEnum};
 use crate::analysis::memory::symbolic_value::{SymbolicValue, SymbolicValueTrait};
-use crate::analysis::numerical::apron_domain::{
-    ApronAbstractDomain, ApronDomainType, ApronOperation, GetManagerTrait,
+use crate::analysis::numerical::interval_domain::{
+    GetDomainType, IntervalAbstractDomain, NumericalDomainType, NumericalOperation,
 };
 use crate::analysis::numerical::lattice::LatticeTrait;
 use rug::Integer;
@@ -17,11 +17,11 @@ use std::rc::Rc;
 #[derive(Clone)]
 pub struct AbstractDomain<DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     // Only stores the values of paths that are integers
-    pub numerical_domain: ApronAbstractDomain<DomainType>,
+    pub numerical_domain: IntervalAbstractDomain<DomainType>,
     // Stores must-null / must-non-null facts for pointer-like values
     pub nullness_domain: NullnessDomain,
     // Stores branch conditions
@@ -30,8 +30,8 @@ where
 
 impl<DomainType> fmt::Debug for AbstractDomain<DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -42,10 +42,10 @@ where
     }
 }
 
-impl<DomainType: ApronDomainType> AbstractDomain<DomainType>
+impl<DomainType: NumericalDomainType> AbstractDomain<DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     // A bottom domain means the basic block is unreachable
     pub fn is_bottom(&self) -> bool {
@@ -67,7 +67,7 @@ where
 
     pub fn default() -> Self {
         Self {
-            numerical_domain: ApronAbstractDomain::default(),
+            numerical_domain: IntervalAbstractDomain::default(),
             nullness_domain: NullnessDomain::default(),
             exit_conditions: HashMap::new(),
         }
@@ -201,7 +201,7 @@ where
     fn assign_integer_binary_expression(
         &mut self,
         path: Rc<Path>,
-        op: ApronOperation,
+        op: NumericalOperation,
         left: &Rc<SymbolicValue>,
         right: &Rc<SymbolicValue>,
     ) -> bool {
@@ -277,7 +277,7 @@ where
             Expression::Add { left, right } => {
                 if !self.assign_integer_binary_expression(
                     path.clone(),
-                    ApronOperation::Add,
+                    NumericalOperation::Add,
                     left,
                     right,
                 ) {
@@ -287,7 +287,7 @@ where
             Expression::Sub { left, right } => {
                 if !self.assign_integer_binary_expression(
                     path.clone(),
-                    ApronOperation::Sub,
+                    NumericalOperation::Sub,
                     left,
                     right,
                 ) {
@@ -297,7 +297,7 @@ where
             Expression::Mul { left, right } => {
                 if !self.assign_integer_binary_expression(
                     path.clone(),
-                    ApronOperation::Mul,
+                    NumericalOperation::Mul,
                     left,
                     right,
                 ) {
