@@ -13,10 +13,10 @@ extern crate rustc_index;
 extern crate rustc_interface;
 extern crate rustc_middle;
 // extern crate rustc_mir;
+extern crate rustc_infer;
 extern crate rustc_session;
 extern crate rustc_span;
 extern crate rustc_target;
-extern crate rustc_infer;
 extern crate rustc_trait_selection;
 #[macro_use]
 extern crate lazy_static;
@@ -36,10 +36,10 @@ pub mod analysis {
     pub mod crate_context;
     // Abstract domain
     pub mod abstract_domain;
-    // Apron numerical domains
+    // Numerical domains
     pub mod numerical {
-        pub mod apron_domain;
         pub mod interval;
+        pub mod interval_domain;
         pub mod lattice;
         pub mod linear_constraint;
     }
@@ -59,8 +59,8 @@ pub mod analysis {
         pub mod block_visitor;
         pub mod body_visitor;
         pub mod call_visitor;
-        pub mod type_visitor;
         pub mod func_handler;
+        pub mod type_visitor;
         // pub mod reachable_visitor;
     }
     // Different kinds of analyses
@@ -87,5 +87,5 @@ pub mod checker {
 }
 
 // Useful utilities
-pub mod utils;
 pub mod driver;
+pub mod utils;

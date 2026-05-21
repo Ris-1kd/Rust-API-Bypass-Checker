@@ -1,7 +1,4 @@
-// Compatibility wrapper for the numerical abstract domain.
-//
-// The analyzer now uses a single pure Rust interval domain. The public names in this module are
-// kept temporarily so the MIR visitor/checker layers do not need a broad mechanical rename.
+// Pure Rust interval numerical abstract domain.
 
 use crate::analysis::memory::path::Path;
 use crate::analysis::numerical::interval::{Bound, Interval};
@@ -18,7 +15,7 @@ use std::rc::Rc;
 
 /// The operators that numerical abstract domain supports.
 #[derive(Clone, Copy, Debug)]
-pub enum ApronOperation {
+pub enum NumericalOperation {
     Add,
     Sub,
     Mul,
@@ -34,101 +31,101 @@ pub enum ApronOperation {
 }
 
 #[derive(Clone)]
-pub struct ApronInterval;
+pub struct IntervalDomain;
 #[derive(Clone)]
-pub struct ApronOctagon;
+pub struct OctagonDomain;
 #[derive(Clone)]
-pub struct ApronPolyhedra;
+pub struct PolyhedraDomain;
 #[derive(Clone)]
-pub struct ApronLinearEqualities;
+pub struct LinearEqualitiesDomain;
 #[derive(Clone)]
-pub struct ApronPplPolyhedra;
+pub struct PplPolyhedraDomain;
 #[derive(Clone)]
-pub struct ApronPplLinearCongruences;
+pub struct PplLinearCongruencesDomain;
 #[derive(Clone)]
-pub struct ApronPkgridPolyhedraLinCongruences;
+pub struct PkgridPolyhedraLinCongruencesDomain;
 
-pub trait ApronDomainType: Clone {}
+pub trait NumericalDomainType: Clone {}
 
-impl ApronDomainType for ApronInterval {}
-impl ApronDomainType for ApronOctagon {}
-impl ApronDomainType for ApronPolyhedra {}
-impl ApronDomainType for ApronLinearEqualities {}
-impl ApronDomainType for ApronPplPolyhedra {}
-impl ApronDomainType for ApronPplLinearCongruences {}
-impl ApronDomainType for ApronPkgridPolyhedraLinCongruences {}
+impl NumericalDomainType for IntervalDomain {}
+impl NumericalDomainType for OctagonDomain {}
+impl NumericalDomainType for PolyhedraDomain {}
+impl NumericalDomainType for LinearEqualitiesDomain {}
+impl NumericalDomainType for PplPolyhedraDomain {}
+impl NumericalDomainType for PplLinearCongruencesDomain {}
+impl NumericalDomainType for PkgridPolyhedraLinCongruencesDomain {}
 
-pub trait GetManagerTrait {
+pub trait GetDomainType {
     fn get_domain_type() -> AbstractDomainType;
 }
 
 /// A map-based interval abstract state. A missing variable means top.
 #[derive(Clone)]
-pub struct ApronAbstractDomain<Type>
+pub struct IntervalAbstractDomain<Type>
 where
-    Type: ApronDomainType,
+    Type: NumericalDomainType,
 {
     intervals: BTreeMap<Rc<Path>, Interval>,
     bottom: bool,
     phantom: PhantomData<Type>,
 }
 
-impl GetManagerTrait for ApronAbstractDomain<ApronInterval> {
+impl GetDomainType for IntervalAbstractDomain<IntervalDomain> {
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::Interval
     }
 }
 
-impl GetManagerTrait for ApronAbstractDomain<ApronPolyhedra> {
+impl GetDomainType for IntervalAbstractDomain<PolyhedraDomain> {
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::Polyhedra
     }
 }
 
-impl GetManagerTrait for ApronAbstractDomain<ApronOctagon> {
+impl GetDomainType for IntervalAbstractDomain<OctagonDomain> {
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::Octagon
     }
 }
 
-impl GetManagerTrait for ApronAbstractDomain<ApronLinearEqualities> {
+impl GetDomainType for IntervalAbstractDomain<LinearEqualitiesDomain> {
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::LinearEqualities
     }
 }
 
-impl GetManagerTrait for ApronAbstractDomain<ApronPplPolyhedra> {
+impl GetDomainType for IntervalAbstractDomain<PplPolyhedraDomain> {
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::PplPolyhedra
     }
 }
 
-impl GetManagerTrait for ApronAbstractDomain<ApronPplLinearCongruences> {
+impl GetDomainType for IntervalAbstractDomain<PplLinearCongruencesDomain> {
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::PplLinearCongruences
     }
 }
 
-impl GetManagerTrait for ApronAbstractDomain<ApronPkgridPolyhedraLinCongruences> {
+impl GetDomainType for IntervalAbstractDomain<PkgridPolyhedraLinCongruencesDomain> {
     fn get_domain_type() -> AbstractDomainType {
         AbstractDomainType::PkgridPolyhedraLinCongruences
     }
 }
 
-impl<Type> Default for ApronAbstractDomain<Type>
+impl<Type> Default for IntervalAbstractDomain<Type>
 where
-    Type: ApronDomainType,
-    ApronAbstractDomain<Type>: GetManagerTrait,
+    Type: NumericalDomainType,
+    IntervalAbstractDomain<Type>: GetDomainType,
 {
     fn default() -> Self {
         Self::top()
     }
 }
 
-impl<Type> LatticeTrait for ApronAbstractDomain<Type>
+impl<Type> LatticeTrait for IntervalAbstractDomain<Type>
 where
-    Type: ApronDomainType,
-    ApronAbstractDomain<Type>: GetManagerTrait,
+    Type: NumericalDomainType,
+    IntervalAbstractDomain<Type>: GetDomainType,
 {
     fn top() -> Self {
         Self {
@@ -173,10 +170,10 @@ where
     }
 }
 
-impl<Type> ApronAbstractDomain<Type>
+impl<Type> IntervalAbstractDomain<Type>
 where
-    Type: ApronDomainType,
-    ApronAbstractDomain<Type>: GetManagerTrait,
+    Type: NumericalDomainType,
+    IntervalAbstractDomain<Type>: GetDomainType,
 {
     pub fn leq(&self, other: &Self) -> bool {
         if self.is_bottom() || other.is_top() {
@@ -220,7 +217,7 @@ where
     }
 
     pub fn get_domain_type() -> AbstractDomainType {
-        <Self as GetManagerTrait>::get_domain_type()
+        <Self as GetDomainType>::get_domain_type()
     }
 
     pub fn get_interval(&self, var: &Rc<Path>) -> Interval {
@@ -299,7 +296,7 @@ where
 
     pub fn apply_bin_op_place_place(
         &mut self,
-        op: ApronOperation,
+        op: NumericalOperation,
         lhs: &Rc<Path>,
         rhs: &Rc<Path>,
         res: &Rc<Path>,
@@ -313,7 +310,7 @@ where
 
     pub fn apply_bin_op_const_place(
         &mut self,
-        op: ApronOperation,
+        op: NumericalOperation,
         cst: &Integer,
         rhs: &Rc<Path>,
         res: &Rc<Path>,
@@ -327,7 +324,7 @@ where
 
     pub fn apply_bin_op_place_const(
         &mut self,
-        op: ApronOperation,
+        op: NumericalOperation,
         lhs: &Rc<Path>,
         cst: &Integer,
         res: &Rc<Path>,
@@ -339,12 +336,12 @@ where
         }
     }
 
-    pub fn apply_un_op_place(&mut self, op: ApronOperation, rhs: &Rc<Path>, res: &Rc<Path>) {
+    pub fn apply_un_op_place(&mut self, op: NumericalOperation, rhs: &Rc<Path>, res: &Rc<Path>) {
         if !self.is_bottom() {
             let rhs_itv = self.var2itv(rhs);
             let res_itv = match op {
-                ApronOperation::Neg => negate_interval(rhs_itv),
-                ApronOperation::Not => Interval::top(),
+                NumericalOperation::Neg => negate_interval(rhs_itv),
+                NumericalOperation::Not => Interval::top(),
                 _ => unreachable!("Undefined UnOp, this is a bug"),
             };
             self.set_interval(res, res_itv);
@@ -453,10 +450,10 @@ where
     }
 }
 
-impl<Type> Debug for ApronAbstractDomain<Type>
+impl<Type> Debug for IntervalAbstractDomain<Type>
 where
-    Type: ApronDomainType,
-    ApronAbstractDomain<Type>: GetManagerTrait,
+    Type: NumericalDomainType,
+    IntervalAbstractDomain<Type>: GetDomainType,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let constraints = LinearConstraintSystem::from(self);
@@ -469,12 +466,12 @@ fn singleton(n: Integer) -> Interval {
 }
 
 fn union_paths<Type>(
-    lhs: &ApronAbstractDomain<Type>,
-    rhs: &ApronAbstractDomain<Type>,
+    lhs: &IntervalAbstractDomain<Type>,
+    rhs: &IntervalAbstractDomain<Type>,
 ) -> Vec<Rc<Path>>
 where
-    Type: ApronDomainType,
-    ApronAbstractDomain<Type>: GetManagerTrait,
+    Type: NumericalDomainType,
+    IntervalAbstractDomain<Type>: GetDomainType,
 {
     let mut paths: Vec<Rc<Path>> = lhs.intervals.keys().cloned().collect();
     for path in rhs.intervals.keys() {
@@ -535,28 +532,28 @@ fn widen_interval(old: &Interval, new: &Interval) -> Interval {
     Interval::new(low, high)
 }
 
-fn eval_bin_op(op: ApronOperation, lhs: Interval, rhs: Interval) -> Interval {
+fn eval_bin_op(op: NumericalOperation, lhs: Interval, rhs: Interval) -> Interval {
     if lhs.is_bottom() || rhs.is_bottom() {
         return Interval::bottom();
     }
     match op {
-        ApronOperation::Add => lhs + rhs,
-        ApronOperation::Sub => lhs - rhs,
-        ApronOperation::Mul => lhs * rhs,
-        ApronOperation::Div => {
+        NumericalOperation::Add => lhs + rhs,
+        NumericalOperation::Sub => lhs - rhs,
+        NumericalOperation::Mul => lhs * rhs,
+        NumericalOperation::Div => {
             if interval_contains_zero(&rhs) {
                 Interval::top()
             } else {
                 lhs / rhs
             }
         }
-        ApronOperation::Rem => Interval::top(),
-        ApronOperation::Shl => lhs << rhs,
-        ApronOperation::Shr => lhs >> rhs,
-        ApronOperation::And => lhs & rhs,
-        ApronOperation::Or => lhs | rhs,
-        ApronOperation::Xor => lhs ^ rhs,
-        ApronOperation::Not | ApronOperation::Neg => unreachable!("Undefined BinOp"),
+        NumericalOperation::Rem => Interval::top(),
+        NumericalOperation::Shl => lhs << rhs,
+        NumericalOperation::Shr => lhs >> rhs,
+        NumericalOperation::And => lhs & rhs,
+        NumericalOperation::Or => lhs | rhs,
+        NumericalOperation::Xor => lhs ^ rhs,
+        NumericalOperation::Not | NumericalOperation::Neg => unreachable!("Undefined BinOp"),
     }
 }
 

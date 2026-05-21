@@ -1,9 +1,11 @@
-fn main (){
-    let mut v = vec![1,2,3,4,5,6];
-    let mut i = 0;
+fn swap_demo(v: &mut [i32; 6], i: usize) {
+    let j = i + 1;
+    assert!(i < v.len());
+    assert!(j < v.len());
+    v.swap(i, j);
+}
 
-    while i + 1 < v.len() {
-        v.swap(i, i+1);
-        i = i + 1;
-    }
+fn main() {
+    let mut v = [1, 2, 3, 4, 5, 6];
+    swap_demo(&mut v, 2);
 }

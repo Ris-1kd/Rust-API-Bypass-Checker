@@ -4,8 +4,8 @@ use crate::analysis::analyzer::analysis_trait::StaticAnalysis;
 use crate::analysis::diagnostics::Diagnostic;
 use crate::analysis::global_context::GlobalContext;
 use crate::analysis::mir_visitor::body_visitor::WtoFixPointIterator;
-use crate::analysis::numerical::apron_domain::{
-    ApronAbstractDomain, ApronDomainType, ApronInterval, GetManagerTrait,
+use crate::analysis::numerical::interval_domain::{
+    GetDomainType, IntervalAbstractDomain, IntervalDomain, NumericalDomainType,
 };
 use crate::analysis::option::AbstractDomainType;
 use log::info;
@@ -85,8 +85,14 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
         let timer = Instant::now();
 
         info!("================== Numerical Analysis Starts ==================");
-        info!("Abstract Domain Type: {:?}", self.context.analysis_options.domain_type);
-        info!("Widening Delay: {}", self.context.analysis_options.widening_delay);
+        info!(
+            "Abstract Domain Type: {:?}",
+            self.context.analysis_options.domain_type
+        );
+        info!(
+            "Widening Delay: {}",
+            self.context.analysis_options.widening_delay
+        );
         let entry_points: Vec<_> = if self.context.analysis_options.auto_analysis {
             self.context
                 .reachable_entries
@@ -111,7 +117,7 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
 
             match self.context.analysis_options.domain_type {
                 AbstractDomainType::Interval => {
-                    self.analyze_function(def_id, AbstractDomain::<ApronInterval>::default());
+                    self.analyze_function(def_id, AbstractDomain::<IntervalDomain>::default());
                 }
                 __ => {} // ignored all other numerical domains, only retain the interval.
             }
@@ -159,8 +165,8 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
         def_id: DefId,
         abstract_domain: AbstractDomain<DomainType>,
     ) where
-        DomainType: ApronDomainType,
-        ApronAbstractDomain<DomainType>: GetManagerTrait,
+        DomainType: NumericalDomainType,
+        IntervalAbstractDomain<DomainType>: GetDomainType,
     {
         let def_kind = self.context.tcx.def_kind(def_id);
         if !matches!(def_kind, DefKind::Fn | DefKind::AssocFn | DefKind::Closure) {
@@ -184,7 +190,10 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
         wto_visitor.init_promote_constants();
         wto_visitor.run();
 
-        info!("The final current state of user's crate: {:?}", wto_visitor.state);
+        info!(
+            "The final current state of user's crate: {:?}",
+            wto_visitor.state
+        );
         // Execute bug detector
         wto_visitor.run_checker();
 
@@ -194,7 +203,8 @@ impl<'tcx, 'a, 'compiler> StaticAnalysis<'tcx, 'a, 'compiler>
             func_name
         );
 
-        info!("================== Fixed-Point Algorithm Ends To Analyze:{} ==================",
+        info!(
+            "================== Fixed-Point Algorithm Ends To Analyze:{} ==================",
             func_name
         );
     }

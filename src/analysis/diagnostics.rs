@@ -9,17 +9,18 @@ use std::collections::HashMap;
 /// So that we can decrease the false-positive rate
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DiagnosticCause {
-    Bitwise,    // Bit-wise overflow
-    Arithmetic, // Arithmetic overflow
-    CallBoundary, // Default interprocedural descent disabled at call boundary
-    Assembly,   // Inline assembly
-    Comparison, // Comparison operations
-    DivZero,    // Division by zero / remainder by zero
-    Memory,     // Memory-safety issues
-    Panic,      // Run into panic code
-    Index,      // Out-of-bounds access
-    Unsupported, // Outside the supported analysis fragment
-    Other,      // Other
+    ReplacementCandidate, // Safe API call whose unchecked counterpart precondition is proven
+    Bitwise,              // Bit-wise overflow
+    Arithmetic,           // Arithmetic overflow
+    CallBoundary,         // Default interprocedural descent disabled at call boundary
+    Assembly,             // Inline assembly
+    Comparison,           // Comparison operations
+    DivZero,              // Division by zero / remainder by zero
+    Memory,               // Memory-safety issues
+    Panic,                // Run into panic code
+    Index,                // Out-of-bounds access
+    Unsupported,          // Outside the supported analysis fragment
+    Other,                // Other
 }
 
 /// Extract the cause of a diagnostic message from an assertion statement
@@ -30,9 +31,13 @@ impl<O> From<&mir::AssertKind<O>> for DiagnosticCause {
             mir::AssertKind::BoundsCheck { .. } => DiagnosticCause::Index,
             mir::AssertKind::Overflow(bin_op, ..) => match bin_op {
                 Add | Sub | Mul | Div | Rem | AddUnchecked | SubUnchecked | MulUnchecked
-                | AddWithOverflow | SubWithOverflow | MulWithOverflow => DiagnosticCause::Arithmetic,
-                Shr | Shl | BitXor | BitAnd | BitOr | ShlUnchecked | ShrUnchecked => DiagnosticCause::Bitwise,
-                Eq | Lt | Le | Ne | Ge | Gt | Cmp=> DiagnosticCause::Comparison,
+                | AddWithOverflow | SubWithOverflow | MulWithOverflow => {
+                    DiagnosticCause::Arithmetic
+                }
+                Shr | Shl | BitXor | BitAnd | BitOr | ShlUnchecked | ShrUnchecked => {
+                    DiagnosticCause::Bitwise
+                }
+                Eq | Lt | Le | Ne | Ge | Gt | Cmp => DiagnosticCause::Comparison,
                 Offset => DiagnosticCause::Index,
             },
             mir::AssertKind::OverflowNeg(..) => DiagnosticCause::Arithmetic,
@@ -73,7 +78,7 @@ impl<'compiler> Diagnostic<'compiler> {
         self.builder.emit();
     }
 
-    pub fn compare(x: & Diagnostic<'compiler>, y: & Diagnostic<'compiler>) -> Ordering {
+    pub fn compare(x: &Diagnostic<'compiler>, y: &Diagnostic<'compiler>) -> Ordering {
         if x.builder
             .span
             .primary_spans()
@@ -119,5 +124,4 @@ impl<'compiler> DiagnosticsForDefId<'compiler> {
             self.map.insert(id, diags);
         }
     }
-
 }

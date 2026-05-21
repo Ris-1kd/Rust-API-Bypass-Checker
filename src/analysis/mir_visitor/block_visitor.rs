@@ -20,8 +20,8 @@ use crate::analysis::memory::utils;
 use crate::analysis::mir_visitor::body_visitor::WtoFixPointIterator;
 use crate::analysis::mir_visitor::call_visitor::CallVisitor;
 use crate::analysis::mir_visitor::type_visitor;
-use crate::analysis::numerical::apron_domain::{
-    ApronAbstractDomain, ApronDomainType, ApronOperation, GetManagerTrait,
+use crate::analysis::numerical::interval_domain::{
+    GetDomainType, IntervalAbstractDomain, NumericalDomainType, NumericalOperation,
 };
 use crate::analysis::numerical::linear_constraint::LinearConstraintSystem;
 use crate::analysis::z3_solver::SmtResult;
@@ -53,8 +53,8 @@ use super::type_visitor::get_element_type;
 /// and returns a post-condition.
 pub struct BlockVisitor<'tcx, 'a, 'b, 'compiler, DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     /// The upper layer wto visitor, block visitor may change body visitor's state
     pub body_visitor: &'b mut WtoFixPointIterator<'tcx, 'a, 'compiler, DomainType>,
@@ -72,8 +72,8 @@ where
 impl<'tcx, 'a, 'b, 'compiler, DomainType> fmt::Debug
     for BlockVisitor<'tcx, 'a, 'b, 'compiler, DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "MirVisitor with abstract state: {:?}", self.state())
@@ -82,8 +82,8 @@ where
 
 impl<'tcx, 'a, 'b, 'compiler, DomainType> BlockVisitor<'tcx, 'a, 'b, 'compiler, DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     pub fn state(&self) -> &AbstractDomain<DomainType> {
         &self.body_visitor.state
@@ -1858,7 +1858,7 @@ where
             mir::UnOp::Neg => {
                 let operand_path = self.get_operand_path(operand);
                 self.body_visitor.state.numerical_domain.apply_un_op_place(
-                    ApronOperation::Neg,
+                    NumericalOperation::Neg,
                     &operand_path,
                     &path,
                 );
@@ -1995,26 +1995,26 @@ where
             .update_value_at(target_len, len_value);
     }
 
-    fn bin_op_to_apron_bin_op(&mut self, bin_op: mir::BinOp) -> Option<ApronOperation> {
+    fn bin_op_to_numerical_op(&mut self, bin_op: mir::BinOp) -> Option<NumericalOperation> {
         let res = match bin_op {
             mir::BinOp::Add | mir::BinOp::AddUnchecked | mir::BinOp::AddWithOverflow => {
-                ApronOperation::Add
+                NumericalOperation::Add
             }
             mir::BinOp::Sub | mir::BinOp::SubUnchecked | mir::BinOp::SubWithOverflow => {
-                ApronOperation::Sub
+                NumericalOperation::Sub
             }
             mir::BinOp::Mul | mir::BinOp::MulUnchecked | mir::BinOp::MulWithOverflow => {
-                ApronOperation::Mul
+                NumericalOperation::Mul
             }
-            mir::BinOp::Div => ApronOperation::Div,
-            mir::BinOp::Rem => ApronOperation::Rem,
-            mir::BinOp::BitXor => ApronOperation::Xor,
-            mir::BinOp::BitAnd => ApronOperation::And,
-            mir::BinOp::BitOr => ApronOperation::Or,
-            mir::BinOp::Shl | mir::BinOp::ShlUnchecked => ApronOperation::Shl,
-            mir::BinOp::Shr | mir::BinOp::ShrUnchecked => ApronOperation::Shr,
+            mir::BinOp::Div => NumericalOperation::Div,
+            mir::BinOp::Rem => NumericalOperation::Rem,
+            mir::BinOp::BitXor => NumericalOperation::Xor,
+            mir::BinOp::BitAnd => NumericalOperation::And,
+            mir::BinOp::BitOr => NumericalOperation::Or,
+            mir::BinOp::Shl | mir::BinOp::ShlUnchecked => NumericalOperation::Shl,
+            mir::BinOp::Shr | mir::BinOp::ShrUnchecked => NumericalOperation::Shr,
 
-            // Eq, Lt, Le, Ne, Ge, Gt, Offset are not handled by apron library
+            // Eq, Lt, Le, Ne, Ge, Gt, Offset are not handled by the interval domain
             mir::BinOp::Eq
             | mir::BinOp::Ge
             | mir::BinOp::Gt
@@ -2035,7 +2035,7 @@ where
         right_operand: &mir::Operand<'tcx>,
     ) {
         // For arithmetic binary operators, handle by numerical domain
-        if let Some(op) = self.bin_op_to_apron_bin_op(bin_op) {
+        if let Some(op) = self.bin_op_to_numerical_op(bin_op) {
             match (left_operand, right_operand) {
                 (mir::Operand::Constant(..), _) => {
                     match &self.visit_operand(left_operand).expression {

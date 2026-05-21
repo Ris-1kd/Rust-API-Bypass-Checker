@@ -1,8 +1,8 @@
 use crate::analysis::abstract_domain::AbstractDomain;
 use crate::analysis::analysis_result::{AnalysisInfo, Result};
 use crate::analysis::global_context::GlobalContext;
-use crate::analysis::numerical::apron_domain::{
-    ApronAbstractDomain, ApronDomainType, GetManagerTrait,
+use crate::analysis::numerical::interval_domain::{
+    GetDomainType, IntervalAbstractDomain, NumericalDomainType,
 };
 use rustc_hir::def_id::DefId;
 
@@ -16,7 +16,7 @@ pub trait StaticAnalysis<'tcx, 'a, 'compiler> {
         def_id: DefId,
         abstract_domain: AbstractDomain<DomainType>,
     ) where
-        DomainType: ApronDomainType,
-        ApronAbstractDomain<DomainType>: GetManagerTrait;
+        DomainType: NumericalDomainType,
+        IntervalAbstractDomain<DomainType>: GetDomainType;
     fn emit_diagnostics(&mut self);
 }

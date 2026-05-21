@@ -9,8 +9,8 @@ use crate::analysis::memory::symbolic_value::{self, SymbolicValue};
 use crate::analysis::mir_visitor::block_visitor::BlockVisitor;
 use crate::analysis::mir_visitor::call_visitor::CallVisitor;
 use crate::analysis::mir_visitor::type_visitor::TypeVisitor;
-use crate::analysis::numerical::apron_domain::{
-    ApronAbstractDomain, ApronDomainType, GetManagerTrait,
+use crate::analysis::numerical::interval_domain::{
+    GetDomainType, IntervalAbstractDomain, NumericalDomainType,
 };
 use crate::analysis::numerical::linear_constraint::LinearConstraintSystem;
 use crate::analysis::wto::{Wto, WtoCircle, WtoVertex, WtoVisitor};
@@ -33,8 +33,8 @@ use std::rc::Rc;
 /// A wto visitor used to analyze a function
 pub struct WtoFixPointIterator<'tcx, 'a, 'compilation, DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     // Global context
     pub context: &'a mut GlobalContext<'tcx, 'compilation>,
@@ -109,8 +109,8 @@ where
 
 impl<'tcx, 'a, 'compilation, DomainType> WtoFixPointIterator<'tcx, 'a, 'compilation, DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     /// The offset that we add to `fresh_variable_offset` when calling functions
     pub const FRESH_VARIABLE_OFFSET: usize = 1000000;
@@ -207,8 +207,8 @@ where
     // just for those special promoted constants, as the promoted constants are a unique technique in Rust Compiler.
     pub fn init_promote_constants(&mut self)
     where
-        DomainType: ApronDomainType,
-        ApronAbstractDomain<DomainType>: GetManagerTrait,
+        DomainType: NumericalDomainType,
+        IntervalAbstractDomain<DomainType>: GetDomainType,
     {
         debug!("Promoted-constant initialization is disabled in numerical-only mode");
     }
@@ -229,8 +229,8 @@ where
         local_path: &Rc<Path>,
         ordinal: usize,
     ) where
-        DomainType: ApronDomainType,
-        ApronAbstractDomain<DomainType>: GetManagerTrait,
+        DomainType: NumericalDomainType,
+        IntervalAbstractDomain<DomainType>: GetDomainType,
     {
         let _ = environment;
         let _ = result_rustc_type;
@@ -655,8 +655,8 @@ where
 impl<'tcx, 'a, 'compilation, DomainType> WtoVisitor
     for WtoFixPointIterator<'tcx, 'a, 'compilation, DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     /// Visit a node in w.t.o
     fn visit_vertex(&mut self, vertex: &WtoVertex) {
@@ -748,8 +748,8 @@ where
 impl<'tcx, 'a, 'compilation, DomainType> Drop
     for WtoFixPointIterator<'tcx, 'a, 'compilation, DomainType>
 where
-    DomainType: ApronDomainType,
-    ApronAbstractDomain<DomainType>: GetManagerTrait,
+    DomainType: NumericalDomainType,
+    IntervalAbstractDomain<DomainType>: GetDomainType,
 {
     fn drop(&mut self) {
         // If there are any diagnostics still buffered, drain them into the global storage.
