@@ -38,7 +38,7 @@ fn process_array(arr: &[i32]) {
     for i in 0..arr.len() {
         // Redundant bounds check - loop condition guarantees i < arr.len()
         let value = arr.get(i).unwrap(); // Can optimize to arr[i] or arr.get_unchecked(i)
-        println!("{}", value);
+        println!("Value is {}", value);
     }
 }
 ```
