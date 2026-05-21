@@ -49,8 +49,9 @@ See [DEMO_SCOPE.md](DEMO_SCOPE.md) for the detailed demo boundary and expected o
 ```rust
 fn process_array(arr: &[i32]) {
     for i in 0..arr.len() {
-        let value = arr.get(i).unwrap();
-        println!("{}", value);
+        // Redundant bounds check - loop condition guarantees i < arr.len()
+        let value = arr.get(i).unwrap(); // Can optimize to arr[i] or arr.get_unchecked(i)
+        println!("Value is {}", value);
     }
 }
 ```
@@ -86,10 +87,10 @@ The root crate pins its toolchain in [rust-toolchain.toml](rust-toolchain.toml).
 ## Build
 
 ```sh
-git clone https://github.com/Rust-API/Rust-API-Bypass-Checker.git
-cd Rust-API-Bypass-Checker
-export RUSTFLAGS="-Clink-args=-fuse-ld=lld"
-cargo build
+$ git clone https://github.com/Rust-API/Rust-API-Bypass-Checker.git
+$ cd Rust-API-Bypass-Checker
+$ export RUSTFLAGS="-Clink-args=-fuse-ld=lld"
+$ cargo build
 ```
 
 This builds the main analyzer binary `api-bypass` together with the `cargo-api-bypass` wrapper.
